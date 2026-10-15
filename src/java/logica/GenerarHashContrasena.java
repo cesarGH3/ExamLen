@@ -18,7 +18,7 @@ public final class GenerarHashContrasena {
             return;
         }
         System.out.println();
-        System.out.println("Hash para sql/crear_administrador.sql:");
+        System.out.println("Hash BCrypt generado:");
         System.out.println(new HashContrasena().generarHash(contrasena));
     }
 }
