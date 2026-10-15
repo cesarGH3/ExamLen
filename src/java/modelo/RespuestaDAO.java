@@ -10,7 +10,6 @@ import logica.VersionPregunta;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;

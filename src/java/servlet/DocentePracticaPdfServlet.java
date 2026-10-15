@@ -4,7 +4,6 @@ import logica.Docente;
 import logica.MaterialPractica;
 import logica.OpcionRespuesta;
 import logica.Pregunta;
-import logica.RecursoNoEncontradoException;
 import servicio.GeneradorWordPractica;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;

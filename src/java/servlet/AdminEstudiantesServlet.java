@@ -5,7 +5,6 @@ import logica.GeneradorContrasenaTemporal;
 import logica.NivelIngles;
 import logica.RecursoNoEncontradoException;
 import logica.Usuario;
-import logica.ValidacionException;
 import logica.Validador;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;

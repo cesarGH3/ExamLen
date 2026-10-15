@@ -3,7 +3,6 @@ package servlet;
 import logica.AutenticacionFallidaException;
 import logica.Docente;
 import logica.Usuario;
-import logica.Validador;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

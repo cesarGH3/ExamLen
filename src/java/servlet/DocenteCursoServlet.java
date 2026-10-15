@@ -3,7 +3,6 @@ package servlet;
 import logica.Curso;
 import logica.Docente;
 import logica.Grupo;
-import logica.RecursoNoEncontradoException;
 import logica.ValidacionException;
 import logica.Validador;
 import jakarta.servlet.annotation.WebServlet;

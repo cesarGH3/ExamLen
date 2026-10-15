@@ -9,7 +9,6 @@ import logica.Grupo;
 import logica.Inscripcion;
 import logica.RegistroDuplicadoException;
 import logica.ValidacionException;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
