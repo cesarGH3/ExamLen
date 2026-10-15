@@ -1,0 +1,177 @@
+@startuml
+package "html o JSP" {
+  interface DocenteCursosHtml {
+    +registrarCurso()
+    +consultarCursos()
+  }
+  interface DocenteCursoHtml {
+    +actualizar()
+    +activar()
+    +desactivar()
+    +abrirGrupo()
+    +consultarCurso()
+  }
+  interface DocenteGrupoHtml {
+    +cerrar()
+    +reabrir()
+    +regenerarCodigo()
+    +quitar()
+    +reincorporar()
+    +consultarGrupo()
+  }
+  interface EstudianteGruposHtml {
+    +unirse()
+    +salir()
+    +consultarMisGrupos()
+  }
+  interface EstudianteConfirmarGrupoHtml {
+    +confirmarUnirse()
+  }
+}
+package "Controlador (Servlets)" {
+  class ServletBase {
+    # cursoDAO : CursoDAO
+    # grupoDAO : GrupoDAO
+    # inscripcionDAO : InscripcionDAO
+    # init()
+  }
+  class DocenteCursosServlet {
+    # doGet()
+    # doPost()
+  }
+  class DocenteCursoServlet {
+    # doGet()
+    # doPost()
+  }
+  class DocenteGrupoServlet {
+    # doGet()
+    # doPost()
+  }
+  class EstudianteGruposServlet {
+    # doGet()
+    # doPost()
+  }
+}
+package "Logica" {
+  class Curso {
+    - idCurso : int
+    + nombreCurso : String
+    + descripcionCurso : String
+    + nivelCurso : NivelIngles
+    + activoCurso : boolean
+    + docenteCurso : Docente
+    + gruposCurso : ArrayList<Grupo>
+    + materialesPracticaCurso : ArrayList<MaterialPractica>
+    + getIdCurso() : int
+    + setIdCurso(idCurso : int)
+  }
+  class Grupo {
+    - idGrupo : int
+    + nombreGrupo : String
+    + periodoGrupo : String
+    + codigoAccesoGrupo : String
+    + estadoGrupo : EstadoGrupo
+    + cursoGrupo : Curso
+    + inscripcionesGrupo : ArrayList<Inscripcion>
+    + evaluacionesVirtualesGrupo : ArrayList<EvaluacionVirtual>
+    + getIdGrupo() : int
+    + setIdGrupo(idGrupo : int)
+  }
+  class Inscripcion {
+    - idInscripcion : int
+    + fechaInscripcion : Date
+    + estadoInscripcion : EstadoInscripcion
+    + estudianteInscripcion : Estudiante
+    + grupoInscripcion : Grupo
+    + intentosInscripcion : ArrayList<Intento>
+    + getIdInscripcion() : int
+    + setIdInscripcion(idInscripcion : int)
+  }
+}
+package "Modelo" {
+  class CursoDAO {
+    + CursoDAO(dataSource : DataSource)
+    + crearCurso(docente : Docente, nombre : String, descripcion : String, nivel : NivelIngles) : Curso
+    + actualizarCurso(curso : Curso, nombre : String, descripcion : String)
+    + activarCurso(curso : Curso)
+    + desactivarCurso(curso : Curso)
+    + buscarPorId(idCurso : int) : Optional<Curso>
+    + buscarPorIdDeDocente(idCurso : int, idDocente : int) : Optional<Curso>
+    + listarPorDocente(idDocente : int) : List<Curso>
+  }
+  class GrupoDAO {
+    + GrupoDAO(dataSource : DataSource)
+    + GrupoDAO(dataSource : DataSource, generadorCodigo : GeneradorCodigoAcceso)
+    + abrirGrupo(curso : Curso, nombre : String, periodo : String) : Grupo
+    + generarCodigoAccesoGrupo(grupo : Grupo) : String
+    + cerrarGrupo(grupo : Grupo)
+    + reabrirGrupo(grupo : Grupo)
+    + buscarPorId(idGrupo : int) : Optional<Grupo>
+    + buscarPorIdDeDocente(idGrupo : int, idDocente : int) : Optional<Grupo>
+    + buscarPorCodigo(codigoAcceso : String) : Optional<Grupo>
+    + listarPorCurso(idCurso : int) : List<Grupo>
+    + existeEnPeriodo(idCurso : int, periodo : String, nombre : String) : boolean
+    + contarAbiertosPorCurso(idCurso : int) : int
+  }
+  class InscripcionDAO {
+    + InscripcionDAO(dataSource : DataSource)
+    + crearInscripcion(estudiante : Estudiante, grupo : Grupo) : Inscripcion
+    + eliminarInscripcion(inscripcion : Inscripcion)
+    + retirarInscripcion(inscripcion : Inscripcion)
+    + reincorporarInscripcion(inscripcion : Inscripcion)
+    + buscarPorId(idInscripcion : int) : Optional<Inscripcion>
+    + buscarPorIdDeDocente(idInscripcion : int, idDocente : int) : Optional<Inscripcion>
+    + buscarPorIdDeEstudiante(idInscripcion : int, idEstudiante : int) : Optional<Inscripcion>
+    + buscarPorGrupoYEstudiante(idGrupo : int, idEstudiante : int) : Optional<Inscripcion>
+    + listarPorGrupo(idGrupo : int) : List<Inscripcion>
+    + listarActivasPorEstudiante(idEstudiante : int) : List<Inscripcion>
+    + contarActivosPorGrupo(idGrupo : int) : int
+  }
+  abstract class DaoBase {
+    # dataSource : DataSource
+    # consultarUno(sql : String, parametros : Parametros, mapeador : Mapeador<T>) : Optional<T>
+    # consultarLista(sql : String, parametros : Parametros, mapeador : Mapeador<T>) : List<T>
+    # existe(sql : String, parametros : Parametros) : boolean
+    # contar(sql : String, parametros : Parametros) : int
+    # actualizar(sql : String, parametros : Parametros) : int
+    # insertar(sql : String, parametros : Parametros) : int
+  }
+  class Conexion {
+    + JNDI_DATASOURCE : String
+    + obtenerFuente() : DataSource
+  }
+}
+database BD
+
+Curso "1" -- "0..*" Grupo
+Grupo "1" -- "0..*" Inscripcion
+DocenteCursosHtml <--> DocenteCursoHtml
+DocenteCursoHtml <--> DocenteGrupoHtml
+EstudianteGruposHtml <--> EstudianteConfirmarGrupoHtml
+DocenteCursosHtml <--> DocenteCursosServlet
+DocenteCursoHtml <--> DocenteCursoServlet
+DocenteGrupoHtml <--> DocenteGrupoServlet
+EstudianteGruposHtml <--> EstudianteGruposServlet
+EstudianteConfirmarGrupoHtml <--> EstudianteGruposServlet
+DocenteCursosServlet --|> ServletBase
+DocenteCursoServlet --|> ServletBase
+DocenteGrupoServlet --|> ServletBase
+EstudianteGruposServlet --|> ServletBase
+DocenteCursosServlet ..> Curso
+DocenteCursoServlet ..> Curso
+DocenteCursoServlet ..> Grupo
+DocenteGrupoServlet ..> Grupo
+DocenteGrupoServlet ..> Inscripcion
+EstudianteGruposServlet ..> Grupo
+EstudianteGruposServlet ..> Inscripcion
+Curso <--> CursoDAO
+Grupo <--> GrupoDAO
+Inscripcion <--> InscripcionDAO
+GrupoDAO ..> Curso
+InscripcionDAO ..> Grupo
+CursoDAO --|> DaoBase
+GrupoDAO --|> DaoBase
+InscripcionDAO --|> DaoBase
+DaoBase --> Conexion
+Conexion --> BD
+@enduml

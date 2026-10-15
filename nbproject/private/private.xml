@@ -8,10 +8,15 @@
             <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/GeneradorExcelRendimiento.java</file>
             <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/ServicioEvaluacionVirtual.java</file>
             <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/GeneradorWordPractica.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servlet/DocenteCursoServlet.java</file>
             <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/TipoErrorIA.java</file>
-            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/ConfiguracionScheduler.java</file>
-            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/FabricaGroq.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/web/WEB-INF/web.xml</file>
             <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/ServicioGeneracionIA.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/api/ApiAuthServlet.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/ConfiguracionScheduler.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/api/FiltroApiBasic.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/src/java/servicio/FabricaGroq.java</file>
+            <file>file:/C:/Users/STEINER1TB/Documents/NetBeansProjects/ExamLen/web/index.html</file>
         </group>
     </open-files>
 </project-private>
