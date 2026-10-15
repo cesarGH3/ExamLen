@@ -132,10 +132,10 @@
 | Librerías | mysql-connector-j 9.6.0, OpenPDF 1.3.43, PDFBox 2.0.31, Gson 2.11.0, jakarta.mail 2.0.1, jbcrypt 0.4 (BCrypt), Apache POI 5.2.5 + xmlbeans/commons (herramienta temporal de rendimiento) |
 | Archivos Java | **168** (`conexion` 1, `logica` 56, `modelo` 29, `servicio` 22, `servlet` 57, `org.apache.commons.logging` 2) |
 | Clases compiladas | **221** (compilación verificada en Fase 10, exit 0) |
-| Vistas | **38 pantallas** + **89 fragmentos** `_*.html` (127 HTML) |
+| Vistas | **38 pantallas** + **87 fragmentos** `_*.html` (125 HTML); dos fragmentos sin uso eliminados en la auditoría de limpieza (2026-10-15) |
 | Estilos | `base.css` + **8 componentes** + **37 hojas de pantalla** (46 CSS) |
 | JavaScript | **2 archivos** (`web/js/examen.js` con cola offline de respuestas y eventos; `web/js/rendimiento.js`, herramienta temporal) |
-| Migraciones | **17** (`sql/migraciones/001…017`, todas aplicadas; 017 en Fase 10) + `sql/crear_administrador.sql` |
+| Migraciones | **17** (`sql/migraciones/001…017`, todas aplicadas; 017 en Fase 10) ; `sql/crear_administrador.sql` eliminado en la auditoría de limpieza (2026-10-15) |
 | Tablas | **28** (coinciden con el diccionario) |
 | Claves foráneas | **47** (información en la sección 7) |
 | Datos reales | 20 usuarios, 5 cursos, 3 grupos, 7 bancos, 24 preguntas, 4 evaluaciones, 4 versiones, 2 materiales, 0 intentos |
@@ -186,17 +186,17 @@ CÓDIGO + RUNTIME / DOCUMENTAL / NO VERIFICADO) · **Falta / desviación** · **
 | RF-03 | Exigir cambio inicial del docente | ✅ | Obligar al docente a cambiar la temporal en su primer ingreso | `debe_cambiar_contrasena=TRUE` al registrar; login redirige; filtro bloquea el resto de `/app/*`; al cambiar se marca FALSE | `DocenteDAO.java:42-45`; `LoginServlet.java:67-68`; `AutenticacionFiltro.java:68-71`; `UsuarioDAO.java:95-98` | CÓDIGO | — | — | RF-02, RF-07 |
 | RF-04 | Actualizar datos personales | ✅ | Actualizar nombre y correo; correo único | Perfil edita nombre y correo con validación de duplicado | `PerfilServlet.java:21-45`; `UsuarioDAO.java:108-123` | CÓDIGO | Tipos de columna menores (sección 7) | baja | CU-03 |
 | RF-05 | Registrar estudiante | ✅ | Identificación, nombre, correo, institución, nivel y contraseña; sin duplicados | Registro público transaccional (usuario + estudiante) con consentimiento | `RegistroServlet.java:35-80`; `EstudianteDAO.java:21-58` | CÓDIGO + RUNTIME (high de hoy y auditorías previas) | Hereda política estricta de RF-02 | baja | RF-02, RNF-13 |
-| RF-06 | Gestionar administradores | ✅ | Crear, actualizar y eliminar; no borrar al último activo ni a sí mismo | CRUD con confirmación; bloqueos de último activo y auto-eliminación/desactivación | `AdminAdministradoresServlet.java:78-190`; `AdministradorDAO.java:21-109` | CÓDIGO | `sql/crear_administrador.sql` obsoleto (ver sección 9) | baja | RF-09, RF-10 |
+| RF-06 | Gestionar administradores | ✅ | Crear, actualizar y eliminar; no borrar al último activo ni a sí mismo | CRUD con confirmación; bloqueos de último activo y auto-eliminación/desactivación | `AdminAdministradoresServlet.java:78-190`; `AdministradorDAO.java:21-109` | CÓDIGO | `sql/crear_administrador.sql` eliminado en la auditoría de limpieza (2026-10-15); era obsoleto (ver sección 9) | baja | RF-09, RF-10 |
 | RF-07 | Registrar docente | ✅ | Solo el administrador; contraseña temporal visible una vez; `debeCambiar=true` | Alta con temporal de 16 caracteres (SecureRandom), mostrada por flash una vez | `AdminDocentesServlet.java:84-91`; `DocenteDAO.java:20-54`; `GeneradorContrasenaTemporal.java:11-35` | CÓDIGO | — | — | RF-03 |
 | RF-08 | Gestionar estudiantes | ✅ | Consultar, actualizar nivel y eliminar; con intentos no se elimina | Listado con búsqueda; nivel editable; eliminación con confirmación y conteo de intentos (eval. y práctica) | `AdminEstudiantesServlet.java:68-142`; `EstudianteDAO.java:60-100` | CÓDIGO | Búsqueda limitada a 100 resultados (no exigido) | — | RF-09, RNF-14 |
 | RF-09 | Activar y desactivar cuentas | ✅ | Activar/desactivar cualquier cuenta; desactivar no borra historial; CU-08 pide confirmación | Tres roles: docentes (con confirmación previa vía `confirmarDesactivar`), estudiantes y administradores; auto-desactivación bloqueada; activación directa; efecto inmediato por recarga en el filtro; el servidor revalida confirmación (`confirmado=1`) y rol | `AdminEstadoDocenteServlet.java`; `AdminDocentesServlet.java`; `AdminEstudiantesServlet.java`; `AdminAdministradoresServlet.java`; `AutenticacionFiltro.java:54-59`; **RUNTIME**: F16–F22 | CÓDIGO + RUNTIME | — | — | RF-01 |
 | RF-10 | Restablecer contraseña | ✅ | Temporal visible una vez y **cambio obligatorio en el siguiente ingreso**; respaldo de RF-11 | Temporal visible una sola vez por flash para docentes, estudiantes y administradores; marcador genérico `usuario.debe_cambiar_contrasena` (migración 017, idempotente) con enforcement en login y filtro; limpia `intentos_fallidos`/`bloqueado_hasta`; invalida tokens de recuperación y cierra sesiones abiertas del afectado | `UsuarioDAO.restablecerContrasenaUsuario`; `TokenRecuperacionDAO.invalidarTokensDeUsuario`; `SesionesActivas.cerrarSesionesDe`; tres servlets `restablecer`; **RUNTIME**: F23–F30 | CÓDIGO + RUNTIME | — | — | RF-02, RF-03, RF-11 |
 | RF-11 | Recuperar contraseña olvidada | ⚠️ | Token de un solo uso, 30 min, invalida anteriores, mensaje genérico; excepciones 2a (3/hora) y 5a (fallo SMTP) | Token 256 bits SecureRandom, hash SHA-256 en BD, 30 min, uso único (FOR UPDATE), invalida anteriores, mensaje único no enumerable que orienta reintentar o pedir el reset administrativo; límite 3/hora sin revelar; si SMTP falla se compensa invalidando el token recién creado y se registra sin contraseña/token; cierra sesiones y limpia bloqueo al consumir | `TokenRecuperacion.java`; `TokenRecuperacionDAO.java`; `RecuperarContrasenaServlet.java`; `RestablecerContrasenaServlet.java`; **RUNTIME**: F31–F40 | CÓDIGO + BD + RUNTIME; **entrega SMTP real NO VERIFICADA** (sin servidor de correo) | Solo la entrega real por un SMTP configurado | media | RF-02, RF-10, RNF-04 |
-| RF-12 | Gestionar cursos | ✅ | Crear/actualizar nombre, descripción y nivel; activar/desactivar; curso inactivo no abre grupos | CRUD con nivel inmutable tras crear; grupo nuevo bloqueado si el curso está inactivo | `DocenteCursosServlet.java:50-77`; `DocenteCursoServlet.java:80-110`; `GrupoDAO.abrirGrupo:30-32` | CÓDIGO | CU-11 5a: el sistema **impide** desactivar con grupos abiertos en vez de advertir | media (CU-11) | RF-13 |
+| RF-12 | Gestionar cursos | ✅ | Crear/actualizar nombre, descripción y nivel; activar/desactivar; curso inactivo no abre grupos | CRUD con nivel inmutable tras crear; grupo nuevo bloqueado si el curso está inactivo | `DocenteCursosServlet.java:50-77`; `DocenteCursoServlet.java:80-110`; `GrupoDAO.abrirGrupo:30-32` | CÓDIGO | — (CU-11 5a: la desactivación **advierte y confirma** sin bloquear; actualizado en Fase 10 y verificado en la auditoría de limpieza 2026-10-15) | — | RF-13 |
 | RF-13 | Abrir grupos | ✅ | Nombre único por curso+periodo; salida ABIERTO con código | Valida periodo `^\d{4}-[1-4]$`, nombre y unicidad (app + UNIQUE BD) | `DocenteCursoServlet.java:111-134`; `Validador.java:17-18,79-89`; `002_...sql:40` | CÓDIGO + BD | Carrera app/BD: duplicado puede terminar en mensaje genérico | baja | RF-14 |
 | RF-14 | Generar código de acceso | ✅ | Único, regenerable; alfanumérico 6–8 | 8 caracteres de alfabeto sin ambiguos, `SecureRandom`, UNIQUE en BD, regeneración por UPDATE | `GeneradorCodigoAcceso.java:13-41`; `GrupoDAO.java:36-76`; `002_...sql:39` | CÓDIGO + BD | `regenerarCodigo` no valida estado ABIERTO en servidor (solo UI) | baja | RF-13, RF-16 |
 | RF-15 | Cerrar y reabrir grupos | ✅ | Grupo cerrado **no admite inscripciones ni nuevas evaluaciones virtuales** | Cerrar/reabrir OK; grupo ABIERTO permite programar; CERRADO rechaza programar (`Solo se puede programar en un grupo abierto.`) y rechaza inscripciones (servlet y `crearInscripcion`); reabrir vuelve a permitir programar; runtime FINAL11 RF15-A/B/C/D/E | `DocenteVirtualServlet.java`; `InscripcionDAO.crearInscripcion`; `GrupoDAO.cerrarGrupo/reabrirGrupo`; `EstudianteGruposServlet` | CÓDIGO + RUNTIME | — (desviación histórica cerrada en Fase 9 y revalidada en Fase 11) | — | RF-41 |
-| RF-16 | Inscribirse en un grupo | ✅ | Código, grupo ABIERTO, sin duplicados | Normalización y formato; grupo ABIERTO; diferenciación RETIRADA; UNIQUE | `EstudianteGruposServlet.java:84-118`; `InscripcionDAO.java:25-53`; `002_...sql:57` | CÓDIGO + RUNTIME (altas de hoy) | CU-14 paso 4: sin pantalla de confirmación con curso/grupo/periodo/docente | baja (CU-14) | RF-14, RF-17 |
+| RF-16 | Inscribirse en un grupo | ✅ | Código, grupo ABIERTO, sin duplicados | Normalización y formato; grupo ABIERTO; diferenciación RETIRADA; UNIQUE | `EstudianteGruposServlet.java:84-118`; `InscripcionDAO.java:25-53`; `002_...sql:57` | CÓDIGO + RUNTIME (altas de hoy) | — (CU-14 paso 4 con pantalla de confirmación implementada en Fase 10 y verificada en la auditoría de limpieza 2026-10-15) | — | RF-14, RF-17 |
 | RF-17 | Gestionar inscripciones | ✅ | Consultar, retirar, reincorporar, eliminar; con intentos no se elimina, se retira | Listado activos/retirados; DELETE con fallback automático a RETIRADA si hay intentos (FK) | `DocenteGrupoServlet.java:35-53,135-163`; `InscripcionDAO.java:55-80`; `DaoBase.java:158-160` | CÓDIGO | Regla añadida no pedida: no opera en grupo cerrado; UI no distingue Eliminar/Retirar de antemano | baja | RF-15, RF-44 |
 | RF-18 | Gestionar bancos | ✅ | Crear/renombrar/describir; pertenece a un docente | CRUD con pertenencia por `id_docente` y UNIQUE por docente | `DocenteBancosServlet.java:28-68`; `BancoPreguntasDAO.java:17-64`; `002_...sql:66-76` | CÓDIGO | Tipos de columna menores | baja | RF-19 |
 | RF-19 | Crear preguntas | ✅ | Enunciado, tipo, nivel, dificultad, competencia, tema y respuesta esperada; BORRADOR/MANUAL; esperada obligatoria en corta | Alta en BORRADOR/MANUAL; VF autoinserta Verdadero/Falso; respuesta esperada en segundo paso; obligatoriedad validada al aprobar; `tema` hasta 120 (migración 016) y enunciado TEXT sin máximo académico (solo técnico 65535) | `DocenteBancoServlet`; `PreguntaDAO`; `sql/migraciones/016_pregunta_tema_120.sql` | CÓDIGO + **RUNTIME (Fase 8, 2026-09-29)**: tema 120 permitido / 121 rechazado; enunciado de 5000 caracteres aceptado | CU-16 describe captura en un solo paso (desviación de flujo, no funcional) | baja | RF-20, RF-22 |
@@ -354,6 +354,11 @@ CÓDIGO + RUNTIME / DOCUMENTAL / NO VERIFICADO) · **Falta / desviación** · **
   (2026-09-28)**: unificado con el descriptor versionable `web/META-INF/context.xml`, ambos con placeholders
   `${examlen.db.url|user|password}` y la misma URL con zona `-05:00`; las credenciales reales viven solo en
   `{Catalina Base}/conf/catalina.properties` (ver RNF-15 y sección 16).
+- **Inicio y herramienta de rendimiento (documentado en la auditoría de limpieza, 2026-10-15)**: `InicioServlet`
+  (`/app/inicio`) sirve el panel post-login por rol con contadores reales (administrador: usuarios activos por rol;
+  docente: cursos, grupos abiertos, evaluaciones LISTA e IA pendientes/fallidas; estudiante: evaluaciones
+  disponibles, prácticas publicadas y realizadas) y, solo para administradores, el enlace a la herramienta
+  temporal de rendimiento (`AdminRendimientoServlet`, `/app/admin/rendimiento`; reporte en `docs/INFORME-RENDIMIENTO.md`).
 
 ## 9. Seguridad
 
@@ -380,8 +385,9 @@ tiempo constante; sesión nueva al autenticar y `changeSessionId` al cambiar con
 SameSite=Strict; HSTS/CSP/nosniff/X-Frame-Options/no-referrer; `/html/*` bloqueado; subidas fuera del webapp con
 nombre UUID (path traversal mitigado); sin contraseñas ni tokens en logs; claves de IA fuera del repositorio.
 
-**Script obsoleto con credencial por defecto**: `sql/crear_administrador.sql:13-15` inserta un hash precalculado y
-usa columnas heredadas de `usuario` (fallaría con el esquema actual).
+**Script obsoleto con credencial por defecto (eliminado)**: `sql/crear_administrador.sql` insertaba un hash
+precalculado y usaba columnas heredadas de `usuario` (habría fallado con el esquema actual); **eliminado en la
+auditoría de limpieza (2026-10-15)**. La herramienta de consola `logica/GenerarHashContrasena.java` se conserva.
 
 ## 10. Integración con IA — veredicto de asincronía (actualizado en Fase 6)
 
@@ -524,9 +530,10 @@ ABIERTO al programar (RF-41, sin cambio).
     RF-63 en **Fase 9**.)
 
 **Baja**
-13. RF-09 confirmación docente; RF-23 archivadas en variantes IA; CU-14 confirmación; doble escapado de
-    `Html.resumir`; tipos de columna de la sección 7; comentarios obsoletos en `AdministradorDAO` y
-    `sql/crear_administrador.sql`; EN_PROCESO inobservable; extensión `.doc` del Word.
+13. RF-09 confirmación docente; RF-23 archivadas en variantes IA; doble escapado de
+    `Html.resumir`; tipos de columna de la sección 7; comentarios obsoletos en `AdministradorDAO`;
+    EN_PROCESO inobservable; extensión `.doc` del Word. — *Actualización 2026-10-15 (auditoría de limpieza):
+    CU-14 confirmación implementada (Fase 10) y `sql/crear_administrador.sql` eliminado.*
 
 **No verificables pendientes de entorno/pruebas**
 14. RNF-04 (SMTP), RNF-09/10/11 (navegador/usuario), RNF-16 (VPS 4 GB), HTTPS de RNF-03.
@@ -574,6 +581,6 @@ ABIERTO al programar (RF-41, sin cambio).
 14. **RNF-09/10/11/16 (no verificables)**: pruebas de navegador a 360 px, prueba con docente real y despliegue en
     VPS de 4 GB para cerrar la evidencia.
 15. **Deuda menor**: columnas heredadas de `usuario` (evaluar limpieza en una migración futura), tipos de columna,
-    doble escapado, comentarios y `sql/crear_administrador.sql`.
+    doble escapado y comentarios. — `sql/crear_administrador.sql` eliminado en la auditoría de limpieza (2026-10-15).
 
 *Fin del documento.*
