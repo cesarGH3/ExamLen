@@ -1,0 +1,22 @@
+/* ============================================================
+   Componente: insignias de estado
+   ============================================================ */
+.insignia {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .18rem .65rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.insignia::before { content: ""; width: .42rem; height: .42rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.insignia-activo { background: rgba(0, 255, 163, .1); border-color: rgba(0, 255, 163, .4); color: #5cffc0; }
+.insignia-inactivo { background: rgba(255, 61, 113, .1); border-color: rgba(255, 61, 113, .4); color: #ff7aa0; }
+.insignia-neutra { background: rgba(143, 160, 184, .1); border-color: rgba(143, 160, 184, .35); color: #b7c4d8; }
+.insignia-borrador { background: rgba(255, 176, 32, .1); border-color: rgba(255, 176, 32, .4); color: #ffcf70; }

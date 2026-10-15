@@ -1,0 +1,11 @@
+<div class="alerta alerta-error" role="alert">
+    <p>{{mensaje}}</p>
+    <form method="post" action="{{destino}}" class="form-en-linea">
+        <input type="hidden" name="_csrf" value="{{csrf}}">
+        <input type="hidden" name="id" value="{{id}}">
+        <input type="hidden" name="accion" value="cancelar">
+        <input type="hidden" name="confirmado" value="1">
+        <button type="submit" class="boton boton-peligro">Sí, cancelar ({{confirmados}})</button>
+    </form>
+    <a class="boton boton-contorno" href="{{destino}}?id={{id}}">Volver</a>
+</div>

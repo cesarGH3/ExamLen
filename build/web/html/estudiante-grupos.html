@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mis grupos | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/estudiante-grupos.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <h1>Mis grupos</h1>
+    <div class="disposicion">
+        <section class="hoja">
+            <h2>Grupos en los que estoy</h2>
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <thead>
+                    <tr>
+                        <th scope="col">Curso</th>
+                        <th scope="col">Grupo</th>
+                        <th scope="col">Docente</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col"><span class="oculto">Acción</span></th>
+                    </tr>
+                    </thead>
+                    <tbody>{{{filas}}}</tbody>
+                </table>
+            </div>
+        </section>
+
+        <aside class="hoja tarjeta-unirse">
+            <h2>Unirme a un grupo</h2>
+            <form method="post" action="{{ctx}}/app/estudiante/grupos" class="formulario">
+                <input type="hidden" name="_csrf" value="{{csrf}}">
+                <input type="hidden" name="accion" value="unirse">
+                <div class="campo">
+                    <label for="codigo">Código de acceso</label>
+                    <input id="codigo" name="codigo" type="text" required minlength="8" maxlength="12"
+                           pattern="[A-Za-z0-9 \-]{8,12}" title="El código tiene 8 letras o números"
+                           autocomplete="off" autocapitalize="characters" spellcheck="false"
+                           class="entrada-codigo" aria-describedby="ayuda-codigo">
+                    <p id="ayuda-codigo" class="ayuda">Es el código de 8 caracteres que te dio tu docente.</p>
+                </div>
+                <button type="submit" class="boton boton-bloque">Unirme</button>
+            </form>
+        </aside>
+    </div>
+</main>
+</body>
+</html>

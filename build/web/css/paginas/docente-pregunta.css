@@ -1,0 +1,37 @@
+/* ============================================================
+   Pantalla: pregunta (docente) — opciones y ficha de datos
+   ============================================================ */
+.opciones { list-style: none; margin: 0 0 1.5rem; padding: 0; }
+.opcion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem;
+    padding: .85rem 1rem;
+    border: 1px solid var(--borde);
+    border-left: 4px solid var(--borde-fuerte);
+    border-radius: var(--radio-sm);
+    background: rgba(8, 12, 21, .5);
+    transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.opcion + .opcion { margin-top: .5rem; }
+.opcion:hover { border-color: rgba(130, 165, 215, .4); background: rgba(10, 16, 28, .7); }
+.opcion-correcta {
+    border-left-color: var(--verde);
+    background: rgba(0, 255, 163, .05);
+    box-shadow: inset 0 0 18px rgba(0, 255, 163, .05);
+}
+.opcion-texto { flex: 1; min-width: 12rem; }
+.opcion-acciones { display: flex; gap: .4rem; }
+.opcion-vacia { color: var(--texto-suave); justify-content: center; border-left-color: var(--borde); }
+.formulario-opcion { padding-top: 1.25rem; border-top: 1px solid var(--borde); }
+
+.ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.ficha dt {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--texto-suave);
+}
+.ficha dd { margin: .3rem 0 0; font-weight: 600; font-size: 1rem; color: var(--texto); }

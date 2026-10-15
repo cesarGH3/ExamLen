@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Antes de comenzar | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/estudiante-intento-inicio.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido contenido-estrecho">
+    {{{mensajes}}}
+    <p class="migas"><a href="{{ctx}}/app/estudiante/evaluaciones">Mis evaluaciones</a> / Antes de comenzar</p>
+    <section class="hoja">
+        <h1>{{titulo}}</h1>
+        <p class="meta">{{curso}} · {{grupo}}</p>
+        <p>{{descripcion}}</p>
+        <p class="ayuda">Duración: {{duracion}} minutos · {{preguntas}} preguntas · Un solo intento.
+            Tus respuestas se guardan automáticamente.</p>
+        {{{avisoSupervision}}}
+        {{{notaSupervision}}}
+        <form method="post" action="{{destino}}" class="formulario">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input type="hidden" name="idVirtual" value="{{idVirtual}}">
+            <input type="hidden" name="idInscripcion" value="{{idInscripcion}}">
+            <div class="acciones">
+                <button type="submit" class="boton">Iniciar evaluación</button>
+                <a class="boton boton-contorno" href="{{ctx}}/app/estudiante/evaluaciones">Cancelar</a>
+            </div>
+        </form>
+    </section>
+</main>
+</body>
+</html>

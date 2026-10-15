@@ -1,0 +1,30 @@
+/* ============================================================
+   Pantalla: detalle de evaluación (docente)
+   Resaltado del cuadro comparativo (RF-37). La clase se llama
+   "diferencia", nunca "error": el cuadro es para que el docente
+   juzgue, no para que el sistema dictamine.
+   ============================================================ */
+.tabla td.diferencia {
+    background: rgba(255, 176, 32, .12);
+    box-shadow: inset 3px 0 0 var(--ambar);
+}
+span.diferencia {
+    background: rgba(255, 176, 32, .18);
+    border: 1px solid rgba(255, 176, 32, .45);
+    border-radius: 4px;
+    padding: 0 .3rem;
+    color: #ffcf70;
+}
+
+/* Resumen de la selección (CU-20) y preguntas con acción de quitar (CU-21). */
+.resumen-distribucion {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+.resumen-distribucion h3 { margin: 0 0 .5rem; font-size: .95rem; }
+.pregunta-resumen { margin-right: .4rem; }
+
+@media (max-width: 820px) {
+    .resumen-distribucion { grid-template-columns: 1fr; }
+}

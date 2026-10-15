@@ -1,0 +1,55 @@
+/* ============================================================
+   Componente: tarjeta (hoja), tarjeta de examen y nota de resultado
+   ============================================================ */
+.hoja {
+    position: relative;
+    background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--sombra-md);
+}
+.hoja::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: var(--radio) var(--radio) 0 0;
+    background: linear-gradient(90deg, transparent, rgba(0, 229, 255, .45), transparent);
+    opacity: .8;
+    pointer-events: none;
+}
+
+/* Tarjeta de pregunta en examen y práctica */
+.pregunta-examen {
+    background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+.pregunta-examen h3 { margin: 0 0 .75rem; font-size: 1.05rem; }
+.pregunta-examen .casilla {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin: .35rem 0;
+    padding: .55rem .8rem;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-sm);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.pregunta-examen .casilla:hover { border-color: var(--cian); background: rgba(0, 229, 255, .05); }
+.pregunta-examen textarea { width: 100%; }
+
+/* Nota destacada de resultado */
+.resultado-nota { font-size: 1.35rem; margin: 1rem 0 .5rem; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 820px) {
+    .pregunta-examen { padding: 1rem; }
+}

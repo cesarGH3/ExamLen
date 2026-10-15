@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Evaluaciones | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/estudiante-evaluaciones.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <h1>Evaluaciones</h1>
+    <p class="ayuda">Evaluaciones virtuales de tus grupos. Tienes un solo intento por evaluación; el tiempo no se pausa.</p>
+    <section class="hoja">
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Curso</th>
+                    <th scope="col">Evaluación</th>
+                    <th scope="col">Ventana</th>
+                    <th scope="col">Duración</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Tu intento</th>
+                    <th scope="col"><span class="oculto">Acción</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filas}}}</tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

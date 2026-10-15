@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Generación con IA | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/docente-ia.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <h1>Generación con IA</h1>
+    <p class="ayuda">Las preguntas generadas quedan en borrador con origen "Generado por IA": revísalas y apruébalas
+        antes de usarlas. Al enviar, la solicitud se registra al instante y la generación continúa en segundo
+        plano: puedes seguir usando ExamLen y volver a esta página para consultar el estado.</p>
+    {{{avisoClaves}}}
+
+    <section class="hoja">
+        <h2>Documentos fuente (opcional)</h2>
+        <p class="ayuda">PDF, DOCX o TXT · máximo 10 MB. El texto del documento se usa como contexto de la IA.
+            El sistema valida el contenido real del archivo, no solo la extensión.</p>
+        <form method="post" action="{{ctx}}/app/docente/ia" enctype="multipart/form-data" class="formulario formulario-fila">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input type="hidden" name="accion" value="subirDocumento">
+            <div class="campo">
+                <label for="archivo">Archivo</label>
+                <input id="archivo" name="archivo" type="file" accept=".pdf,.docx,.txt" required>
+            </div>
+            <div class="acciones">
+                <button type="submit" class="boton">Subir documento</button>
+            </div>
+        </form>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Documento</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Cargado</th>
+                    <th scope="col"><span class="oculto">Acción</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filasDocumentos}}}</tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>Nueva solicitud</h2>
+        <form method="post" action="{{ctx}}/app/docente/ia" class="formulario">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input type="hidden" name="accion" value="generar">
+            <div class="campos-fila campos-tres">
+                <div class="campo">
+                    <label for="tipo">Tipo de generación</label>
+                    <select id="tipo" name="tipo" required>{{{opcionesTipo}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="nivel">Nivel</label>
+                    <select id="nivel" name="nivel" required>{{{opcionesNivel}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="cantidad">Cantidad (1–30)</label>
+                    <input id="cantidad" name="cantidad" type="number" min="1" max="30" required value="{{formCantidad}}">
+                </div>
+            </div>
+            <div class="campos-fila">
+                <div class="campo">
+                    <label for="tema">Tema</label>
+                    <input id="tema" name="tema" type="text" maxlength="120" autocomplete="off"
+                           placeholder="Ej.: Past Simple" value="{{formTema}}">
+                </div>
+                <div class="campo">
+                    <label for="competencia">Competencia</label>
+                    <select id="competencia" name="competencia">{{{opcionesCompetencia}}}</select>
+                </div>
+            </div>
+            <p class="ayuda">El tema y la competencia son obligatorios para preguntas y para material generado por
+                tema/nivel/competencia. En variantes se conservan los metadatos de las preguntas base.
+                <strong>En variantes, la cantidad es la cantidad TOTAL, repartida por turnos (round-robin) entre
+                las preguntas base seleccionadas.</strong></p>
+            <div class="campos-fila campos-tres">
+                <div class="campo">
+                    <label for="proveedor">Proveedor</label>
+                    <select id="proveedor" name="proveedor" required>{{{opcionesProveedores}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="modelo">Modelo (opcional)</label>
+                    <select id="modelo" name="modelo">{{{opcionesModelos}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="idBanco">Banco destino (preguntas y variantes)</label>
+                    <select id="idBanco" name="idBanco">{{{opcionesBancos}}}</select>
+                </div>
+            </div>
+            <div class="campos-fila">
+                <div class="campo">
+                    <label for="idDocumento">Documento fuente (opcional)</label>
+                    <select id="idDocumento" name="idDocumento">{{{opcionesDocumentos}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="idEvaluacionReferencia">Evaluación de referencia (solo material de práctica)</label>
+                    <select id="idEvaluacionReferencia" name="idEvaluacionReferencia">{{{opcionesEvaluaciones}}}</select>
+                </div>
+            </div>
+            <div class="campo">
+                <label for="idPreguntasBase">Preguntas base (solo variantes; mantén pulsado Ctrl para varias)</label>
+                <select id="idPreguntasBase" name="idPreguntasBase" multiple size="6">{{{opcionesPreguntasBase}}}</select>
+            </div>
+            <div class="campo">
+                <label for="instrucciones">Instrucciones (opcional, máximo 1000 caracteres)</label>
+                <textarea id="instrucciones" name="instrucciones" maxlength="1000" rows="3"
+                          placeholder="Ej.: enfocadas en el Past Simple, con vocabulario del Unit 3...">{{formInstrucciones}}</textarea>
+            </div>
+            <div class="acciones">
+                <button type="submit" class="boton">Generar</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="hoja">
+        <h2>Solicitudes</h2>
+        <div class="acciones">
+            <a class="boton boton-contorno boton-pequeno" href="{{ctx}}/app/docente/ia">Actualizar estados</a>
+        </div>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Cantidad</th>
+                    <th scope="col">Nivel</th>
+                    <th scope="col">Modelo</th>
+                    <th scope="col">Generadas</th>
+                    <th scope="col">Mensaje</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col"><span class="oculto">Acción</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filasSolicitudes}}}</tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# ExamLen - base de datos (plantilla; NUNCA subir valores reales al repositorio)
+#
+# Copia estas tres lineas al FINAL de {Catalina Base}/conf/catalina.properties
+# y reemplaza los valores. Tomcat sustituye ${examlen.db.*} en el descriptor
+# del recurso jdbc/ExamLenDB al arrancar.
+#
+# La URL DEBE conservar connectionTimeZone=America/Bogota y
+# sessionVariables=time_zone='-05:00' (RNF-15). Comprueba con:
+#   SELECT @@session.time_zone;   -- debe devolver -05:00
+examlen.db.url=jdbc:mysql://localhost:3306/examlen?sslMode=PREFERRED&allowPublicKeyRetrieval=true&connectionTimeZone=America/Bogota&sessionVariables=time_zone='-05:00'&connectTimeout=3000&socketTimeout=10000&characterEncoding=UTF-8
+examlen.db.user=USUARIO_MYSQL
+examlen.db.password=CAMBIAR_EN_SERVIDOR
+
+# Opcional: intervalo (segundos) del programador que abre/cierra evaluaciones virtuales (RF-42).
+# Por defecto 30. Tambien sirve la variable de entorno EXAMENL_SCHEDULER_VIRTUAL_INTERVAL.
+#examlen.scheduler.virtual.intervalSeconds=30
+
+# Opcional: generacion con IA en segundo plano (RNF-08, Fase 6).
+# Hilos de trabajo (por defecto 2) y trabajos en cola antes de rechazar (por defecto 50).
+# Tambien sirven las variables EXAMENL_IA_WORKERS y EXAMENL_IA_QUEUE_CAPACITY.
+#examlen.ia.workers=2
+#examlen.ia.queueCapacity=50
+
+# Opcional: lista permitida de modelos por proveedor (RNF-12, Fase 7), separados por comas.
+# Si se omite, solo se permite el modelo predeterminado de cada proveedor.
+# Tambien sirven EXAMENL_IA_MODELOS_GEMINI y EXAMENL_IA_MODELOS_GROQ.
+#gemini.modelos=gemini-3.1-flash-lite
+#groq.modelos=llama-3.3-70b-versatile

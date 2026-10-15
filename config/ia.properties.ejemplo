@@ -1,0 +1,19 @@
+# Claves de IA y correo de ExamLen.
+# Copia estas lineas al final de conf/ia.properties de tu Tomcat
+# (la carpeta "Catalina Base" que muestra NetBeans en las propiedades del servidor)
+# y reemplaza los valores. Nunca subas el archivo con valores reales al repositorio.
+
+# --- Inteligencia artificial ---
+gemini.apiKey=CAMBIA_ESTA_CLAVE
+groq.apiKey=CAMBIA_ESTA_CLAVE
+
+# --- Correo saliente (RF-11, recuperacion de contrasena) ---
+correo.host=smtp.ejemplo.com
+correo.puerto=587
+correo.usuario=cuenta@ejemplo.com
+correo.clave=CAMBIA_ESTA_CLAVE
+correo.remitente=no-reply@ejemplo.com
+# starttls (puerto 587) o ssl (puerto 465)
+correo.seguridad=starttls
+# URL publica del sistema para el enlace del correo; si se omite se deduce de la peticion
+correo.urlBase=https://examlen.ejemplo.com

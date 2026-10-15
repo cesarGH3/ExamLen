@@ -1,0 +1,18 @@
+<header class="barra">
+    <a class="marca" href="{{ctx}}/app/inicio">ExamLen</a>
+    <nav class="menu" aria-label="Principal">
+        <a href="{{ctx}}/app/inicio">Inicio</a>
+        {{{enlacesRol}}}
+        <a href="{{ctx}}/app/perfil">Mi perfil</a>
+    </nav>
+    <div class="sesion">
+        <span class="sesion-usuario">
+            <span class="sesion-nombre">{{nombre}}</span>
+            <span class="sesion-tipo">{{tipo}}</span>
+        </span>
+        <form method="post" action="{{ctx}}/app/salir">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <button type="submit" class="boton boton-barra">Cerrar sesión</button>
+        </form>
+    </div>
+</header>

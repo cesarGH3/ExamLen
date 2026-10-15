@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Resultado de práctica | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/estudiante-practica-resultado.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <section class="hoja">
+        <h1>{{titulo}}</h1>
+        <p class="resultado-nota">Resultado: <strong>{{nota}}</strong> {{unidad}}</p>
+        <p class="ayuda">{{calculo}}</p>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Pregunta</th>
+                    <th scope="col">Tu respuesta</th>
+                    <th scope="col">Respuesta correcta</th>
+                    <th scope="col">Resultado</th>
+                    <th scope="col">Retroalimentación</th>
+                </tr>
+                </thead>
+                <tbody>{{{filas}}}</tbody>
+            </table>
+        </div>
+        <div class="acciones">
+            <a class="boton" href="{{repetir}}">Repetir (nuevo intento)</a>
+            <a class="boton boton-contorno" href="{{pdfSinRespuestas}}">PDF sin respuestas</a>
+            <a class="boton boton-contorno" href="{{pdfConRespuestas}}">PDF con respuestas</a>
+            <a class="boton boton-contorno" href="{{analisis}}">Mi historial</a>
+            <a class="boton boton-contorno" href="{{ctx}}/app/estudiante/practica">Volver a práctica</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

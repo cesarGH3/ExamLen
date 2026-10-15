@@ -1,0 +1,14 @@
+/* ============================================================
+   Pantalla: editar la copia de una pregunta de una versión (RF-38)
+   Incluye el modo de solo lectura (CU-22) cuando la versión ya
+   tiene intentos o está aplicada a un parcial.
+   ============================================================ */
+.lectura .etiqueta-lectura {
+    margin: 0;
+    font-size: .85rem;
+    color: var(--texto-suave);
+}
+.lectura .valor-lectura {
+    margin: .2rem 0 1rem;
+    white-space: pre-wrap;
+}

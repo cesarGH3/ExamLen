@@ -1,0 +1,46 @@
+<form method="get" action="{{destino}}" class="formulario formulario-busqueda">
+    {{{bancoFijo}}}
+    <div class="campos-fila">
+        <div class="campo">
+            <label for="texto">Buscar por texto (enunciado o tema)</label>
+            <input id="texto" name="texto" type="text" maxlength="200" autocomplete="off" value="{{valorTexto}}">
+        </div>
+        <div class="campo">
+            <label for="temaFiltro">Tema exacto</label>
+            <input id="temaFiltro" name="tema" type="text" maxlength="120" autocomplete="off" value="{{valorTema}}">
+        </div>
+    </div>
+    {{{opcionesFiltroBanco}}}
+    <div class="campos-fila campos-cuatro">
+        <div class="campo">
+            <label for="filtroTipo">Tipo</label>
+            <select id="filtroTipo" name="tipo">{{{opcionesFiltroTipo}}}</select>
+        </div>
+        <div class="campo">
+            <label for="filtroNivel">Nivel</label>
+            <select id="filtroNivel" name="nivel">{{{opcionesFiltroNivel}}}</select>
+        </div>
+        <div class="campo">
+            <label for="filtroDificultad">Dificultad</label>
+            <select id="filtroDificultad" name="dificultad">{{{opcionesFiltroDificultad}}}</select>
+        </div>
+        <div class="campo">
+            <label for="filtroCompetencia">Competencia</label>
+            <select id="filtroCompetencia" name="competencia">{{{opcionesFiltroCompetencia}}}</select>
+        </div>
+    </div>
+    <div class="campos-fila">
+        <div class="campo">
+            <label for="filtroEstado">Estado</label>
+            <select id="filtroEstado" name="estado">{{{opcionesFiltroEstado}}}</select>
+        </div>
+        <div class="campo">
+            <label for="filtroOrigen">Origen</label>
+            <select id="filtroOrigen" name="origen">{{{opcionesFiltroOrigen}}}</select>
+        </div>
+    </div>
+    <div class="acciones">
+        <button type="submit" class="boton">Buscar</button>
+        {{{limpiarFiltros}}}
+    </div>
+</form>

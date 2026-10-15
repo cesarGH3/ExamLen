@@ -1,0 +1,23 @@
+<h2>Enunciado, respuesta y puntaje</h2>
+<form method="post" action="{{destino}}" class="formulario">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <input type="hidden" name="id" value="{{id}}">
+    <input type="hidden" name="accion" value="actualizar">
+    <div class="campo">
+        <label for="enunciado">Enunciado</label>
+        <textarea id="enunciado" name="enunciado" required minlength="5" rows="6">{{enunciado}}</textarea>
+    </div>
+    <div class="campo">
+        <label for="respuestaEsperada">{{etiquetaRespuesta}}</label>
+        <textarea id="respuestaEsperada" name="respuestaEsperada" maxlength="500" rows="3"
+                  aria-describedby="ayuda-respuesta">{{respuestaEsperada}}</textarea>
+        <p id="ayuda-respuesta" class="ayuda">{{ayudaRespuesta}}</p>
+    </div>
+    <div class="campo">
+        <label for="puntaje">Puntaje en esta versión</label>
+        <input id="puntaje" name="puntaje" type="number" min="0" max="1000" step="0.5" required value="{{puntaje}}">
+    </div>
+    <div class="acciones">
+        <button type="submit" class="boton">Guardar cambios</button>
+    </div>
+</form>

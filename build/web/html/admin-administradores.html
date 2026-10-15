@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administradores | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/admin-administradores.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <h1>Administradores</h1>
+
+    <section class="hoja">
+        <h2>{{tituloForm}}</h2>
+        <p class="ayuda">Al crear una cuenta, ExamLen genera una contraseña temporal que se muestra una sola vez.</p>
+        <form method="post" action="{{ctx}}/app/admin/administradores" class="formulario formulario-fila">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input type="hidden" name="accion" value="{{accionForm}}">
+            <input type="hidden" name="id" value="{{id}}">
+            <div class="campo">
+                <label for="identificacion">Identificación</label>
+                <input id="identificacion" name="identificacion" type="text" required
+                       minlength="5" maxlength="20" pattern="[A-Za-z0-9]{5,20}"
+                       title="Entre 5 y 20 letras o números, sin espacios"
+                       autocomplete="off" value="{{identificacion}}" {{soloLectura}}>
+            </div>
+            <div class="campo">
+                <label for="nombre">Nombre completo</label>
+                <input id="nombre" name="nombre" type="text" required
+                       minlength="2" maxlength="100" pattern="[\p{L}][\p{L} '\-]{1,99}"
+                       title="Solo letras, espacios, apóstrofos o guiones"
+                       autocomplete="off" value="{{nombre}}">
+            </div>
+            <div class="campo">
+                <label for="correo">Correo</label>
+                <input id="correo" name="correo" type="email" required maxlength="254"
+                       autocomplete="off" value="{{correo}}">
+            </div>
+            <div class="campo">
+                <label for="fechaNacimiento">Fecha de nacimiento (opcional)</label>
+                <input id="fechaNacimiento" name="fechaNacimiento" type="date" value="{{fechaNacimiento}}">
+            </div>
+            <div class="acciones">
+                <button type="submit" class="boton">{{textoBoton}}</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="hoja">
+        <h2>Administradores registrados</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Identificación</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Correo</th>
+                    <th scope="col">Fecha de nacimiento</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="oculto">Acciones</span></th>
+                </tr>
+                </thead>
+                <tbody>
+                {{{filas}}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Historial de práctica | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/estudiante-historial-practica.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <h1>Historial de práctica</h1>
+    <p class="ayuda">Tus intentos de práctica anteriores y el resumen de aciertos por competencia y tema.
+        El porcentaje se calcula solo sobre las respuestas calificadas automáticamente.</p>
+    <section class="hoja">
+        <h2>Intentos</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Material</th>
+                    <th scope="col">Resultado</th>
+                    <th scope="col"><span class="oculto">Acción</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filasIntentos}}}</tbody>
+            </table>
+        </div>
+    </section>
+    <section class="hoja">
+        <h2>Desempeño por competencia</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Competencia</th>
+                    <th scope="col">Respondidas</th>
+                    <th scope="col">Correctas</th>
+                    <th scope="col">% de acierto</th>
+                </tr>
+                </thead>
+                <tbody>{{{filasCompetencias}}}</tbody>
+            </table>
+        </div>
+    </section>
+    <section class="hoja">
+        <h2>Desempeño por tema</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Tema</th>
+                    <th scope="col">Respondidas</th>
+                    <th scope="col">Correctas</th>
+                    <th scope="col">% de acierto</th>
+                </tr>
+                </thead>
+                <tbody>{{{filasTemas}}}</tbody>
+            </table>
+        </div>
+    </section>
+    <div class="acciones">
+        <a class="boton boton-contorno" href="{{ctx}}/app/estudiante/practica">Volver a práctica</a>
+    </div>
+</main>
+</body>
+</html>

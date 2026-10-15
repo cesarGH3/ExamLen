@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{titulo}} | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/docente-evaluacion.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <p class="migas"><a href="{{ctx}}/app/docente/evaluaciones">Mis evaluaciones</a> / {{titulo}}</p>
+    <div class="encabezado">
+        <div>
+            <h1>{{titulo}}</h1>
+            <p class="meta"><span class="insignia {{claseEstado}}">{{estado}}</span> · {{totalSeleccionadas}}
+                preguntas seleccionadas · {{numeroPreguntas}} por versión · {{numeroVersiones}} versiones</p>
+        </div>
+        <div class="acciones">{{{accionesEstado}}}</div>
+    </div>
+
+    <section class="hoja">
+        <h2>Configuración</h2>
+        <p class="ayuda">La evaluación lleva exactamente las preguntas por versión configuradas (mínimo 1),
+            entre 1 y 10 versiones y una duración mínima de 1 minuto. Para marcarla como lista necesitas al
+            menos esa cantidad de preguntas aprobadas seleccionadas.</p>
+        <form method="post" action="{{ctx}}/app/docente/evaluacion" class="formulario">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input type="hidden" name="id" value="{{id}}">
+            <input type="hidden" name="accion" value="configurar">
+            <div class="campos-fila campos-tres">
+                <div class="campo">
+                    <label for="numeroPreguntas">Preguntas por versión</label>
+                    <input id="numeroPreguntas" name="numeroPreguntas" type="number" min="1" required
+                           value="{{numeroPreguntas}}">
+                </div>
+                <div class="campo">
+                    <label for="numeroVersiones">Número de versiones</label>
+                    <input id="numeroVersiones" name="numeroVersiones" type="number" min="1" max="10" required
+                           value="{{numeroVersiones}}">
+                </div>
+                <div class="campo">
+                    <label for="duracionMinutos">Duración (minutos)</label>
+                    <input id="duracionMinutos" name="duracionMinutos" type="number" min="1" required
+                           value="{{duracionMinutos}}">
+                </div>
+            </div>
+            <div class="acciones">
+                <button type="submit" class="boton">Guardar configuración</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="hoja">
+        <h2>Grupos de equivalencia</h2>
+        <p class="ayuda">Vista por nivel, competencia y dificultad para asignar el puntaje de cada grupo.
+            Cada versión lleva una pregunta por tipo (tema · competencia · dificultad · puntaje), con el
+            orden aleatorio y congelado por versión.</p>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Grupo</th>
+                    <th scope="col">Preguntas</th>
+                    <th scope="col"><span class="oculto">Orden y puntaje</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filasGrupos}}}</tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>Agregar preguntas aprobadas</h2>
+        <p class="ayuda">Solo aparecen preguntas aprobadas de tus bancos que aún no están en esta evaluación.
+            Puedes filtrarlas por tema, nivel, dificultad y competencia.</p>
+        <form method="get" action="{{ctx}}/app/docente/evaluacion" class="formulario">
+            <input type="hidden" name="id" value="{{id}}">
+            <div class="campos-fila campos-cuatro">
+                <div class="campo">
+                    <label for="filtroTema">Tema</label>
+                    <select id="filtroTema" name="tema">{{{opcionesFiltroTema}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="filtroNivel">Nivel</label>
+                    <select id="filtroNivel" name="nivel">{{{opcionesFiltroNivel}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="filtroDificultad">Dificultad</label>
+                    <select id="filtroDificultad" name="dificultad">{{{opcionesFiltroDificultad}}}</select>
+                </div>
+                <div class="campo">
+                    <label for="filtroCompetencia">Competencia</label>
+                    <select id="filtroCompetencia" name="competencia">{{{opcionesFiltroCompetencia}}}</select>
+                </div>
+            </div>
+            <div class="acciones">
+                <button type="submit" class="boton boton-contorno">Aplicar filtros</button>
+                {{{limpiarFiltros}}}
+            </div>
+        </form>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Grupo</th>
+                    <th scope="col">Tema</th>
+                    <th scope="col">Pregunta</th>
+                    <th scope="col"><span class="oculto">Acción</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filasDisponibles}}}</tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>Resumen de las preguntas seleccionadas</h2>
+        <p class="ayuda">Distribución del conjunto seleccionado; todas las versiones comparten esta misma
+            proporción.</p>
+        <div class="resumen-distribucion">
+            <div>
+                <h3>Por tema</h3>
+                <div class="tabla-contenedor">
+                    <table class="tabla">
+                        <thead><tr><th scope="col">Tema</th><th scope="col">Preguntas</th></tr></thead>
+                        <tbody>{{{resumenTema}}}</tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Por competencia</h3>
+                <div class="tabla-contenedor">
+                    <table class="tabla">
+                        <thead><tr><th scope="col">Competencia</th><th scope="col">Preguntas</th></tr></thead>
+                        <tbody>{{{resumenCompetencia}}}</tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Por dificultad</h3>
+                <div class="tabla-contenedor">
+                    <table class="tabla">
+                        <thead><tr><th scope="col">Dificultad</th><th scope="col">Preguntas</th></tr></thead>
+                        <tbody>{{{resumenDificultad}}}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>Versiones</h2>
+        <p class="ayuda">Generar versiones conserva las anteriores: las nuevas continúan los códigos
+            (si ya hay A y B, siguen C y D). Cada versión queda congelada con su orden aleatorio; si
+            editas la evaluación, vuelve a borrador y puedes generar versiones nuevas.</p>
+        <form method="get" action="{{ctx}}/app/docente/version/pdf" class="formulario" id="form-pdf">
+            <div class="campos-fila">
+                <div class="campo">
+                    <label for="curso">Curso (contexto de impresión)</label>
+                    <select id="curso" name="curso">{{{opcionesCursos}}}</select>
+                </div>
+                <div class="acciones">
+                    <button type="submit" class="boton boton-contorno" name="destino"
+                            value="evaluacion:{{id}}">Todas (ZIP)</button>
+                    <button type="submit" class="boton boton-contorno" name="destino"
+                            value="evaluacion:{{id}}:clave">Todas las claves (ZIP)</button>
+                </div>
+            </div>
+        </form>
+        <div class="acciones">{{{botonGenerar}}}</div>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <thead>
+                <tr>
+                    <th scope="col">Versión</th>
+                    <th scope="col">Generada</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="oculto">Acciones</span></th>
+                </tr>
+                </thead>
+                <tbody>{{{filasVersiones}}}</tbody>
+            </table>
+        </div>
+        {{{detalleVersion}}}
+    </section>
+
+    <section class="hoja">
+        <h2>Comparativa de versiones</h2>
+        <p class="ayuda">Cantidad de preguntas, distribución por tema, competencia y dificultad, y
+            puntaje total. Se resaltan las celdas que difieren de la distribución más frecuente entre
+            versiones.</p>
+        {{{comparativa}}}
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Umbrales de supervision de ExamLen (RF-50).
+# Copia estas lineas a conf/supervision.properties de tu Tomcat
+# (la carpeta "Catalina Base" que muestra NetBeans en las propiedades del servidor).
+# Son opcionales: sin archivo se usan los valores del ERS.
+
+# Coeficiente de similitud de texto (Jaccard de trigramas) a partir del cual
+# dos respuestas se consideran excesivamente similares. ERS RF-50: 0,85.
+supervision.similitud.umbral=0.85
+
+# Fraccion de la mediana del grupo por debajo de la cual un intento es atipico.
+# ERS RF-50: 0,25 (menos del 25 %).
+supervision.tiempo.fraccion.mediana=0.25

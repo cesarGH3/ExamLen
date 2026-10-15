@@ -1,0 +1,38 @@
+/* ============================================================
+   Componente: botones
+   ============================================================ */
+.boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    font: inherit;
+    font-weight: 600;
+    font-size: .9375rem;
+    letter-spacing: .02em;
+    padding: .62rem 1.3rem;
+    border: 1px solid rgba(0, 229, 255, .55);
+    border-radius: var(--radio-sm);
+    background: linear-gradient(180deg, rgba(0, 229, 255, .18), rgba(0, 184, 212, .08));
+    color: #d9fbff;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    line-height: 1.4;
+    transition: border-color .15s, box-shadow .15s, background .15s, color .15s, transform .1s;
+}
+.boton:hover {
+    border-color: var(--cian);
+    color: #ffffff;
+    background: linear-gradient(180deg, rgba(0, 229, 255, .28), rgba(0, 184, 212, .14));
+    box-shadow: var(--glow), inset 0 0 12px rgba(0, 229, 255, .12);
+}
+.boton:active { transform: translateY(1px); }
+.boton-bloque { width: 100%; }
+.boton-contorno { background: transparent; border-color: var(--borde-fuerte); color: var(--texto); }
+.boton-contorno:hover { border-color: var(--cian); background: rgba(0, 229, 255, .08); box-shadow: var(--glow-tenue); }
+.boton-peligro { background: transparent; border-color: rgba(255, 61, 113, .55); color: #ff7aa0; }
+.boton-peligro:hover { border-color: var(--rojo); color: #ffd7e2; background: rgba(255, 61, 113, .12); box-shadow: 0 0 14px rgba(255, 61, 113, .3); }
+.boton-barra { background: transparent; border-color: var(--borde-fuerte); color: var(--texto-suave); padding: .4rem .9rem; font-size: .875rem; }
+.boton-barra:hover { color: #ffffff; border-color: var(--cian); box-shadow: var(--glow-tenue); }
+.boton-pequeno { padding: .32rem .8rem; font-size: .8125rem; }

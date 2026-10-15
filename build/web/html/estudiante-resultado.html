@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Resultado | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tabla.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/estudiante-resultado.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido contenido-estrecho">
+    {{{mensajes}}}
+    <section class="hoja">
+        <h1>{{titulo}}</h1>
+        <p class="meta"><span class="insignia">{{estado}}</span></p>
+        {{{cuerpo}}}
+        <a class="boton boton-contorno" href="{{ctx}}/app/estudiante/evaluaciones">Volver a evaluaciones</a>
+    </section>
+</main>
+</body>
+</html>

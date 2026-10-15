@@ -1,0 +1,7 @@
+<form method="post" action="{{destino}}" class="form-en-linea">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <input type="hidden" name="id" value="{{id}}">
+    <input type="hidden" name="accion" value="{{accion}}">
+    <input type="hidden" name="{{extraNombre}}" value="{{extraValor}}">
+    <button type="submit" class="boton {{clase}}">{{texto}}</button>
+</form>

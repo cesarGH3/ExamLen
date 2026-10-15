@@ -1,0 +1,19 @@
+/* ============================================================
+   Pantalla: examen virtual (estudiante) — temporizador
+   ============================================================ */
+.temporizador {
+    font-family: var(--mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--cian);
+    text-shadow: 0 0 16px rgba(0, 229, 255, .5);
+    margin: 0;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 820px) {
+    .temporizador { font-size: 1.35rem; }
+}

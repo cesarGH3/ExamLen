@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inicio | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/inicio.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido">
+    {{{mensajes}}}
+    <section class="bienvenida">
+        <h1>Hola, {{nombre}}</h1>
+        <p>Tu cuenta es de tipo {{tipo}}.</p>
+    </section>
+    <section class="resumen" aria-label="Resumen de tu cuenta">
+        {{{resumen}}}
+    </section>
+    {{{herramientaRendimiento}}}
+</main>
+<script src="{{ctx}}/js/rendimiento.js"></script>
+</body>
+</html>

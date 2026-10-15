@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recuperar contraseña | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/acceso.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/recuperar.css">
+</head>
+<body class="pagina-acceso">
+<div class="acceso">
+    <section class="acceso-marca" aria-hidden="true">
+        <p class="marca-logo">ExamLen</p>
+        <p class="marca-lema">Recupera tu cuenta con un enlace de un solo uso.</p>
+        <ol class="marca-puntos">
+            <li>Escribe el correo con el que te registraste.</li>
+            <li>Te enviamos un enlace válido por 30 minutos.</li>
+            <li>Define tu contraseña nueva.</li>
+        </ol>
+        <p class="marca-version">Sistema de evaluación · v1.0</p>
+    </section>
+
+    <main class="acceso-panel">
+        <p class="panel-etiqueta">Recuperación</p>
+        <h1>¿Olvidaste tu contraseña?</h1>
+        {{{mensajes}}}
+        <form method="post" action="{{ctx}}/recuperar" class="formulario">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <div class="campo">
+                <label for="correo">Correo</label>
+                <input id="correo" name="correo" type="email" required maxlength="254"
+                       autocomplete="username" value="{{correo}}">
+            </div>
+            <button type="submit" class="boton boton-bloque">Enviar enlace de recuperación</button>
+        </form>
+        <p class="acceso-pie"><a href="{{ctx}}/login">Volver al inicio de sesión</a></p>
+    </main>
+</div>
+</body>
+</html>

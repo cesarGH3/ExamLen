@@ -1,0 +1,3 @@
+package logica;
+
+public enum TipoPregunta { SELECCION_MULTIPLE, VERDADERO_FALSO, RESPUESTA_CORTA, RESPUESTA_ABIERTA }

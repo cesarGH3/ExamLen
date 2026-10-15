@@ -1,0 +1,28 @@
+/* ============================================================
+   Pantalla: página de error
+   ============================================================ */
+.pagina-error {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background:
+        radial-gradient(800px 500px at 50% 0%, rgba(255, 61, 113, .08), transparent 65%),
+        linear-gradient(rgba(130, 165, 215, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(130, 165, 215, .045) 1px, transparent 1px),
+        var(--fondo);
+    background-size: auto, 42px 42px, 42px 42px, auto;
+}
+.hoja-error { max-width: 520px; text-align: center; }
+.hoja-error p { color: var(--texto-suave); margin: 0 auto 1.5rem; max-width: 45ch; line-height: 1.6; }
+.error-codigo {
+    font-family: var(--mono);
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--rojo);
+    margin-bottom: .5rem !important;
+    letter-spacing: .04em;
+    text-shadow: 0 0 26px rgba(255, 61, 113, .65);
+}
+.hoja-error h1 { margin-bottom: .75rem; }

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pregunta | ExamLen</title>
+    <link rel="stylesheet" href="{{ctx}}/css/base.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/navegacion.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/tarjeta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/formulario.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/boton.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/alerta.css">
+    <link rel="stylesheet" href="{{ctx}}/css/componentes/insignia.css">
+    <link rel="stylesheet" href="{{ctx}}/css/paginas/docente-pregunta.css">
+</head>
+<body>
+{{{nav}}}
+<main class="contenido contenido-medio">
+    <nav class="migas" aria-label="Ruta">
+        <a href="{{ctx}}/app/docente/bancos">Bancos de preguntas</a>
+        <span aria-hidden="true">/</span>
+        <a href="{{bancoUrl}}">{{bancoNombre}}</a>
+        <span aria-hidden="true">/</span>
+        <span>Pregunta</span>
+    </nav>
+    {{{mensajes}}}
+    <header class="encabezado">
+        <div>
+            <h1>Pregunta de {{tipo}}</h1>
+            <p class="meta">Origen: {{origen}} <span class="insignia {{claseEstado}}">{{estado}}</span></p>
+        </div>
+        <div class="acciones">{{{accionesEstado}}}</div>
+    </header>
+    {{{pendientes}}}
+
+    <section class="hoja">
+        {{{datosPregunta}}}
+    </section>
+    <section class="hoja">
+        {{{seccionRespuesta}}}
+    </section>
+</main>
+</body>
+</html>
