@@ -316,7 +316,7 @@ public final class RendimientoEscenarios {
             }
             case "CU-18": {
                 DocumentoFuente documento = documentoDAO.cargarDocumentoFuente(docente, "perf.txt", "TXT",
-                        "C:/Users/STEINER1TB/AppData/Local/Temp/opencode/perf.txt");
+                        java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "perf.txt").toString());
                 documentoDAO.eliminar(documento);
                 return verificado(documentoDAO.buscarPorId(documento.getIdDocumentoFuente()).isEmpty());
             }
