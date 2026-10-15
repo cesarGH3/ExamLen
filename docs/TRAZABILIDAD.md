@@ -530,10 +530,11 @@ ABIERTO al programar (RF-41, sin cambio).
     RF-63 en **Fase 9**.)
 
 **Baja**
-13. RF-09 confirmación docente; RF-23 archivadas en variantes IA; doble escapado de
+13. RF-23 archivadas en variantes IA; doble escapado de
     `Html.resumir`; tipos de columna de la sección 7; comentarios obsoletos en `AdministradorDAO`;
     EN_PROCESO inobservable; extensión `.doc` del Word. — *Actualización 2026-10-15 (auditoría de limpieza):
-    CU-14 confirmación implementada (Fase 10) y `sql/crear_administrador.sql` eliminado.*
+    CU-14 confirmación implementada (Fase 10), RF-09 confirmación de desactivación de docentes implementada
+    (Fase 10) y `sql/crear_administrador.sql` eliminado.*
 
 **No verificables pendientes de entorno/pruebas**
 14. RNF-04 (SMTP), RNF-09/10/11 (navegador/usuario), RNF-16 (VPS 4 GB), HTTPS de RNF-03.
