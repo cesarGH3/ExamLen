@@ -1,0 +1,2 @@
+# Respaldos de base de datos de auditoria: nunca versionar (contienen datos reales)
+docs/auditoria/respaldo-bd-*.sql
