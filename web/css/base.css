@@ -105,6 +105,9 @@ a:hover { color: #6df2ff; text-decoration-color: #6df2ff; text-shadow: 0 0 10px 
 /* Utilidad de texto largo (listados y fichas) */
 .texto-largo { white-space: pre-line; max-width: 70ch; }
 
+/* Parrafos de ayuda (compartidos por todas las pantallas; auditoria F-04) */
+.ayuda { margin: 0; font-size: .85rem; color: var(--texto-suave); line-height: 1.5; }
+
 /* ============================================================
    Responsive
    ============================================================ */
