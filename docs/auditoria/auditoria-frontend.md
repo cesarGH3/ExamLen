@@ -2,6 +2,8 @@
 
 Fecha: 2026-10-15 · Rama: `auditoria-limpieza` · Modo: **solo lectura** (no se modificó ningún archivo de frontend).
 
+> **Estado de ejecución (2026-10-15, tarde)**: las correcciones aprobadas por el autor se aplicaron en commits pequeños y se reverificaron. Ver sección "Estado de correcciones" al final. El cuerpo original del informe se conserva sin cambios (histórico).
+
 ## Metodología y cobertura
 
 - **Estático**: escaneo de las 125 plantillas HTML (38 pantallas + 87 fragmentos), 46 CSS y 2 JS (labels e `id`/`name`, `required/min/max/pattern`, `disabled/hidden`, escapes `{{{ }}}`, UTF-8, botones y enlaces, acciones UI↔servidor en ambos sentidos, CSS/JS sin uso, hojas faltantes, consistencia entre roles).
@@ -48,3 +50,19 @@ Fecha: 2026-10-15 · Rama: `auditoria-limpieza` · Modo: **solo lectura** (no se
 ## Evidencia temporal
 
 `%TEMP%\opencode\fase2-evidencias\`: 82 PNG (rol-pantalla-ancho) + `metricas-<rol>.jsonl` (scrollWidth, desbordes, consola) + `recorte-admin-estudiantes-375.png`. No se copiaron capturas al repositorio (solo este informe); si quieres adjuntar alguna como evidencia versionada, dime cuál(es).
+
+## Estado de correcciones (ejecución aprobada, 2026-10-15 tarde)
+
+| Hallazgo | Estado | Detalle |
+|---|---|---|
+| F-01 | **CORREGIDO** | `docente-version-pregunta.html` carga `docente-pregunta.css`. Verificado por CDP: hoja cargada con reglas y `.formulario-opcion` con `border-top: 1px` (antes 0). |
+| F-02 | **CORREGIDO** | Regla localizada ≤520 en las páginas admin: `.tabla { min-width: 40rem }` + `overflow-wrap: normal` en celdas; la tabla hace scroll dentro de `.tabla-contenedor` (que ahora es `position: relative` para recortar los `<span class="oculto">` absolutos). Verificado a **360/375/520/768/1280**: 0 overflow de página, tabla ≥640 px, columnas legibles (captura `verif-admin-admin-estudiantes-375.png`). |
+| F-03 | **CORREGIDO** | `.tabla .celda-accion { white-space: normal; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.25rem }` en ambas páginas admin: acciones completas (0 recortes) a 768/1280. |
+| F-04 | **CORREGIDO** | Regla `.ayuda` movida de `formulario.css` a `base.css` (sin duplicidad; `docente-grupo.css` conserva su override). Verificado: `historial` y `politica-datos` con `.ayuda` estilada. |
+| F-05 (`:disabled`) | **POSPUESTO** | Sin usos actuales; se documenta como mejora futura (no se introduce código sin necesidad). |
+| F-06 | **CORREGIDO** | `<caption class="oculto">` con texto propio en **41/41 tablas (27 archivos)**; `.oculto` usa clip accesible (no `display:none`). Verificado por DOM (1/7/3 captions según pantalla). |
+| F-07 (breakpoints) | **POSPUESTO** | Sin error funcional demostrado; consolidación con riesgo de regresión → deuda técnica documentada. |
+| F-08 (`accion=coherencia`) | **SOLO DOCUMENTADO** | Endpoint JSON interno del runner de rendimiento (su Javadoc lo declara); sin cambios, sin acceso UI. |
+| F-09 | **CORREGIDO** | `aria-label` en el input de comentario (`_form-calificar.html`) y en el textarea de respuesta (`_respuesta-texto.html`), reutilizando el patrón accesible ya presente en los fragmentos (se renderizan repetidos; sin ids fijos). |
+
+**Verificación (obligatoria) ejecutada**: `javac -Xlint` limpio · despliegue + smoke 8/8 · CDP **360/375/520/768/1280** sobre pantallas tocadas (30 mediciones): 0 overflow de página, tablas usables, 0 botones recortados/invisibles, 0 errores de consola, **0 recursos 404**, captions y labels comprobados por DOM · limpieza de datos temporales (baseline intacta 20/5/3/7/24/4/4). Evidencias: `%TEMP%\opencode\fase2-evidencias\verif*.png` + `verif.jsonl`.
