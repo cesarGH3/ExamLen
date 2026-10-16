@@ -62,10 +62,15 @@ public class GrupoDAO extends DaoBase {
         for (int intento = 0; intento < INTENTOS_CODIGO; intento++) {
             String codigo = generadorCodigo.generar();
             try {
-                actualizar("UPDATE grupo SET codigo_acceso = ? WHERE id_grupo = ?", ps -> {
+                int filas = actualizar("UPDATE grupo SET codigo_acceso = ? "
+                        + "WHERE id_grupo = ? AND estado = 'ABIERTO'", ps -> {
                     ps.setString(1, codigo);
                     ps.setInt(2, grupo.getIdGrupo());
                 });
+                if (filas == 0) {
+                    throw new ValidacionException(
+                            "El grupo está cerrado: no se puede regenerar su código de acceso.");
+                }
                 grupo.codigoAccesoGrupo = codigo;
                 return codigo;
             } catch (RegistroDuplicadoException e) {

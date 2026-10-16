@@ -1,0 +1,19 @@
+﻿=== E-01 EVIDENCIA ANTES (reproduccion) ===
+fecha: 2026-10-15 20:30:03
+docente listo: temp=True
+curso=110
+grupo=105
+codigo abierto: V98CNG8B
+estado tras cerrar: CERRADO
+regenerar en CERRADO: status=302 mensajeExito=True codigoCambio=True (antes=V98CNG8B ahora=GZANYYKW bd=GZANYYKW)
+== limpieza ==
+restos=0 baseline=20,5,3
+=== E-01 EVIDENCIA DESPUES ===
+setup: curso=111 grupo=106
+OK  | T1 ABIERTO: regenera y cambia el codigo | status=302 cambio=True msgExito=True
+OK  | T2 CERRADO: rechazado y codigo intacto | estado=CERRADO status=302 msgError=True codigoIntacto=True
+OK  | T3 grupo ajeno: convencion de propiedad y codigo ajeno intacto | existe=True status=403 esperado=403 ajenoIntacto=True
+OK  | T4 reabrir y regenerar: permitido otra vez | status=302 cambio=True
+OK  | C1 limpieza | restos=0
+OK  | C2 baseline intacta | baseline=20,5,3,7,24,4,4,2,0,0
+=== E-01 VERIFICACION: 6 OK, 0 fallas ===
