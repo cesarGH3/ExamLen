@@ -52,7 +52,7 @@
 | Logica | Curso | + descripcionCurso : String | src/java/logica/Curso.java:9 | idem. |
 | Logica | Curso | + nivelCurso : NivelIngles | src/java/logica/Curso.java:10 | Enum `NivelIngles`. |
 | Logica | Curso | + activoCurso : boolean | src/java/logica/Curso.java:11 | idem. |
-| Logica | Curso | + docenteCurso : Docente | src/java/logica/Curso.java:12 | FK fk_curso_docente (sql/migraciones/002_cursos_banco_preguntas.sql:23). Docente fuera del trío. |
+| Logica | Curso | + docenteCurso : Docente | src/java/logica/Curso.java:12 | FK fk_curso_docente (web/WEB-INF/sql/migraciones/002_cursos_banco_preguntas.sql:23). Docente fuera del trío. |
 | Logica | Curso | + gruposCurso : ArrayList<Grupo> | src/java/logica/Curso.java:13 | Inicializada en el constructor (:17). |
 | Logica | Curso | + materialesPracticaCurso : ArrayList<MaterialPractica> | src/java/logica/Curso.java:14 | MaterialPractica fuera del trío. |
 | Logica | Curso | + getIdCurso() : int | src/java/logica/Curso.java:21 | — |
@@ -63,7 +63,7 @@
 | Logica | Grupo | + periodoGrupo : String | src/java/logica/Grupo.java:9 | — |
 | Logica | Grupo | + codigoAccesoGrupo : String | src/java/logica/Grupo.java:10 | Código de acceso (CU-14). |
 | Logica | Grupo | + estadoGrupo : EstadoGrupo | src/java/logica/Grupo.java:11 | Enum `EstadoGrupo`. |
-| Logica | Grupo | + cursoGrupo : Curso | src/java/logica/Grupo.java:12 | FK fk_grupo_curso (sql/migraciones/002_cursos_banco_preguntas.sql:42). |
+| Logica | Grupo | + cursoGrupo : Curso | src/java/logica/Grupo.java:12 | FK fk_grupo_curso (web/WEB-INF/sql/migraciones/002_cursos_banco_preguntas.sql:42). |
 | Logica | Grupo | + inscripcionesGrupo : ArrayList<Inscripcion> | src/java/logica/Grupo.java:13 | Inicializada en constructor (:17). |
 | Logica | Grupo | + evaluacionesVirtualesGrupo : ArrayList<EvaluacionVirtual> | src/java/logica/Grupo.java:14 | EvaluacionVirtual fuera del trío. |
 | Logica | Grupo | + getIdGrupo() : int | src/java/logica/Grupo.java:21 | — |
@@ -124,8 +124,8 @@
 | Modelo | Conexion | + JNDI_DATASOURCE : String | src/java/conexion/Conexion.java:14 | "java:comp/env/jdbc/ExamLenDB" (static final). |
 | Modelo | Conexion | + obtenerFuente() : DataSource | src/java/conexion/Conexion.java:19 | InitialContext().lookup (:21). |
 | Modelo | BD (database) | elemento de datos | web/META-INF/context.xml:14 (Resource jdbc/ExamLenDB, driverClassName com.mysql.cj.jdbc.Driver) y src/java/conexion/Conexion.java:14 | Base MySQL "ExamLen"; credenciales fuera del repositorio (context.xml:2-11). |
-| Logica | Curso "1" — "0..*" Grupo | relación | Atributos: src/java/logica/Curso.java:13 (gruposCurso) y src/java/logica/Grupo.java:12 (cursoGrupo); FK: sql/migraciones/002_cursos_banco_preguntas.sql:42 (fk_grupo_curso) | Un curso tiene 0..* grupos; cada grupo pertenece a 1 curso. |
-| Logica | Grupo "1" — "0..*" Inscripcion | relación | Atributos: src/java/logica/Grupo.java:13 (inscripcionesGrupo) y src/java/logica/Inscripcion.java:12 (grupoInscripcion); FK: sql/migraciones/002_cursos_banco_preguntas.sql:59 (fk_inscripcion_grupo) | Un grupo tiene 0..* inscripciones; cada inscripción pertenece a 1 grupo. |
+| Logica | Curso "1" — "0..*" Grupo | relación | Atributos: src/java/logica/Curso.java:13 (gruposCurso) y src/java/logica/Grupo.java:12 (cursoGrupo); FK: web/WEB-INF/sql/migraciones/002_cursos_banco_preguntas.sql:42 (fk_grupo_curso) | Un curso tiene 0..* grupos; cada grupo pertenece a 1 curso. |
+| Logica | Grupo "1" — "0..*" Inscripcion | relación | Atributos: src/java/logica/Grupo.java:13 (inscripcionesGrupo) y src/java/logica/Inscripcion.java:12 (grupoInscripcion); FK: web/WEB-INF/sql/migraciones/002_cursos_banco_preguntas.sql:59 (fk_inscripcion_grupo) | Un grupo tiene 0..* inscripciones; cada inscripción pertenece a 1 grupo. |
 | html o JSP | DocenteCursosHtml <--> DocenteCursoHtml | relación entre vistas | Ida: web/html/_fila-curso.html:2 (href {{url}}) con url armada en src/java/servlet/DocenteCursosServlet.java:32. Vuelta: web/html/docente-curso.html:21 (migas "Mis cursos") | Navegación listado ↔ ficha. |
 | html o JSP | DocenteCursoHtml <--> DocenteGrupoHtml | relación entre vistas | Ida: web/html/_fila-grupo.html:2 con url en src/java/servlet/DocenteCursoServlet.java:54. Vuelta: web/html/docente-grupo.html:21-23 (migas) con cursoUrl en src/java/servlet/DocenteGrupoServlet.java:57 | Navegación ficha ↔ panel del grupo. |
 | html o JSP | EstudianteGruposHtml <--> EstudianteConfirmarGrupoHtml | relación entre vistas | Ida: src/java/servlet/EstudianteGruposServlet.java:101 (redirect accion=confirmarUnirse) y render :142. Vuelta: web/html/estudiante-confirmar-grupo.html:34 (Cancelar → /app/estudiante/grupos) | Flujo de confirmación CU-14. |
@@ -167,7 +167,7 @@
 1. **PlantUML no instalado**: no se pudo ejecutar `java -jar plantuml.jar -syntax diagrama-capas.puml`; queda pendiente si se instala la herramienta.
 2. **Botones de acción sin formulario literal en el HTML**: activar, desactivar, cerrar, reabrir, regenerarCodigo, quitar, reincorporar y salir se generan con los fragmentos web/html/_boton-accion.html:1-7 (y web/html/_fila-inscrito.html:6) desde `ServletBase.boton()` (src/java/servlet/ServletBase.java:342-353); el método de la interfaz de vista se dedujo del valor de `accion` que inyecta cada servlet (DocenteCursoServlet.java:72-73; DocenteGrupoServlet.java:45-70; EstudianteGruposServlet.java:55).
 3. **Formulario fuera del trío**: web/html/docente-grupo.html:88-117 ("Programar evaluación virtual") hace POST a /app/docente/virtual, servlet de EvaluacionVirtual. No se dibuja por estar fuera del alcance.
-4. **Multiplicidades**: deducidas de atributos `ArrayList` + claves foráneas del SQL (sql/migraciones/002_cursos_banco_preguntas.sql:42 y :59). No se validaron contra la base en ejecución (análisis de solo lectura).
+4. **Multiplicidades**: deducidas de atributos `ArrayList` + claves foráneas del SQL (web/WEB-INF/sql/migraciones/002_cursos_banco_preguntas.sql:42 y :59). No se validaron contra la base en ejecución (análisis de solo lectura).
 5. **Referencias fuera del trío no dibujadas**: Curso.docenteCurso : Docente (Curso.java:12), Curso.materialesPracticaCurso : MaterialPractica (:14), Grupo.evaluacionesVirtualesGrupo : EvaluacionVirtual (Grupo.java:14), Inscripcion.estudianteInscripcion : Estudiante (Inscripcion.java:11), Inscripcion.intentosInscripcion : Intento (:13). Existen en el código pero sus clases no forman parte de las 3 solicitadas.
 6. **Relación Inscripcion–Estudiante (0..*—1)**: existe (FK fk_inscripcion_estudiante, 002_…sql:60) pero Estudiante está fuera del trío; por eso no aparece dibujada la lectura "Curso 0..* — 0..* Estudiante" que pasaría por Grupo+Inscripcion.
 

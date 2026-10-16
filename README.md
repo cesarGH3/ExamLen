@@ -47,7 +47,7 @@ a propósito para que lo complete la institución que despliegue el sistema.
 ## Base de datos: credenciales fuera del repositorio
 El recurso JNDI `jdbc/ExamLenDB` (el mismo que usan todos los DAO) toma la URL, el usuario y la
 contraseña de **propiedades de Tomcat**, no del proyecto:
-1. Crea el usuario de aplicación en MySQL con privilegios mínimos (ver `sql/migraciones/001_usuarios.sql`):
+1. Crea el usuario de aplicación en MySQL con privilegios mínimos (ver `web/WEB-INF/sql/migraciones/001_usuarios.sql`):
    ```sql
    CREATE USER 'examlen_app'@'localhost' IDENTIFIED BY 'TU_CONTRASENA';
    GRANT SELECT, INSERT, UPDATE ON examlen.* TO 'examlen_app'@'localhost';
@@ -137,12 +137,12 @@ El proyecto se entrega con la cookie de sesión **Secure** (`web/WEB-INF/web.xml
 
 ### Si ya tenías instalada la base
 1. En NetBeans, borra las carpetas `src/java` y `web` de tu proyecto y pega las de este zip.
-2. Ejecuta como root **solo** `sql/migraciones/005_intento_unico.sql`
+2. Ejecuta como root **solo** `web/WEB-INF/sql/migraciones/005_intento_unico.sql`
    (garantiza un intento por estudiante y evaluación virtual). Tus datos se conservan.
 3. *Clean and Build* y *Run*.
 
 ### Si es la primera vez
-1. En `sql/migraciones/001_usuarios.sql` reemplaza la contraseña de ejemplo de `examlen_app` por una
+1. En `web/WEB-INF/sql/migraciones/001_usuarios.sql` reemplaza la contraseña de ejemplo de `examlen_app` por una
    propia **antes** de ejecutarlo (ese archivo no contiene la contraseña real) y usa la misma en
    `examlen.db.password` de `catalina.properties`.
 2. Ejecuta como root, en orden: `001_usuarios.sql`, `002_cursos_banco_preguntas.sql`,

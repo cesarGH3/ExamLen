@@ -189,7 +189,7 @@ colección y el otro el elemento individual.
   - Curso "1" -- "0..*" Grupo y Grupo "1" -- "0..*" Inscripcion: deducidas
     de los atributos ArrayList (gruposCurso, inscripcionesGrupo) y de las
     claves foráneas fk_grupo_curso y fk_inscripcion_grupo
-    (sql\migraciones\002_cursos_banco_preguntas.sql:42 y :59).
+    (web\WEB-INF\sql\migraciones\002_cursos_banco_preguntas.sql:42 y :59).
   - Curso/Grupo/Inscripcion <--> CursoDAO/GrupoDAO/InscripcionDAO:
     bidireccional porque los DAO escriben (crear/actualizar/eliminar) y
     consultan (buscar/listar).
