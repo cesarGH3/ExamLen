@@ -24,6 +24,10 @@ public class LoginServlet extends ServletBase {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (usuarioDAO.contarAdministradores() == 0) {
+            redirigir(req, resp, "/primer-administrador");
+            return;
+        }
         HttpSession sesion = req.getSession(false);
         if (sesion != null && sesion.getAttribute(ClavesSesion.ID_USUARIO) != null) {
             redirigir(req, resp, "/app/inicio");
@@ -34,6 +38,10 @@ public class LoginServlet extends ServletBase {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (usuarioDAO.contarAdministradores() == 0) {
+            redirigir(req, resp, "/primer-administrador");
+            return;
+        }
         String acceso = parametro(req, "acceso");
         if (acceso.isBlank()) {
             acceso = parametro(req, "correo");

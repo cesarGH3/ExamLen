@@ -4,7 +4,9 @@ import logica.Administrador;
 import logica.HashContrasena;
 import logica.RegistroDuplicadoException;
 import logica.ValidacionException;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 import javax.sql.DataSource;
@@ -17,48 +19,87 @@ public class AdministradorDAO extends DaoBase {
         super(dataSource);
     }
 
-    /** Crea el administrador con la contraseña indicada. Ninguna pantalla lo usa: la cuenta inicial se crea por SQL. */
+    /** Crea el administrador con la contraseña indicada (alta administrativa y primer arranque). */
     public Administrador crearAdministrador(String identificacion, String nombre, String correo,
                                             String contrasenaTemporal, String institucion,
                                             java.util.Date fechaNacimiento) throws ValidacionException {
+        Administrador admin = construirAdministrador(identificacion, nombre, correo, contrasenaTemporal,
+                institucion, fechaNacimiento);
+        try {
+            int id = enTransaccion(c -> insertarAdministrador(c, admin, fechaNacimiento));
+            admin.setIdUsuario(id);
+        } catch (RegistroDuplicadoException e) {
+            throw new ValidacionException("La identificación o el correo ya están registrados.");
+        }
+        return admin;
+    }
+
+    /**
+     * Crea el primer administrador del sistema (pantalla de primer arranque). Dentro de la
+     * transacción se bloquea la lectura del conteo (COUNT ... FOR UPDATE) para que dos
+     * solicitudes concurrentes no puedan crear dos primeros administradores.
+     */
+    public Administrador crearPrimerAdministrador(String identificacion, String nombre, String correo,
+                                                  String contrasena, String institucion,
+                                                  java.util.Date fechaNacimiento) throws ValidacionException {
+        Administrador admin = construirAdministrador(identificacion, nombre, correo, contrasena,
+                institucion, fechaNacimiento);
+        try {
+            Boolean creado = enTransaccion(c -> {
+                int existentes = consultarUnoCon(c, "SELECT COUNT(*) FROM administrador FOR UPDATE",
+                        SIN_PARAMETROS, rs -> rs.getInt(1)).orElse(0);
+                if (existentes > 0) {
+                    return Boolean.FALSE;
+                }
+                admin.setIdUsuario(insertarAdministrador(c, admin, fechaNacimiento));
+                return Boolean.TRUE;
+            });
+            if (!creado) {
+                throw new ValidacionException("Ya existe un administrador registrado.");
+            }
+            return admin;
+        } catch (RegistroDuplicadoException e) {
+            throw new ValidacionException("La identificación o el correo ya están registrados.");
+        }
+    }
+
+    private Administrador construirAdministrador(String identificacion, String nombre, String correo,
+                                                 String contrasena, String institucion,
+                                                 java.util.Date fechaNacimiento) {
         Administrador admin = new Administrador();
         admin.identificacionUsuario = identificacion;
         admin.nombreUsuario = nombre;
         admin.correoUsuario = correo;
         admin.institucionUsuario = institucion;
         admin.fechaNacimientoAdministrador = fechaNacimiento;
-        admin.contrasenaHashUsuario = hashContrasena.generarHash(contrasenaTemporal);
+        admin.contrasenaHashUsuario = hashContrasena.generarHash(contrasena);
         admin.activoUsuario = true;
-
-        try {
-            int id = enTransaccion(c -> {
-                int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
-                        + "institucion, contrasena_hash, activo) VALUES (?, ?, ?, ?, ?, TRUE)", ps -> {
-                    ps.setString(1, identificacion);
-                    ps.setString(2, nombre);
-                    ps.setString(3, correo);
-                    if (institucion == null) {
-                        ps.setNull(4, Types.VARCHAR);
-                    } else {
-                        ps.setString(4, institucion);
-                    }
-                    ps.setString(5, admin.contrasenaHashUsuario);
-                });
-                actualizarCon(c, "INSERT INTO administrador (id_usuario, fecha_nacimiento) VALUES (?, ?)", ps -> {
-                    ps.setInt(1, idUsuario);
-                    if (fechaNacimiento == null) {
-                        ps.setNull(2, Types.DATE);
-                    } else {
-                        ps.setDate(2, new Date(fechaNacimiento.getTime()));
-                    }
-                });
-                return idUsuario;
-            });
-            admin.setIdUsuario(id);
-        } catch (RegistroDuplicadoException e) {
-            throw new ValidacionException("La identificación o el correo ya están registrados.");
-        }
         return admin;
+    }
+
+    private static int insertarAdministrador(Connection c, Administrador admin, java.util.Date fechaNacimiento)
+            throws SQLException {
+        int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
+                + "institucion, contrasena_hash, activo) VALUES (?, ?, ?, ?, ?, TRUE)", ps -> {
+            ps.setString(1, admin.identificacionUsuario);
+            ps.setString(2, admin.nombreUsuario);
+            ps.setString(3, admin.correoUsuario);
+            if (admin.institucionUsuario == null) {
+                ps.setNull(4, Types.VARCHAR);
+            } else {
+                ps.setString(4, admin.institucionUsuario);
+            }
+            ps.setString(5, admin.contrasenaHashUsuario);
+        });
+        actualizarCon(c, "INSERT INTO administrador (id_usuario, fecha_nacimiento) VALUES (?, ?)", ps -> {
+            ps.setInt(1, idUsuario);
+            if (fechaNacimiento == null) {
+                ps.setNull(2, Types.DATE);
+            } else {
+                ps.setDate(2, new Date(fechaNacimiento.getTime()));
+            }
+        });
+        return idUsuario;
     }
 
     /** Actualiza nombre, correo y fecha de nacimiento (CU-05). */

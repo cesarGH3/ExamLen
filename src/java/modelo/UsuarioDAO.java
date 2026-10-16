@@ -72,6 +72,11 @@ public class UsuarioDAO extends DaoBase {
                 + "AND contrasena_hash NOT LIKE '$2b$%' AND contrasena_hash NOT LIKE '$2y$%'", SIN_PARAMETROS);
     }
 
+    /** Cantidad total de administradores (puerta de la pantalla de primer administrador). */
+    public int contarAdministradores() {
+        return contar("SELECT COUNT(*) FROM administrador", SIN_PARAMETROS);
+    }
+
     /** Cuentas activas por rol (resumen del inicio). */
     public int contarActivosPorRol(String rol) {
         switch (rol) {
