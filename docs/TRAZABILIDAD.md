@@ -157,12 +157,12 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ COMPLETO | **13 / 18** (RNF-02, 04, 05, 06, 07, 08, 09, 12, 13, 14, 15, 17, 18) |
-| ⚠️ PARCIAL | **3 / 18** (RNF-01 por 19 hashes legacy reales pendientes de migración; RNF-03 por TLS real de despliegue no configurado; RNF-11 por Firefox no instalado) |
+| ✅ COMPLETO | **14 / 18** (RNF-01, 02, 04, 05, 06, 07, 08, 09, 12, 13, 14, 15, 17, 18) |
+| ⚠️ PARCIAL | **2 / 18** (RNF-03 por TLS real de despliegue no configurado; RNF-11 por Firefox no instalado) |
 | ❌ AUSENTE | **0 / 18** |
 | ❓ NO VERIFICABLE | **2 / 18** (RNF-10 sin prueba con usuario; RNF-16 sin VPS) |
 
-**CUMPLIMIENTO NO FUNCIONAL = 13 / 18**
+**CUMPLIMIENTO NO FUNCIONAL = 14 / 18**
 
 ### Casos de uso (CU-01 → CU-34)
 
@@ -249,7 +249,7 @@ CÓDIGO + RUNTIME / DOCUMENTAL / NO VERIFICADO) · **Falta / desviación** · **
 
 | ID | Nombre | Estado | Exigencia ERS | Implementación actual | Evidencia | Verificación | Falta / desviación | Severidad | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| RNF-01 | Almacenamiento seguro de contraseñas | ⚠️ | **BCrypt costo ≥10 o Argon2id**; sin texto plano | **BCrypt coste 12** (jbcrypt) para todo hash nuevo (registro, cambio, altas, reset, token); verificación de hashes legacy PBKDF2 y **rehash automático a BCrypt en el login correcto** de forma atómica; nunca texto plano en BD ni logs | `HashContrasena.java`; `UsuarioDAO.rehashSiLegacy`; `LoginServlet`; **RUNTIME**: F11/F12/F13/F14/F15 | CÓDIGO + BD + RUNTIME | Quedan **19 hashes legacy reales** de cuentas baseline sin credencial conocida: se migrarán en su próximo login correcto (o con reset administrativo); no se inventan contraseñas | media | RF-02, RF-05, RF-10 |
+| RNF-01 | Almacenamiento seguro de contraseñas | ✅ | **BCrypt costo ≥10 o Argon2id**; sin texto plano | **BCrypt coste 12** (jbcrypt) para todo hash nuevo (registro, cambio, altas, reset, token); verificación de hashes legacy PBKDF2 y **rehash automático a BCrypt en el login correcto** de forma atómica; nunca texto plano en BD ni logs | `HashContrasena.java`; `UsuarioDAO.rehashSiLegacy`; `LoginServlet`; **RUNTIME**: F11/F12/F13/F14/F15 | CÓDIGO + BD + RUNTIME | — (las 19 cuentas demo con hash legacy se eliminaron en la Fase 3 de la auditoría; la única cuenta, `admin@examlen.local`, usa BCrypt `$2a$12` verificado el 2026-10-15) | — | RF-02, RF-05, RF-10 |
 | RNF-02 | Control de acceso por usuario | ✅ | Rol y propiedad validados en servidor; **acceso ajeno → 403** | Rol por prefijo → 403; recurso existente de otro usuario → **403** (`OperacionNoPermitidaException`), inexistente → 404, en curso/banco/pregunta/evaluación/versión/virtual/intento/material/solicitud/documento para docente y estudiante; sin 200 con mensaje de error | `ServletBase.verificarPropiedad`; servlets docente/estudiante; `ErrorServlet` (403); **RUNTIME**: S01–S10 | CÓDIGO + RUNTIME | — | — | RF-01, RNF-03 |
 | RNF-03 | HTTPS, cookies y sesión | ⚠️ | HTTPS; cookie Secure/HttpOnly; sesión 30 min **salvo durante un intento en curso** | `session-timeout 30`; cookie Secure+HttpOnly+SameSite=Strict (verificados); **sesión de examen extendida** a restante+15 min (mín 30 min, tope 24 h) al iniciar/retomar y restaurada a 1800 s al salir; política `EXAMLEN_HTTPS_REQUIRED` que rechaza HTTP sin redirigir (403), `X-Forwarded-Proto` aceptado solo con `EXAMLEN_BEHIND_PROXY=true`, HSTS únicamente sobre HTTPS | `web.xml`; `HeadersSeguridadFiltro.java`; `EstudianteInicioIntentoServlet.sesionDeExamen/sesionNormal`; `EstudianteIntentoServlet`; **RUNTIME**: S14 (HTTP local OK), S15 (403 sin redirección), S16 (XFP tras proxy), S17–S19 (cookies/HSTS) | CÓDIGO + RUNTIME (proxy simulado) | TLS real de despliegue no configurado en este entorno (ngrok/VPS); expiración temporal real de 30 min no esperada en prueba | media | RF-45 |
 | RNF-04 | Seguridad del token de recuperación | ✅ | Token ≥128 bits, hash, 30 min, un solo uso, ≤3/hora, respuesta que no revele el correo | 256 bits SecureRandom, solo hash SHA-256 en BD, 30 min, uso único transaccional `FOR UPDATE`, token nuevo invalida anteriores, límite 3/hora sobre `token_recuperacion`, misma respuesta externa exista o no el correo (también con SMTP caído y con límite superado) | `TokenRecuperacion.java`; `TokenRecuperacionDAO.java`; `RecuperarContrasenaServlet.java`; **RUNTIME**: F31–F39 | CÓDIGO + BD + RUNTIME | — | — | RF-11 |
