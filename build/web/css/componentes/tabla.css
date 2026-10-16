@@ -1,7 +1,7 @@
 /* ============================================================
    Componente: tablas
    ============================================================ */
-.tabla-contenedor { overflow-x: auto; border-radius: var(--radio-sm); border: 1px solid var(--borde); }
+.tabla-contenedor { position: relative; overflow-x: auto; border-radius: var(--radio-sm); border: 1px solid var(--borde); }
 .tabla { width: 100%; border-collapse: collapse; font-size: .9375rem; }
 .tabla th, .tabla td { padding: .8rem .9rem; text-align: left; border-bottom: 1px solid var(--borde); vertical-align: middle; }
 .tabla th {
