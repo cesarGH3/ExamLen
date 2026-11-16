@@ -25,7 +25,7 @@ public class InscripcionDAO extends DaoBase {
         if (grupo.estadoGrupo != EstadoGrupo.ABIERTO) {
             throw new ValidacionException("Este grupo está cerrado y no admite inscripciones.");
         }
-        Optional<Inscripcion> previa = buscarPorGrupoYEstudiante(grupo.getIdGrupo(), estudiante.getIdUsuario());
+        Optional<Inscripcion> previa = buscarPorGrupoYEstudiante(grupo.consultarIdGrupo(), estudiante.consultarIdUsuario());
         if (previa.isPresent()) {
             throw new ValidacionException(previa.get().estadoInscripcion == EstadoInscripcion.ACTIVA
                     ? "Ya perteneces a este grupo."
@@ -39,10 +39,10 @@ public class InscripcionDAO extends DaoBase {
         try {
             int id = insertar("INSERT INTO inscripcion (id_grupo, id_estudiante, estado) "
                     + "VALUES (?, ?, 'ACTIVA')", ps -> {
-                ps.setInt(1, grupo.getIdGrupo());
-                ps.setInt(2, estudiante.getIdUsuario());
+                ps.setInt(1, grupo.consultarIdGrupo());
+                ps.setInt(2, estudiante.consultarIdUsuario());
             });
-            inscripcion.setIdInscripcion(id);
+            inscripcion.establecerIdInscripcion(id);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("Ya perteneces a este grupo.");
         }
@@ -55,7 +55,7 @@ public class InscripcionDAO extends DaoBase {
     public void eliminarInscripcion(Inscripcion inscripcion) throws ValidacionException {
         exigirGrupoAbierto(inscripcion);
         actualizar("DELETE FROM inscripcion WHERE id_inscripcion = ?",
-                ps -> ps.setInt(1, inscripcion.getIdInscripcion()));
+                ps -> ps.setInt(1, inscripcion.consultarIdInscripcion()));
     }
 
     public void retirarInscripcion(Inscripcion inscripcion) throws ValidacionException {
@@ -64,7 +64,7 @@ public class InscripcionDAO extends DaoBase {
             throw new ValidacionException("Esta inscripción ya estaba retirada.");
         }
         actualizar("UPDATE inscripcion SET estado = 'RETIRADA' WHERE id_inscripcion = ?",
-                ps -> ps.setInt(1, inscripcion.getIdInscripcion()));
+                ps -> ps.setInt(1, inscripcion.consultarIdInscripcion()));
         inscripcion.estadoInscripcion = EstadoInscripcion.RETIRADA;
     }
 
@@ -74,7 +74,7 @@ public class InscripcionDAO extends DaoBase {
             throw new ValidacionException("El estudiante ya está activo en el grupo.");
         }
         actualizar("UPDATE inscripcion SET estado = 'ACTIVA' WHERE id_inscripcion = ?",
-                ps -> ps.setInt(1, inscripcion.getIdInscripcion()));
+                ps -> ps.setInt(1, inscripcion.consultarIdInscripcion()));
         inscripcion.estadoInscripcion = EstadoInscripcion.ACTIVA;
     }
 

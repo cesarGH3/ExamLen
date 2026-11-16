@@ -28,7 +28,7 @@ public class DocentePreguntasServlet extends ServletBase {
         CriteriosBusquedaPregunta criterios = DocenteBancoServlet.criteriosDe(req, idBanco > 0 ? idBanco : null);
 
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Pregunta p : preguntaDAO.buscarDeDocente(docente.getIdUsuario(), criterios)) {
+        for (Pregunta p : preguntaDAO.buscarDeDocente(docente.consultarIdUsuario(), criterios)) {
             Map<String, String> fila = DocenteBancoServlet.filaPregunta(p);
             fila.put("url", ruta(req, fila.get("url")));
             filas.add(fila);
@@ -39,7 +39,7 @@ public class DocentePreguntasServlet extends ServletBase {
         datos.put("filasPreguntas", componerFilas("_fila-pregunta.html", filas,
                 filaVacia("7", criterios.hayFiltros()
                         ? "Ninguna pregunta coincide con la búsqueda."
-                        : "Todavía no has creado preguntas. Empieza por un banco.")));
+                        : "Todavía no has creado preguntas. Crea una pregunta dentro de una evaluación.")));
         Map<String, String> busqueda = new HashMap<>();
         busqueda.put("destino", ruta(req, RUTA));
         busqueda.put("bancoFijo", "");
@@ -58,12 +58,12 @@ public class DocentePreguntasServlet extends ServletBase {
     }
 
     private String campoBanco(Docente docente, int seleccionado) {
-        StringBuilder opciones = new StringBuilder(Formulario.opcion(vistas, "", "Todos mis bancos",
+        StringBuilder opciones = new StringBuilder(Formulario.opcion(vistas, "", "Todas mis preguntas",
                 seleccionado <= 0));
-        for (BancoPreguntas banco : bancoDAO.listarPorDocente(docente.getIdUsuario())) {
-            opciones.append(Formulario.opcion(vistas, String.valueOf(banco.getIdBancoPreguntas()),
+        for (BancoPreguntas banco : bancoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            opciones.append(Formulario.opcion(vistas, String.valueOf(banco.consultarIdBancoPreguntas()),
                     banco.nombreBancoPreguntas,
-                    seleccionado > 0 && banco.getIdBancoPreguntas() == seleccionado));
+                    seleccionado > 0 && banco.consultarIdBancoPreguntas() == seleccionado));
         }
         return vistas.componer("_campo-banco-filtro.html", Map.of("opcionesBancos", opciones.toString()));
     }

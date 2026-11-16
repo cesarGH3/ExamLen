@@ -36,7 +36,15 @@ public final class InicializadorEsquema {
     private static final String INDICE = CARPETA_MIGRACIONES + "indice.txt";
     private static final String TABLA_CONTROL = "esquema_migracion";
     private static final int FK_ESPERADAS = 47;
-    private static final int MIGRACIONES_ESPERADAS = 17;
+    private static final String MIGRACION_PROPIETARIO = "018_pregunta_propietario_banco_opcional.sql";
+    private static final String MIGRACION_INTENTOS = "019_intentos_evaluacion_virtual.sql";
+    private static final String MIGRACION_RESPUESTAS = "020_politica_respuestas_completas.sql";
+    private static final String MIGRACION_CLAVES_IA = "021_clave_ia_docente.sql";
+    private static volatile boolean esquemaDisponible;
+
+    public static boolean consultarDisponibilidadEsquema() {
+        return esquemaDisponible;
+    }
 
     private static final List<String> TABLAS_ESPERADAS = List.of(
             "administrador", "banco_preguntas", "curso", "curso_material", "docente", "documento_fuente",
@@ -44,7 +52,7 @@ public final class InicializadorEsquema {
             "evento_supervision", "grupo", "inscripcion", "intento", "intento_practica", "material_practica",
             "material_pregunta", "opcion_respuesta", "pregunta", "respuesta", "respuesta_practica",
             "solicitud_generacion", "token_recuperacion", "usuario", "version_evaluacion", "version_opcion",
-            "version_pregunta");
+            "version_pregunta", "clave_ia_docente");
 
     /** Columnas representativas del esquema final (verificacion de baseline). */
     private static final List<String[]> COLUMNAS_CLAVE = List.of(
@@ -68,11 +76,12 @@ public final class InicializadorEsquema {
      * impide el arranque (la verificacion de disponibilidad existente mantiene el 503).
      */
     public static void inicializar(ServletContext contexto) {
+        esquemaDisponible = false;
         try {
             ejecutar(contexto);
         } catch (Exception e) {
             LOG.severe("No fue posible inicializar el esquema automaticamente: " + e.getMessage()
-                    + ". La aplicacion continuara y respondera 503 hasta que MySQL quede disponible.");
+                    + ". La aplicación responderá 503. Corrige el esquema y reinicia para verificarlo antes de operar.");
         }
     }
 
@@ -100,44 +109,221 @@ public final class InicializadorEsquema {
         }
 
         try (Connection c = DriverManager.getConnection(config.urlBase(), config.usuario(), config.contrasena())) {
+            try (PreparedStatement bloqueo = c.prepareStatement("SELECT GET_LOCK(CONCAT(DATABASE(), ':migraciones'), 30)");
+                 ResultSet resultado = bloqueo.executeQuery()) {
+                if (!resultado.next() || resultado.getInt(1) != 1) throw new SQLException("Otra instancia está migrando el esquema.");
+            }
+            List<String> indice = leerIndice(contexto);
+            if (new LinkedHashSet<>(indice).size() != indice.size()
+                    || !indice.contains(MIGRACION_PROPIETARIO)
+                    || !indice.contains(MIGRACION_INTENTOS)
+                    || !indice.contains(MIGRACION_RESPUESTAS)
+                    || !indice.contains(MIGRACION_CLAVES_IA)) {
+                throw new SQLException("A?ndice de migraciones invA?lido.");
+            }
+            for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
             asegurarTablaControl(c);
             List<String> aplicadas = listarAplicadas(c);
-            if (aplicadas.size() >= MIGRACIONES_ESPERADAS) {
-                LOG.info("Esquema ExamLen al dia (" + aplicadas.size() + " migraciones registradas).");
-                return;
+            if (aplicadas.size() > indice.size() || !indice.subList(0, aplicadas.size()).equals(aplicadas)) {
+                throw new SQLException("Registro de migraciones desconocido o discontinuo.");
             }
-
             int funcionales = contarTablasEsperadas(c);
             if (funcionales == 0) {
-                if (contarTablasTotales(c) == 0 && aplicadas.isEmpty()) {
-                    aplicarPendientes(c, contexto, aplicadas);
-                    return;
+                if (!aplicadas.isEmpty() || contarTablasTotales(c) != 1) {
+                    throw new SQLException("La base contiene un estado ajeno o parcial; no se modifica.");
                 }
-                LOG.severe("La base " + config.base() + " contiene tablas ajenas a ExamLen y no puede "
-                        + "inicializarse automaticamente. Revisala manualmente; no se aplico ninguna migracion.");
-                return;
+            } else if (funcionales == TABLAS_ESPERADAS.size() - 1
+                    && aplicadas.contains(MIGRACION_RESPUESTAS)
+                    && !aplicadas.contains(MIGRACION_CLAVES_IA)) {
+                verificarEsquemaPreClaves(c);
+            } else if (funcionales == TABLAS_ESPERADAS.size()) {
+                if (aplicadas.contains(MIGRACION_PROPIETARIO)) {
+                    verificarEsquemaPropietario(c);
+                } else {
+                    verificarEsquemaAnterior(c);
+                    if (aplicadas.isEmpty()) {
+                        List<String> anteriores = indice.subList(0, indice.indexOf(MIGRACION_PROPIETARIO));
+                        registrarBaseline(c, anteriores);
+                        aplicadas = new ArrayList<>(anteriores);
+                    }
+                }
+            } else {
+                throw new SQLException("Esquema parcial; requiere recuperación antes de continuar.");
             }
-
-            if (funcionales == TABLAS_ESPERADAS.size()) {
-                if (!estructuraCoincide(c)) {
-                    LOG.severe("La base " + config.base() + " tiene las 28 tablas de ExamLen pero su estructura no "
-                            + "coincide exactamente con el esquema final (columnas clave o FK distintas). No se "
-                            + "aplico ninguna migracion automatica; revisala manualmente.");
-                    return;
-                }
-                if (aplicadas.isEmpty()) {
-                    registrarBaseline(c, leerIndice(contexto));
-                    LOG.info("Base existente reconocida como esquema final de ExamLen: se registraron "
-                            + MIGRACIONES_ESPERADAS + " migraciones como baseline sin re-ejecutar nada.");
-                    return;
-                }
-                aplicarPendientes(c, contexto, aplicadas);
-                return;
+            aplicarPendientes(c, contexto, aplicadas);
+            verificarEsquemaPropietario(c);
+            if (listarAplicadas(c).contains(MIGRACION_INTENTOS)) {
+                verificarEsquemaIntentos(c);
             }
+            if (listarAplicadas(c).contains(MIGRACION_RESPUESTAS)) {
+                verificarEsquemaRespuestasCompletas(c);
+            }
+            if (listarAplicadas(c).contains(MIGRACION_CLAVES_IA)) {
+                verificarEsquemaClavesIA(c);
+            }
+            esquemaDisponible = true;
+            LOG.info("Esquema verificado y disponible.");
+        }
+    }
 
-            LOG.severe("La base " + config.base() + " esta parcialmente inicializada (" + funcionales + " de "
-                    + TABLAS_ESPERADAS.size() + " tablas de ExamLen). No se aplican migraciones automaticas sobre "
-                    + "estados ambiguos; revisala manualmente.");
+    private static void verificarEsquemaAnterior(Connection conexion) throws SQLException {
+        if (!estructuraCoincide(conexion) || !columnaCoincide(conexion, "id_banco_preguntas", "NO")
+                || columnaExiste(conexion, "id_docente")) {
+            throw new SQLException("No se reconoce el esquema 017 o hay una migración parcial. No se continúa.");
+        }
+    }
+
+    private static boolean columnaExiste(Connection conexion, String columna) throws SQLException {
+        try (PreparedStatement sentencia = conexion.prepareStatement("SELECT 1 FROM information_schema.COLUMNS "
+                + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pregunta' AND COLUMN_NAME = ?")) {
+            sentencia.setString(1, columna);
+            try (ResultSet resultado = sentencia.executeQuery()) { return resultado.next(); }
+        }
+    }
+
+    private static boolean columnaCoincide(Connection conexion, String columna, String permiteNulo) throws SQLException {
+        try (PreparedStatement sentencia = conexion.prepareStatement("SELECT IS_NULLABLE, COLUMN_TYPE FROM information_schema.COLUMNS "
+                + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pregunta' AND COLUMN_NAME = ?")) {
+            sentencia.setString(1, columna);
+            try (ResultSet resultado = sentencia.executeQuery()) {
+                return resultado.next() && permiteNulo.equals(resultado.getString(1)) && "int unsigned".equals(resultado.getString(2));
+            }
+        }
+    }
+
+    private static void verificarDatosPropietario(Connection conexion) throws SQLException {
+        String comprobacion = "SELECT p.id_pregunta FROM pregunta p LEFT JOIN banco_preguntas b "
+                + "ON b.id_banco_preguntas = p.id_banco_preguntas LEFT JOIN docente d ON d.id_usuario = b.id_docente "
+                + "WHERE d.id_usuario IS NULL UNION ALL "
+                + "SELECT p.id_pregunta FROM pregunta p JOIN banco_preguntas b ON b.id_banco_preguntas = p.id_banco_preguntas "
+                + "JOIN evaluacion_pregunta ep ON ep.id_pregunta = p.id_pregunta JOIN evaluacion e ON e.id_evaluacion = ep.id_evaluacion "
+                + "WHERE e.id_docente <> b.id_docente UNION ALL "
+                + "SELECT p.id_pregunta FROM pregunta p JOIN banco_preguntas b ON b.id_banco_preguntas = p.id_banco_preguntas "
+                + "JOIN material_pregunta mp ON mp.id_pregunta = p.id_pregunta JOIN material_practica m ON m.id_material_practica = mp.id_material_practica "
+                + "WHERE m.id_docente <> b.id_docente UNION ALL "
+                + "SELECT p.id_pregunta FROM pregunta p JOIN banco_preguntas b ON b.id_banco_preguntas = p.id_banco_preguntas "
+                + "JOIN version_pregunta vp ON vp.id_pregunta = p.id_pregunta JOIN version_evaluacion v ON v.id_version_evaluacion = vp.id_version_evaluacion "
+                + "JOIN evaluacion e ON e.id_evaluacion = v.id_evaluacion WHERE e.id_docente <> b.id_docente UNION ALL "
+                + "SELECT p.id_pregunta FROM pregunta p JOIN banco_preguntas b ON b.id_banco_preguntas = p.id_banco_preguntas "
+                + "JOIN solicitud_generacion sg ON sg.id_solicitud_generacion = p.id_solicitud_generacion "
+                + "WHERE sg.id_docente <> b.id_docente LIMIT 1";
+        try (Statement sentencia = conexion.createStatement(); ResultSet resultado = sentencia.executeQuery(comprobacion)) {
+            if (resultado.next()) throw new SQLException("Propietarios o asociaciones inconsistentes. No se aplica 018.");
+        }
+    }
+
+    private static void verificarEsquemaPropietario(Connection conexion) throws SQLException {
+        if (contarTablasEsperadas(conexion) != TABLAS_ESPERADAS.size()
+                || !columnaCoincide(conexion, "id_docente", "NO") || !columnaCoincide(conexion, "id_banco_preguntas", "YES")) {
+            throw new SQLException("Esquema 018 incompleto.");
+        }
+        try (Statement sentencia = conexion.createStatement(); ResultSet resultado = sentencia.executeQuery(
+                "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE CONSTRAINT_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = 'pregunta' AND ((CONSTRAINT_NAME = 'fk_pregunta_docente' AND COLUMN_NAME = 'id_docente' "
+                + "AND REFERENCED_TABLE_NAME = 'docente' AND REFERENCED_COLUMN_NAME = 'id_usuario') "
+                + "OR (CONSTRAINT_NAME = 'fk_pregunta_banco_docente' AND REFERENCED_TABLE_NAME = 'banco_preguntas' "
+                + "AND COLUMN_NAME = REFERENCED_COLUMN_NAME AND COLUMN_NAME IN ('id_banco_preguntas','id_docente')))")) {
+            if (!resultado.next() || resultado.getInt(1) != 3) throw new SQLException("Restricciones de propiedad incompletas.");
+        }
+    }
+
+    private static void verificarDatosIntentos(Connection conexion) throws SQLException {
+        exigirSinFilas(conexion, "SELECT id_evaluacion_virtual, id_inscripcion FROM intento "
+                + "GROUP BY id_evaluacion_virtual, id_inscripcion HAVING COUNT(*) > 1 LIMIT 1",
+                "Hay intentos historicos duplicados para la misma evaluacion e inscripcion.");
+        exigirSinFilas(conexion, "SELECT id_intento FROM intento WHERE id_evaluacion_virtual IS NULL "
+                + "OR id_inscripcion IS NULL LIMIT 1",
+                "Hay intentos sin evaluacion virtual o sin inscripcion.");
+        exigirSinFilas(conexion, "SELECT i.id_intento FROM intento i "
+                + "JOIN evaluacion_virtual ev ON ev.id_evaluacion_virtual = i.id_evaluacion_virtual "
+                + "JOIN inscripcion n ON n.id_inscripcion = i.id_inscripcion "
+                + "WHERE n.id_grupo <> ev.id_grupo LIMIT 1",
+                "Hay intentos cuya inscripcion no pertenece al grupo de la evaluacion virtual.");
+    }
+
+    private static void verificarEsquemaIntentos(Connection conexion) throws SQLException {
+        if (!columnaTipo(conexion, "evaluacion_virtual", "intentos_permitidos", "tinyint unsigned", "NO")
+                || !columnaTipo(conexion, "intento", "numero_intento", "tinyint unsigned", "NO")) {
+            throw new SQLException("Faltan las columnas de intentos de la migracion 019.");
+        }
+        if (contarFilas(conexion, "SELECT COUNT(*) FROM evaluacion_virtual "
+                + "WHERE intentos_permitidos NOT IN (1, 2)") != 0
+                || contarFilas(conexion, "SELECT COUNT(*) FROM intento "
+                + "WHERE numero_intento NOT IN (1, 2)") != 0) {
+            throw new SQLException("Hay valores invalidos de intentos permitidos o numero de intento.");
+        }
+        String indice = cadena(conexion, "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) "
+                + "FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = 'intento' "
+                + "AND INDEX_NAME = 'uk_intento_virtual_inscripcion_numero' AND NON_UNIQUE = 0");
+        if (!"id_evaluacion_virtual,id_inscripcion,numero_intento".equals(indice)) {
+            throw new SQLException("La clave unica compuesta de intentos no esta completa.");
+        }
+    }
+
+    private static void verificarEsquemaRespuestasCompletas(Connection conexion) throws SQLException {
+        if (!columnaTipo(conexion, "evaluacion_virtual", "exigir_respuestas_completas",
+                "tinyint(1)", "NO")) {
+            throw new SQLException("Falta la columna de politica de respuestas completas (020).");
+        }
+        if (contarFilas(conexion, "SELECT COUNT(*) FROM evaluacion_virtual "
+                + "WHERE exigir_respuestas_completas NOT IN (0, 1)") != 0) {
+            throw new SQLException("Hay valores invalidos en exigir_respuestas_completas.");
+        }
+    }
+
+    private static void verificarEsquemaPreClaves(Connection conexion) throws SQLException {
+        if (contarTablasEsperadas(conexion) != TABLAS_ESPERADAS.size() - 1) {
+            throw new SQLException("El esquema 020 no contiene las tablas esperadas antes de la migracion 021.");
+        }
+        verificarEsquemaIntentos(conexion);
+        verificarEsquemaRespuestasCompletas(conexion);
+    }
+
+    private static void verificarEsquemaClavesIA(Connection conexion) throws SQLException {
+        String columnas = cadena(conexion,
+                "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) "
+                + "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = 'clave_ia_docente'");
+        if (!"id_docente,proveedor,clave_cifrada,fecha_actualizacion".equals(columnas)) {
+            throw new SQLException("La tabla de claves de IA no tiene la estructura esperada (021).");
+        }
+    }
+
+    private static boolean columnaTipo(Connection conexion, String tabla, String columna,
+                                       String tipo, String permiteNulo) throws SQLException {
+        try (PreparedStatement sentencia = conexion.prepareStatement(
+                "SELECT IS_NULLABLE, COLUMN_TYPE FROM information_schema.COLUMNS "
+                + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?")) {
+            sentencia.setString(1, tabla);
+            sentencia.setString(2, columna);
+            try (ResultSet resultado = sentencia.executeQuery()) {
+                return resultado.next() && permiteNulo.equals(resultado.getString(1))
+                        && tipo.equalsIgnoreCase(resultado.getString(2));
+            }
+        }
+    }
+
+    private static int contarFilas(Connection conexion, String sql) throws SQLException {
+        try (Statement sentencia = conexion.createStatement();
+             ResultSet resultado = sentencia.executeQuery(sql)) {
+            return resultado.next() ? resultado.getInt(1) : 0;
+        }
+    }
+
+    private static String cadena(Connection conexion, String sql) throws SQLException {
+        try (Statement sentencia = conexion.createStatement();
+             ResultSet resultado = sentencia.executeQuery(sql)) {
+            return resultado.next() ? resultado.getString(1) : null;
+        }
+    }
+
+    private static void exigirSinFilas(Connection conexion, String sql, String mensaje) throws SQLException {
+        try (Statement sentencia = conexion.createStatement();
+             ResultSet resultado = sentencia.executeQuery(sql)) {
+            if (resultado.next()) {
+                throw new SQLException(mensaje);
+            }
         }
     }
 
@@ -199,11 +385,30 @@ public final class InicializadorEsquema {
         }
         LOG.info("Aplicando " + pendientes.size() + " migracion(es) pendiente(s)...");
         for (String nombre : pendientes) {
+            if (MIGRACION_PROPIETARIO.equals(nombre)) {
+                verificarEsquemaAnterior(c);
+                verificarDatosPropietario(c);
+            }
+            if (MIGRACION_INTENTOS.equals(nombre)) {
+                verificarEsquemaPropietario(c);
+                verificarDatosIntentos(c);
+            }
+            if (MIGRACION_RESPUESTAS.equals(nombre)) {
+                verificarEsquemaIntentos(c);
+            }
             String sql = leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
             sql = USE_HARDCODEADO.matcher(sql).replaceAll("");
             try (Statement st = c.createStatement()) {
-                st.execute(sql);
+                boolean resultado = st.execute(sql);
+                while (true) {
+                    if (resultado) { try (ResultSet filas = st.getResultSet()) { while (filas.next()) { /* consumir */ } } }
+                    else if (st.getUpdateCount() == -1) break;
+                    resultado = st.getMoreResults();
+                }
             }
+            if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
+            if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
+            if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO " + TABLA_CONTROL + " (nombre) VALUES (?)")) {
                 ps.setString(1, nombre);

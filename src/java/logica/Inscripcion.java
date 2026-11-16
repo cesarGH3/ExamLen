@@ -16,11 +16,11 @@ public class Inscripcion {
         intentosInscripcion = new ArrayList<>();
     }
 
-    public int getIdInscripcion() {
+    public int consultarIdInscripcion() {
         return idInscripcion;
     }
 
-    public void setIdInscripcion(int idInscripcion) {
+    public void establecerIdInscripcion(int idInscripcion) {
         this.idInscripcion = idInscripcion;
     }
 }

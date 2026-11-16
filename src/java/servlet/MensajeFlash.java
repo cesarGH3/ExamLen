@@ -16,7 +16,7 @@ public final class MensajeFlash implements Serializable {
             this.claseCss = claseCss;
         }
 
-        public String getClaseCss() {
+        public String consultarClaseCss() {
             return claseCss;
         }
     }
@@ -29,6 +29,6 @@ public final class MensajeFlash implements Serializable {
         this.texto = texto;
     }
 
-    public Tipo getTipo() { return tipo; }
-    public String getTexto() { return texto; }
+    public Tipo consultarTipo() { return tipo; }
+    public String consultarTexto() { return texto; }
 }

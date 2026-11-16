@@ -13,11 +13,11 @@ public class BancoPreguntas {
         preguntasBancoPregunta = new ArrayList<>();
     }
 
-    public int getIdBancoPreguntas() {
+    public int consultarIdBancoPreguntas() {
         return idBancoPreguntas;
     }
 
-    public void setIdBancoPreguntas(int idBancoPreguntas) {
+    public void establecerIdBancoPreguntas(int idBancoPreguntas) {
         this.idBancoPreguntas = idBancoPreguntas;
     }
 }

@@ -87,7 +87,7 @@ public class ApiPreguntasServlet extends HttpServlet {
                 continue;
             }
             JsonObject objeto = new JsonObject();
-            objeto.addProperty("id", pregunta.getIdPregunta());
+            objeto.addProperty("id", pregunta.consultarIdPregunta());
             objeto.addProperty("enunciado", pregunta.enunciadoPregunta);
             objeto.addProperty("tipo", pregunta.tipoPregunta == null ? null : pregunta.tipoPregunta.name());
             objeto.addProperty("nivel", pregunta.nivelPregunta == null ? null : pregunta.nivelPregunta.name());
@@ -98,9 +98,9 @@ public class ApiPreguntasServlet extends HttpServlet {
             objeto.addProperty("tema", pregunta.temaPregunta);
             objeto.addProperty("respuestaEsperada", pregunta.respuestaEsperadaPregunta);
             JsonArray opciones = new JsonArray();
-            for (OpcionRespuesta opcion : opcionDAO.listarPorPregunta(pregunta.getIdPregunta())) {
+            for (OpcionRespuesta opcion : opcionDAO.listarPorPregunta(pregunta.consultarIdPregunta())) {
                 JsonObject opcionJson = new JsonObject();
-                opcionJson.addProperty("id", opcion.getIdOpcionRespuesta());
+                opcionJson.addProperty("id", opcion.consultarIdOpcionRespuesta());
                 opcionJson.addProperty("texto", opcion.textoOpcionRespuesta);
                 opcionJson.addProperty("esCorrecta", opcion.esCorrectaOpcionRespuesta);
                 opciones.add(opcionJson);
@@ -110,6 +110,6 @@ public class ApiPreguntasServlet extends HttpServlet {
         }
         JsonObject cuerpo = new JsonObject();
         cuerpo.add("preguntas", lista);
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 }

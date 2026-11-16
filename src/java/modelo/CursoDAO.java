@@ -28,12 +28,12 @@ public class CursoDAO extends DaoBase {
         try {
             int id = insertar("INSERT INTO curso (id_docente, nombre, descripcion, nivel, activo) "
                     + "VALUES (?, ?, ?, ?, TRUE)", ps -> {
-                ps.setInt(1, docente.getIdUsuario());
+                ps.setInt(1, docente.consultarIdUsuario());
                 ps.setString(2, nombre);
                 ps.setString(3, descripcion);
                 ps.setString(4, nivel.name());
             });
-            curso.setIdCurso(id);
+            curso.establecerIdCurso(id);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("Ya tienes un curso con ese nombre.");
         }
@@ -45,7 +45,7 @@ public class CursoDAO extends DaoBase {
             actualizar("UPDATE curso SET nombre = ?, descripcion = ? WHERE id_curso = ?", ps -> {
                 ps.setString(1, nombre);
                 ps.setString(2, descripcion);
-                ps.setInt(3, curso.getIdCurso());
+                ps.setInt(3, curso.consultarIdCurso());
             });
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("Ya tienes un curso con ese nombre.");
@@ -58,7 +58,7 @@ public class CursoDAO extends DaoBase {
         if (curso.activoCurso) {
             throw new ValidacionException("El curso ya está activo.");
         }
-        actualizar("UPDATE curso SET activo = TRUE WHERE id_curso = ?", ps -> ps.setInt(1, curso.getIdCurso()));
+        actualizar("UPDATE curso SET activo = TRUE WHERE id_curso = ?", ps -> ps.setInt(1, curso.consultarIdCurso()));
         curso.activoCurso = true;
     }
 
@@ -70,7 +70,7 @@ public class CursoDAO extends DaoBase {
         if (!curso.activoCurso) {
             throw new ValidacionException("El curso ya está inactivo.");
         }
-        actualizar("UPDATE curso SET activo = FALSE WHERE id_curso = ?", ps -> ps.setInt(1, curso.getIdCurso()));
+        actualizar("UPDATE curso SET activo = FALSE WHERE id_curso = ?", ps -> ps.setInt(1, curso.consultarIdCurso()));
         curso.activoCurso = false;
     }
 

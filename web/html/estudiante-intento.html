@@ -15,16 +15,18 @@
 <body>
 {{{nav}}}
 <main class="contenido contenido-medio">
+    {{{mensajes}}}
     <div class="encabezado">
         <div>
             <h1>{{titulo}}</h1>
-            <p class="meta">Versión {{version}} · Tus respuestas se guardan automáticamente.</p>
+            <p class="meta">Intento {{numero}} · Versión {{version}} · Tus respuestas se guardan automáticamente.</p>
         </div>
         <p class="temporizador" id="temporizador" data-segundos="{{segundos}}" aria-live="polite">--:--</p>
     </div>
     <p class="ayuda" id="aviso-tiempo" hidden>El tiempo del intento terminó: tus respuestas guardadas quedaron
         registradas y el intento se cerró. Esta página ya no admite cambios.</p>
     <p class="ayuda" id="estado-guardado" aria-live="polite"></p>
+    {{{avisoEnvio}}}
     <form method="post" action="{{ctx}}/app/estudiante/intento" id="form-examen"
           data-supervision="{{supervision}}"
           data-url-guardar="{{ctx}}/app/estudiante/intento"

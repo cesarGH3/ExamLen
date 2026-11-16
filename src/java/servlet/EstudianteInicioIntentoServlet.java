@@ -40,18 +40,27 @@ public class EstudianteInicioIntentoServlet extends ServletBase {
             redirigir(req, resp, RUTA_EVALUACIONES);
             return;
         }
-        Intento existente = intentoDAO.buscarPorEvaluacionEInscripcion(
-                virtual.getIdEvaluacionVirtual(), inscripcion.getIdInscripcion()).orElse(null);
-        if (existente != null && existente.estadoIntento == EstadoIntento.EN_CURSO) {
-            redirigir(req, resp, RUTA_INTENTO + "?id=" + existente.getIdIntento());
-            return;
+        List<Intento> intentos = intentoDAO.listarPorEvaluacionEInscripcion(
+                virtual.consultarIdEvaluacionVirtual(), inscripcion.consultarIdInscripcion());
+        Intento existente = null;
+        for (Intento intento : intentos) {
+            if (intento.estadoIntento == EstadoIntento.EN_CURSO) {
+                existente = intento;
+                break;
+            }
         }
         if (existente != null) {
-            agregarMensaje(req, MensajeFlash.Tipo.ERROR, "Ya presentaste esta evaluación.");
+            redirigir(req, resp, RUTA_INTENTO + "?id=" + existente.consultarIdIntento());
+            return;
+        }
+        int intentosPermitidos = virtual.consultarIntentosPermitidos();
+        if (intentos.size() >= intentosPermitidos) {
+            agregarMensaje(req, MensajeFlash.Tipo.ERROR,
+                    "Ya usaste los " + intentosPermitidos + " intentos permitidos para esta evaluación.");
             redirigir(req, resp, RUTA_EVALUACIONES);
             return;
         }
-        if (!virtualDAO.disponibleAhora(virtual.getIdEvaluacionVirtual())) {
+        if (!virtualDAO.disponibleAhora(virtual.consultarIdEvaluacionVirtual())) {
             agregarMensaje(req, MensajeFlash.Tipo.ERROR, "La evaluación no está disponible en este momento.");
             redirigir(req, resp, RUTA_EVALUACIONES);
             return;
@@ -65,9 +74,20 @@ public class EstudianteInicioIntentoServlet extends ServletBase {
         datos.put("descripcion", evaluacion.descripcionEvaluacion == null ? "" : evaluacion.descripcionEvaluacion);
         datos.put("duracion", String.valueOf(evaluacion.duracionMinutosEvaluacion));
         datos.put("preguntas", String.valueOf(evaluacion.numeroPreguntasEvaluacion));
-        datos.put("idVirtual", String.valueOf(virtual.getIdEvaluacionVirtual()));
-        datos.put("idInscripcion", String.valueOf(inscripcion.getIdInscripcion()));
+        datos.put("idVirtual", String.valueOf(virtual.consultarIdEvaluacionVirtual()));
+        datos.put("idInscripcion", String.valueOf(inscripcion.consultarIdInscripcion()));
+        int siguienteIntento = 1;
+        for (Intento previo : intentos) {
+            siguienteIntento = Math.max(siguienteIntento, previo.consultarNumeroIntento() + 1);
+        }
+        datos.put("intentosUsados", String.valueOf(intentos.size()));
+        datos.put("intentosPermitidos", String.valueOf(intentosPermitidos));
+        datos.put("numeroIntento", String.valueOf(siguienteIntento));
         datos.put("destino", ruta(req, RUTA));
+        datos.put("avisoEnvio", virtual.consultarExigirRespuestasCompletas()
+                ? Html.alerta(vistas, "alerta-info", "Para enviar esta evaluación manualmente deberás "
+                        + "responder todas las preguntas. Si se vence el tiempo, se enviará automáticamente.")
+                : "");
         if (virtual.supervisionActivaEvaluacionVirtual) {
             datos.put("avisoSupervision", Html.alertaConLista(vistas, "alerta-info",
                     "Durante este examen se registran, con fecha y hora, estos indicadores:",
@@ -90,42 +110,19 @@ public class EstudianteInicioIntentoServlet extends ServletBase {
             int idVirtual = parametroId(req, "idVirtual");
             int idInscripcion = parametroId(req, "idInscripcion");
             Inscripcion inscripcion = inscripcionDAO
-                    .buscarPorIdDeEstudiante(idInscripcion, estudiante.getIdUsuario())
+                    .buscarPorIdDeEstudiante(idInscripcion, estudiante.consultarIdUsuario())
                     .orElseThrow(() -> new RecursoNoEncontradoException("Inscripción no encontrada"));
             EvaluacionVirtual virtual = virtualDAO.buscarPorId(idVirtual)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Evaluación no encontrada"));
-            if (virtualDAO.idGrupoDeVirtual(idVirtual) != inscripcion.grupoInscripcion.getIdGrupo()) {
+            if (virtualDAO.idGrupoDeVirtual(idVirtual) != inscripcion.grupoInscripcion.consultarIdGrupo()) {
                 throw new RecursoNoEncontradoException("Evaluación no encontrada");
             }
-            if (!virtualDAO.disponibleAhora(idVirtual)) {
-                throw new ValidacionException("La evaluación no está disponible en este momento.");
-            }
-            if (intentoDAO.buscarPorEvaluacionEInscripcion(idVirtual, idInscripcion).isPresent()) {
-                throw new ValidacionException("Ya presentaste esta evaluación.");
-            }
             List<VersionEvaluacion> versiones = virtualDAO.listarVersiones(idVirtual);
-            if (versiones.isEmpty()) {
-                throw new ValidacionException("La evaluación no tiene versiones configuradas. Avísale a tu docente.");
-            }
-            VersionEvaluacion elegida = versiones.get(0);
-            int minimo = Integer.MAX_VALUE;
-            for (VersionEvaluacion version : versiones) {
-                int usos = intentoDAO.contarPorVersion(idVirtual, version.getIdVersionEvaluacion());
-                if (usos < minimo) {
-                    minimo = usos;
-                    elegida = version;
-                }
-            }
-            Intento intento;
-            try {
-                intento = intentoDAO.crearIntento(virtual, inscripcion, elegida);
-            } catch (RegistroDuplicadoException e) {
-                throw new ValidacionException("Ya presentaste esta evaluación.");
-            }
-            sesionDeExamen(req, intentoDAO.segundosRestantes(intento.getIdIntento()));
-            redirigir(req, resp, RUTA_INTENTO + "?id=" + intento.getIdIntento());
+            Intento intento = intentoDAO.iniciarIntento(virtual, inscripcion, versiones);
+            sesionDeExamen(req, intentoDAO.segundosRestantes(intento.consultarIdIntento()));
+            redirigir(req, resp, RUTA_INTENTO + "?id=" + intento.consultarIdIntento());
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             redirigir(req, resp, RUTA_EVALUACIONES);
         }
     }
@@ -145,9 +142,9 @@ public class EstudianteInicioIntentoServlet extends ServletBase {
     }
 
     private Inscripcion inscripcionDe(Estudiante estudiante, EvaluacionVirtual virtual) {
-        int idGrupo = virtualDAO.idGrupoDeVirtual(virtual.getIdEvaluacionVirtual());
-        for (Inscripcion inscripcion : inscripcionDAO.listarActivasPorEstudiante(estudiante.getIdUsuario())) {
-            if (inscripcion.grupoInscripcion.getIdGrupo() == idGrupo) {
+        int idGrupo = virtualDAO.idGrupoDeVirtual(virtual.consultarIdEvaluacionVirtual());
+        for (Inscripcion inscripcion : inscripcionDAO.listarActivasPorEstudiante(estudiante.consultarIdUsuario())) {
+            if (inscripcion.grupoInscripcion.consultarIdGrupo() == idGrupo) {
                 return inscripcion;
             }
         }

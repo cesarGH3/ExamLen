@@ -31,19 +31,19 @@ public final class Html {
     }
 
     public static String listaErrores(Vistas vistas, List<String> errores) {
-        StringBuilder items = new StringBuilder();
+        StringBuilder elementos = new StringBuilder();
         for (String error : errores) {
-            items.append(vistas.componer("_item-alerta.html", Map.of("texto", error)));
+            elementos.append(vistas.componer("_item-alerta.html", Map.of("texto", error)));
         }
-        return vistas.componer("_lista-errores.html", Map.of("items", items.toString()));
+        return vistas.componer("_lista-errores.html", Map.of("elementos", elementos.toString()));
     }
 
     public static String mensajesFlash(Vistas vistas, List<MensajeFlash> mensajes) {
         StringBuilder sb = new StringBuilder();
         for (MensajeFlash m : mensajes) {
             Map<String, String> datos = new HashMap<>();
-            datos.put("clase", m.getTipo().getClaseCss());
-            datos.put("texto", m.getTexto());
+            datos.put("clase", m.consultarTipo().consultarClaseCss());
+            datos.put("texto", m.consultarTexto());
             sb.append(vistas.componer("_alerta.html", datos));
         }
         return sb.toString();
@@ -51,14 +51,14 @@ public final class Html {
 
     /** Alerta con un título y una lista de puntos. */
     public static String alertaConLista(Vistas vistas, String claseCss, String titulo, List<String> puntos) {
-        StringBuilder items = new StringBuilder();
+        StringBuilder elementos = new StringBuilder();
         for (String punto : puntos) {
-            items.append(vistas.componer("_item-alerta.html", Map.of("texto", punto)));
+            elementos.append(vistas.componer("_item-alerta.html", Map.of("texto", punto)));
         }
         Map<String, String> datos = new HashMap<>();
         datos.put("clase", claseCss);
         datos.put("titulo", titulo);
-        datos.put("items", items.toString());
+        datos.put("elementos", elementos.toString());
         return vistas.componer("_alerta-lista.html", datos);
     }
 

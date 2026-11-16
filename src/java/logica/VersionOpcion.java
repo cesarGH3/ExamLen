@@ -7,11 +7,11 @@ public class VersionOpcion {
     public boolean esCorrectaVersionOpcion;
     public int ordenVersionOpcion;
 
-    public int getIdVersionOpcion() {
+    public int consultarIdVersionOpcion() {
         return idVersionOpcion;
     }
 
-    public void setIdVersionOpcion(int idVersionOpcion) {
+    public void establecerIdVersionOpcion(int idVersionOpcion) {
         this.idVersionOpcion = idVersionOpcion;
     }
 }

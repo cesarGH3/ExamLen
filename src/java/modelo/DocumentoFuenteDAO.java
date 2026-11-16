@@ -29,12 +29,12 @@ public class DocumentoFuenteDAO extends DaoBase {
         documento.fechaCargaDocumentoFuente = Fechas.ahora();
         int id = insertar("INSERT INTO documento_fuente (id_docente, nombre_archivo, "
                 + "tipo_archivo, ruta_almacenamiento) VALUES (?, ?, ?, ?)", ps -> {
-            ps.setInt(1, docente.getIdUsuario());
+            ps.setInt(1, docente.consultarIdUsuario());
             ps.setString(2, nombreArchivo);
             ps.setString(3, tipoArchivo);
             ps.setString(4, rutaAlmacenamiento);
         });
-        documento.setIdDocumentoFuente(id);
+        documento.establecerIdDocumentoFuente(id);
         return documento;
     }
 
@@ -53,7 +53,7 @@ public class DocumentoFuenteDAO extends DaoBase {
 
     public void eliminar(DocumentoFuente documento) {
         actualizar("DELETE FROM documento_fuente WHERE id_documento_fuente = ?",
-                ps -> ps.setInt(1, documento.getIdDocumentoFuente()));
+                ps -> ps.setInt(1, documento.consultarIdDocumentoFuente()));
     }
 
     /** Resultado de intentar eliminar un documento fuente. */
@@ -97,7 +97,7 @@ public class DocumentoFuenteDAO extends DaoBase {
 
     private DocumentoFuente mapear(ResultSet rs) throws SQLException {
         DocumentoFuente documento = new DocumentoFuente();
-        documento.setIdDocumentoFuente(rs.getInt("id_documento_fuente"));
+        documento.establecerIdDocumentoFuente(rs.getInt("id_documento_fuente"));
         documento.nombreArchivoDocumentoFuente = rs.getString("nombre_archivo");
         documento.tipoArchivoDocumentoFuente = rs.getString("tipo_archivo");
         documento.rutaAlmacenamientoDocumentoFuente = rs.getString("ruta_almacenamiento");

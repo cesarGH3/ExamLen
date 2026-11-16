@@ -29,7 +29,7 @@ public final class FabricaGemini implements ProveedorIAFabrica {
     }
 
     @Override
-    public ProveedorIA crear(String modelo) {
-        return new ClienteGemini(modelo);
+    public ProveedorIA crear(String modelo, String clave) {
+        return new ClienteGemini(modelo, clave);
     }
 }

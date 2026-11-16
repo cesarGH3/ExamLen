@@ -50,10 +50,10 @@ public class DocenteCursoServlet extends ServletBase {
         List<Map<String, String>> filas = new ArrayList<>();
         for (Grupo grupo : grupoDAO.listarPorCurso(idCurso)) {
             Map<String, String> fila = new HashMap<>();
-            fila.put("url", ruta(req, "/app/docente/grupo?id=" + grupo.getIdGrupo()));
+            fila.put("url", ruta(req, "/app/docente/grupo?id=" + grupo.consultarIdGrupo()));
             fila.put("nombre", grupo.nombreGrupo);
             fila.put("periodo", grupo.periodoGrupo);
-            fila.put("inscritos", String.valueOf(inscripcionDAO.contarActivosPorGrupo(grupo.getIdGrupo())));
+            fila.put("inscritos", String.valueOf(inscripcionDAO.contarActivosPorGrupo(grupo.consultarIdGrupo())));
             fila.put("estado", Etiquetas.de(grupo.estadoGrupo));
             fila.put("claseEstado", grupo.estadoGrupo == logica.EstadoGrupo.ABIERTO ? "insignia-activo" : "insignia-neutra");
             filas.add(fila);
@@ -146,9 +146,9 @@ public class DocenteCursoServlet extends ServletBase {
                     Curso curso = cursoDelDocente(docente, idCurso);
                     Grupo grupo = grupoDAO.abrirGrupo(curso, nombre, periodo);
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Grupo abierto. Comparte el código de acceso con tus estudiantes.");
-                    redirigir(req, resp, "/app/docente/grupo?id=" + grupo.getIdGrupo());
+                    redirigir(req, resp, "/app/docente/grupo?id=" + grupo.consultarIdGrupo());
                 } catch (ValidacionException e) {
-                    agregarErrores(req, e.getErrores());
+                    agregarErrores(req, e.consultarErrores());
                     guardarFormulario(req, Map.of("grupoNombre", nombre, "grupoPeriodo", periodo));
                     redirigir(req, resp, destino);
                 }
@@ -160,7 +160,7 @@ public class DocenteCursoServlet extends ServletBase {
     }
 
     private Curso cursoDelDocente(Docente docente, int idCurso) {
-        java.util.Optional<Curso> propio = cursoDAO.buscarPorIdDeDocente(idCurso, docente.getIdUsuario());
+        java.util.Optional<Curso> propio = cursoDAO.buscarPorIdDeDocente(idCurso, docente.consultarIdUsuario());
         verificarPropiedad(propio.isPresent(), cursoDAO.buscarPorId(idCurso).isPresent(), "Curso no encontrado");
         return propio.get();
     }

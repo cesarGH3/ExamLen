@@ -6,11 +6,11 @@ public class OpcionRespuesta {
     public String textoOpcionRespuesta;
     public boolean esCorrectaOpcionRespuesta;
 
-    public int getIdOpcionRespuesta() {
+    public int consultarIdOpcionRespuesta() {
         return idOpcionRespuesta;
     }
 
-    public void setIdOpcionRespuesta(int idOpcionRespuesta) {
+    public void establecerIdOpcionRespuesta(int idOpcionRespuesta) {
         this.idOpcionRespuesta = idOpcionRespuesta;
     }
 }

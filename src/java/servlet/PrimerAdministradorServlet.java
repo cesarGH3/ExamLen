@@ -68,7 +68,7 @@ public class PrimerAdministradorServlet extends ServletBase {
                     "Administrador creado. Inicia sesión con tu correo o identificación.");
             redirigir(req, resp, "/login");
         } catch (ValidacionException e) {
-            mostrar(req, resp, identificacion, nombre, correo, e.getErrores());
+            mostrar(req, resp, identificacion, nombre, correo, e.consultarErrores());
         }
     }
 

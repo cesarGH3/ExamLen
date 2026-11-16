@@ -2,6 +2,7 @@ package servlet;
 
 import conexion.Conexion;
 import modelo.BancoPreguntasDAO;
+import modelo.ClaveIADocenteDAO;
 import modelo.DocumentoFuenteDAO;
 import modelo.EvaluacionDAO;
 import modelo.PersistenciaGeneracionDAO;
@@ -41,9 +42,10 @@ public class ProcesadorGeneracionIA implements ServletContextListener {
             DataSource dataSource = Conexion.obtenerFuente();
             SolicitudGeneracionDAO solicitudDAO = new SolicitudGeneracionDAO(dataSource);
             servicio = new ServicioGeneracionIA(solicitudDAO, new DocumentoFuenteDAO(dataSource),
-                    new UsuarioDAO(dataSource), new BancoPreguntasDAO(dataSource), new PreguntaDAO(dataSource),
+                    new ClaveIADocenteDAO(dataSource), new UsuarioDAO(dataSource),
+                    new BancoPreguntasDAO(dataSource), new PreguntaDAO(dataSource),
                     new EvaluacionDAO(dataSource), new PersistenciaGeneracionDAO(dataSource),
-                    ConfiguracionIA.workers(), ConfiguracionIA.capacidadCola());
+                    ConfiguracionIA.trabajadores(), ConfiguracionIA.capacidadCola());
             int recuperadas = solicitudDAO.marcarAbandonadasComoFallidas(MENSAJE_REINICIO);
             servicio.iniciar();
             evento.getServletContext().setAttribute(SERVICIO_IA, servicio);

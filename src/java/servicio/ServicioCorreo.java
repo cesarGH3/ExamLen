@@ -20,7 +20,7 @@ import java.util.logging.Logger;
 public class ServicioCorreo {
 
     private static final Logger LOG = Logger.getLogger(ServicioCorreo.class.getName());
-    private static final int TIMEOUT_MS = 10_000;
+    private static final int TIEMPO_ESPERA_MS = 10_000;
 
     public boolean enviarEnlaceRecuperacion(String destinatario, String enlace) {
         if (!ConfiguracionCorreo.estaConfigurado()) {
@@ -47,9 +47,9 @@ public class ServicioCorreo {
         Properties propiedades = new Properties();
         propiedades.put("mail.smtp.host", ConfiguracionCorreo.host());
         propiedades.put("mail.smtp.port", String.valueOf(ConfiguracionCorreo.puerto()));
-        propiedades.put("mail.smtp.connectiontimeout", String.valueOf(TIMEOUT_MS));
-        propiedades.put("mail.smtp.timeout", String.valueOf(TIMEOUT_MS));
-        propiedades.put("mail.smtp.writetimeout", String.valueOf(TIMEOUT_MS));
+        propiedades.put("mail.smtp.connectiontimeout", String.valueOf(TIEMPO_ESPERA_MS));
+        propiedades.put("mail.smtp.timeout", String.valueOf(TIEMPO_ESPERA_MS));
+        propiedades.put("mail.smtp.writetimeout", String.valueOf(TIEMPO_ESPERA_MS));
         String seguridad = ConfiguracionCorreo.seguridad();
         if ("ssl".equals(seguridad)) {
             propiedades.put("mail.smtp.ssl.enable", "true");

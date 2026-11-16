@@ -42,6 +42,7 @@ public class DocenteIntentoServlet extends ServletBase {
 
         Map<String, String> datos = new HashMap<>();
         datos.put("id", String.valueOf(id));
+        datos.put("numero", String.valueOf(intento.consultarNumeroIntento()));
         datos.put("titulo", intentoDAO.tituloEvaluacionDeIntento(id).orElse("Evaluación"));
         datos.put("estudiante", intentoDAO.estudianteDeIntento(id)
                 .map(e -> e.nombreUsuario + " · " + e.identificacionUsuario).orElse(""));
@@ -96,21 +97,21 @@ public class DocenteIntentoServlet extends ServletBase {
                 agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Calificación guardada.");
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
         }
         redirigir(req, resp, RUTA + "?id=" + idIntento);
     }
 
     private Intento intentoDelDocente(Docente docente, int id) {
-        java.util.Optional<Intento> propio = intentoDAO.buscarPorIdDeDocente(id, docente.getIdUsuario());
+        java.util.Optional<Intento> propio = intentoDAO.buscarPorIdDeDocente(id, docente.consultarIdUsuario());
         verificarPropiedad(propio.isPresent(), intentoDAO.buscarPorId(id).isPresent(), "Intento no encontrado");
         return propio.get();
     }
 
     private String construirFilasRespuestas(HttpServletRequest req, Intento intento, List<String> pendientes) {
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Respuesta respuesta : respuestaDAO.listarConPregunta(intento.getIdIntento())) {
-            boolean pendiente = pendientes.contains(String.valueOf(respuesta.getIdRespuesta()));
+        for (Respuesta respuesta : respuestaDAO.listarConPregunta(intento.consultarIdIntento())) {
+            boolean pendiente = pendientes.contains(String.valueOf(respuesta.consultarIdRespuesta()));
             Map<String, String> fila = new HashMap<>();
             fila.put("enunciado", Html.resumir(respuesta.versionPreguntaRespuesta.enunciadoVersionPregunta, 110));
             if (respuesta.versionOpcionRespuesta != null) {
@@ -128,8 +129,8 @@ public class DocenteIntentoServlet extends ServletBase {
             Map<String, String> form = new HashMap<>();
             form.put("ctx", req.getContextPath());
             form.put("csrf", csrf(req));
-            form.put("id", String.valueOf(intento.getIdIntento()));
-            form.put("idRespuesta", String.valueOf(respuesta.getIdRespuesta()));
+            form.put("id", String.valueOf(intento.consultarIdIntento()));
+            form.put("idRespuesta", String.valueOf(respuesta.consultarIdRespuesta()));
             form.put("maximo", formatoNota(respuesta.versionPreguntaRespuesta.puntajeVersionPregunta));
             form.put("puntajeValor", pendiente ? "" : formatoNota(respuesta.puntajeRespuesta));
             form.put("comentarioValor", respuesta.comentarioDocenteRespuesta == null
@@ -182,7 +183,7 @@ public class DocenteIntentoServlet extends ServletBase {
             return "Pendiente de calificación";
         }
         String nota = Calificacion.formatoConMaximo(BigDecimal.valueOf(intento.calificacionIntento));
-        IntentoDAO.Puntos puntos = intentoDAO.puntosDeIntento(intento.getIdIntento());
+        IntentoDAO.Puntos puntos = intentoDAO.puntosDeIntento(intento.consultarIdIntento());
         if (puntos == null) {
             return nota;
         }

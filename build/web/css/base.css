@@ -112,7 +112,7 @@ a:hover { color: #6df2ff; text-decoration-color: #6df2ff; text-shadow: 0 0 10px 
    Responsive
    ============================================================ */
 @media (max-width: 860px) {
-    .disposicion { grid-template-columns: 1fr; }
+    .disposicion { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
     h1 { font-size: 1.6rem; }

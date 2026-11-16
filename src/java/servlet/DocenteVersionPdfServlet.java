@@ -61,7 +61,7 @@ public class DocenteVersionPdfServlet extends ServletBase {
 
     private void generarVersion(HttpServletResponse resp, Docente docente,
                                 int idVersion, boolean clave, String curso) throws IOException, ValidacionException {
-        VersionEvaluacion version = versionDAO.buscarPorIdDeDocente(idVersion, docente.getIdUsuario()).orElse(null);
+        VersionEvaluacion version = versionDAO.buscarPorIdDeDocente(idVersion, docente.consultarIdUsuario()).orElse(null);
         verificarPropiedad(version != null, versionDAO.buscarPorId(idVersion).isPresent(), "Versión no encontrada");
         byte[] pdf = clave
                 ? versionDAO.generarClaveRespuestasPDFVersionEvaluacion(version, curso)
@@ -74,7 +74,7 @@ public class DocenteVersionPdfServlet extends ServletBase {
 
     private void generarTodas(HttpServletResponse resp, Docente docente,
                               int idEvaluacion, boolean clave, String curso) throws IOException, ValidacionException {
-        Evaluacion evaluacion = evaluacionDAO.buscarPorIdDeDocente(idEvaluacion, docente.getIdUsuario())
+        Evaluacion evaluacion = evaluacionDAO.buscarPorIdDeDocente(idEvaluacion, docente.consultarIdUsuario())
                 .orElse(null);
         verificarPropiedad(evaluacion != null, evaluacionDAO.buscarPorId(idEvaluacion).isPresent(),
                 "Evaluación no encontrada");
@@ -104,7 +104,7 @@ public class DocenteVersionPdfServlet extends ServletBase {
         if (idCurso < 0) {
             return null;
         }
-        return cursoDAO.buscarPorIdDeDocente(idCurso, docente.getIdUsuario())
+        return cursoDAO.buscarPorIdDeDocente(idCurso, docente.consultarIdUsuario())
                 .map(curso -> curso.nombreCurso)
                 .orElse(null);
     }

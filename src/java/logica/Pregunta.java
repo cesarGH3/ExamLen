@@ -5,6 +5,8 @@ import java.util.ArrayList;
 public class Pregunta {
 
     private int idPregunta;
+    public int idDocente;
+    public Integer idBancoPreguntas;
     public String enunciadoPregunta;
     public TipoPregunta tipoPregunta;
     public NivelIngles nivelPregunta;
@@ -20,11 +22,11 @@ public class Pregunta {
         opcionesPregunta = new ArrayList<>();
     }
 
-    public int getIdPregunta() {
+    public int consultarIdPregunta() {
         return idPregunta;
     }
 
-    public void setIdPregunta(int idPregunta) {
+    public void establecerIdPregunta(int idPregunta) {
         this.idPregunta = idPregunta;
     }
 }

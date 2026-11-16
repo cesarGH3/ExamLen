@@ -54,7 +54,7 @@ public class RestablecerContrasenaServlet extends ServletBase {
             mostrarFormulario(req, resp, tokenPlano, null);
             return;
         }
-        SesionesActivas.cerrarSesionesDe(token.usuarioTokenRecuperacion.getIdUsuario());
+        SesionesActivas.cerrarSesionesDe(token.usuarioTokenRecuperacion.consultarIdUsuario());
         agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Contraseña actualizada. Ya puedes iniciar sesión.");
         redirigir(req, resp, "/login");
     }

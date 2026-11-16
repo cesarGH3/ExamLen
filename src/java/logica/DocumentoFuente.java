@@ -10,11 +10,11 @@ public class DocumentoFuente {
     public String rutaAlmacenamientoDocumentoFuente;
     public Date fechaCargaDocumentoFuente;
 
-    public int getIdDocumentoFuente() {
+    public int consultarIdDocumentoFuente() {
         return idDocumentoFuente;
     }
 
-    public void setIdDocumentoFuente(int idDocumentoFuente) {
+    public void establecerIdDocumentoFuente(int idDocumentoFuente) {
         this.idDocumentoFuente = idDocumentoFuente;
     }
 }

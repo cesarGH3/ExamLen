@@ -24,11 +24,11 @@ public class EventoSupervisionDAO extends DaoBase {
         evento.fechaHoraEventoSupervision = Fechas.ahora();
         int id = insertar("INSERT INTO evento_supervision (id_intento, tipo, "
                 + "descripcion) VALUES (?, ?, ?)", ps -> {
-            ps.setInt(1, intento.getIdIntento());
+            ps.setInt(1, intento.consultarIdIntento());
             ps.setString(2, tipo.name());
             ps.setString(3, descripcion);
         });
-        evento.setIdEventoSupervision(id);
+        evento.establecerIdEventoSupervision(id);
         intento.eventosSupervisionIntento.add(evento);
         return evento;
     }
@@ -87,7 +87,7 @@ public class EventoSupervisionDAO extends DaoBase {
 
     private EventoSupervision mapear(ResultSet rs) throws SQLException {
         EventoSupervision evento = new EventoSupervision();
-        evento.setIdEventoSupervision(rs.getInt("id_evento_supervision"));
+        evento.establecerIdEventoSupervision(rs.getInt("id_evento_supervision"));
         evento.tipoEventoSupervision = enumeracion(rs, "tipo", TipoEventoSupervision.class);
         evento.descripcionEventoSupervision = rs.getString("descripcion");
         evento.fechaHoraEventoSupervision = Mapeos.fecha(rs, "fecha_hora");

@@ -10,6 +10,7 @@ import logica.ValidacionException;
 import logica.Validador;
 import modelo.BancoPreguntasDAO;
 import modelo.AdministradorDAO;
+import modelo.ClaveIADocenteDAO;
 import modelo.CursoDAO;
 import modelo.DocenteDAO;
 import modelo.DocumentoFuenteDAO;
@@ -85,6 +86,7 @@ public abstract class ServletBase extends HttpServlet {
     protected transient DocumentoFuenteDAO documentoDAO;
     protected transient SolicitudGeneracionDAO solicitudDAO;
     protected transient TokenRecuperacionDAO tokenDAO;
+    protected transient ClaveIADocenteDAO claveIADAO;
     protected transient ServicioEvaluacionVirtual servicioVirtual;
 
     @Override
@@ -115,6 +117,7 @@ public abstract class ServletBase extends HttpServlet {
         documentoDAO = (DocumentoFuenteDAO) contexto.getAttribute(InicializadorAplicacion.DOCUMENTO_DAO);
         solicitudDAO = (SolicitudGeneracionDAO) contexto.getAttribute(InicializadorAplicacion.SOLICITUD_DAO);
         tokenDAO = (TokenRecuperacionDAO) contexto.getAttribute(InicializadorAplicacion.TOKEN_DAO);
+        claveIADAO = (ClaveIADocenteDAO) contexto.getAttribute(InicializadorAplicacion.CLAVE_IA_DAO);
         servicioVirtual = new ServicioEvaluacionVirtual(virtualDAO, intentoDAO, respuestaDAO, eventoDAO);
         if (vistas == null || usuarioDAO == null || cursoDAO == null) {
             throw new ServletException("La aplicación no se inicializó correctamente.");
@@ -189,7 +192,7 @@ public abstract class ServletBase extends HttpServlet {
                 agregarMensaje(req, MensajeFlash.Tipo.EXITO, mensaje);
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             if (valoresSiFalla != null) {
                 guardarFormulario(req, valoresSiFalla);
             }

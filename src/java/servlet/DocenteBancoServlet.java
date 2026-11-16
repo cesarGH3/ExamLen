@@ -41,7 +41,7 @@ public class DocenteBancoServlet extends ServletBase {
 
         CriteriosBusquedaPregunta criterios = criteriosDe(req, idBanco);
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Pregunta p : preguntaDAO.buscarDeDocente(docente.getIdUsuario(), criterios)) {
+        for (Pregunta p : preguntaDAO.buscarDeDocente(docente.consultarIdUsuario(), criterios)) {
             Map<String, String> fila = filaPregunta(p);
             fila.put("url", ruta(req, fila.get("url")));
             filas.add(fila);
@@ -150,11 +150,11 @@ public class DocenteBancoServlet extends ServletBase {
                     redirigir(req, resp, destino);
                     break;
                 }
-                Pregunta pregunta = preguntaDAO.crearPregunta(banco, enunciado, tipo, nivel, dificultad, competencia, tema);
+                Pregunta pregunta = preguntaDAO.crearPregunta(docente.consultarIdUsuario(), banco.consultarIdBancoPreguntas(), enunciado, tipo, nivel, dificultad, competencia, tema);
                 agregarMensaje(req, MensajeFlash.Tipo.EXITO, usaOpciones(tipo)
-                        ? "Pregunta creada. Completa sus opciones y apruébala."
-                        : "Pregunta creada. Completa la respuesta y apruébala.");
-                redirigir(req, resp, "/app/docente/pregunta?id=" + pregunta.getIdPregunta());
+                        ? "Pregunta creada. Completa sus opciones; se validará automáticamente."
+                        : "Pregunta creada. Completa la respuesta cuando corresponda; se validará automáticamente.");
+                redirigir(req, resp, "/app/docente/pregunta?id=" + pregunta.consultarIdPregunta());
                 break;
             }
             default:
@@ -165,7 +165,7 @@ public class DocenteBancoServlet extends ServletBase {
     /** Compone la fila del listado común (banco y búsqueda global); el URL lo pone cada página. */
     static Map<String, String> filaPregunta(Pregunta p) {
         Map<String, String> fila = new HashMap<>();
-        fila.put("url", "/app/docente/pregunta?id=" + p.getIdPregunta());
+        fila.put("url", "/app/docente/pregunta?id=" + p.consultarIdPregunta());
         fila.put("enunciado", Html.resumir(p.enunciadoPregunta, 110));
         fila.put("tipo", Etiquetas.de(p.tipoPregunta));
         fila.put("nivel", p.nivelPregunta == null ? "" : p.nivelPregunta.name());
@@ -207,7 +207,7 @@ public class DocenteBancoServlet extends ServletBase {
     }
 
     private BancoPreguntas bancoDelDocente(Docente docente, int idBanco) {
-        java.util.Optional<BancoPreguntas> propio = bancoDAO.buscarPorIdDeDocente(idBanco, docente.getIdUsuario());
+        java.util.Optional<BancoPreguntas> propio = bancoDAO.buscarPorIdDeDocente(idBanco, docente.consultarIdUsuario());
         verificarPropiedad(propio.isPresent(), bancoDAO.buscarPorId(idBanco).isPresent(), "Banco no encontrado");
         return propio.get();
     }

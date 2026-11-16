@@ -117,7 +117,7 @@ public final class GeneradorExcelRendimiento {
                 texto(r, 22, "N.D.", estilos.normal);
             }
             Double referencia = totalLocal != null ? totalLocal : totalNgrok;
-            boolean exito = "OK".equals(estadoDe(dl)) || "OK".equals(estadoDe(dn));
+            boolean exito = "CORRECTO".equals(estadoDe(dl)) || "CORRECTO".equals(estadoDe(dn));
             if (exito && referencia != null && promedio > 0) {
                 numero(r, 23, redondear(referencia / promedio * 100.0), estilos.porcentaje);
                 boolean critico = referencia > promedio * (1 + umbralPct / 100.0);
@@ -182,7 +182,7 @@ public final class GeneradorExcelRendimiento {
         double lentoMs = -1;
         for (CatalogoCasosUso.Entrada entrada : catalogo) {
             JsonObject filaDatos = mapa.get(entrada.cuId);
-            if (filaDatos == null || !"OK".equals(estadoDe(filaDatos))) {
+            if (filaDatos == null || !"CORRECTO".equals(estadoDe(filaDatos))) {
                 continue;
             }
             Double total = numeroDe(filaDatos, "tiempo_total_ms");
@@ -220,10 +220,10 @@ public final class GeneradorExcelRendimiento {
         int fila = 1;
         for (CatalogoCasosUso.Entrada entrada : catalogo) {
             Row r = hoja.createRow(fila++);
-            texto(r, 0, "OK", estilos.normal);
+            texto(r, 0, "CORRECTO", estilos.normal);
             texto(r, 1, entrada.cuId + " " + entrada.nombre, estilos.normal);
             texto(r, 2, entrada.cuId, estilos.normal);
-            texto(r, 3, "OK", estilos.normal);
+            texto(r, 3, "CORRECTO", estilos.normal);
             texto(r, 4, "Estado funcional: " + entrada.estadoFuncional
                     + ("PARCIAL".equals(entrada.estadoFuncional)
                             ? " (medicion permitida; desviacion funcional pendiente)" : ""), estilos.textoLargo);
@@ -264,8 +264,8 @@ public final class GeneradorExcelRendimiento {
         for (CatalogoCasosUso.Entrada entrada : catalogo) {
             JsonObject dl = mapaL.get(entrada.cuId);
             JsonObject dn = mapaN.get(entrada.cuId);
-            Double total = dl != null && "OK".equals(estadoDe(dl)) ? numeroDe(dl, "tiempo_total_ms")
-                    : dn != null && "OK".equals(estadoDe(dn)) ? numeroDe(dn, "tiempo_total_ms") : null;
+            Double total = dl != null && "CORRECTO".equals(estadoDe(dl)) ? numeroDe(dl, "tiempo_total_ms")
+                    : dn != null && "CORRECTO".equals(estadoDe(dn)) ? numeroDe(dn, "tiempo_total_ms") : null;
             if (total != null) {
                 tiempos.add(total);
             }
@@ -277,7 +277,7 @@ public final class GeneradorExcelRendimiento {
         int total = 0;
         for (JsonObject fila : mapa.values()) {
             String estado = estadoDe(fila);
-            if ("OK".equals(estado) || "ERROR".equals(estado)) {
+            if ("CORRECTO".equals(estado) || "ERROR".equals(estado)) {
                 total++;
             }
         }
@@ -296,7 +296,11 @@ public final class GeneradorExcelRendimiento {
     }
 
     private static String estadoDe(JsonObject fila) {
-        return fila == null ? "N.D." : textoDe(fila, "estado_medicion");
+        if (fila == null) {
+            return "N.D.";
+        }
+        String estado = textoDe(fila, "estado_medicion");
+        return "OK".equals(estado) ? "CORRECTO" : estado;
     }
 
     private static Double numeroDe(JsonObject fila, String clave) {

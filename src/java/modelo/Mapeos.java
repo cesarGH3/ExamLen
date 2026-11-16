@@ -69,9 +69,9 @@ final class Mapeos {
         String rol = rs.getString("rol");
         Usuario u;
         if (ROL_ADMINISTRADOR.equals(rol)) {
-            Administrador admin = new Administrador();
-            admin.fechaNacimientoAdministrador = rs.getDate("fecha_nacimiento");
-            u = admin;
+            Administrador administrador = new Administrador();
+            administrador.fechaNacimientoAdministrador = rs.getDate("fecha_nacimiento");
+            u = administrador;
         } else if (ROL_DOCENTE.equals(rol)) {
             Docente docente = new Docente();
             docente.debeCambiarContrasenaDocente = rs.getBoolean("debe_cambiar_contrasena_docente");
@@ -83,7 +83,7 @@ final class Mapeos {
         } else {
             throw new SQLException("El usuario no tiene fila en ninguna tabla de rol");
         }
-        u.setIdUsuario(rs.getInt("id_usuario"));
+        u.establecerIdUsuario(rs.getInt("id_usuario"));
         u.identificacionUsuario = rs.getString("identificacion");
         u.nombreUsuario = rs.getString("nombre");
         u.correoUsuario = rs.getString("correo");
@@ -96,13 +96,13 @@ final class Mapeos {
 
     static Curso curso(ResultSet rs) throws SQLException {
         Curso curso = new Curso();
-        curso.setIdCurso(rs.getInt("id_curso"));
+        curso.establecerIdCurso(rs.getInt("id_curso"));
         curso.nombreCurso = rs.getString("c_nombre");
         curso.descripcionCurso = rs.getString("c_descripcion");
         curso.nivelCurso = NivelIngles.valueOf(rs.getString("c_nivel"));
         curso.activoCurso = rs.getBoolean("c_activo");
         Docente docente = new Docente();
-        docente.setIdUsuario(rs.getInt("d_id"));
+        docente.establecerIdUsuario(rs.getInt("d_id"));
         docente.nombreUsuario = rs.getString("d_nombre");
         curso.docenteCurso = docente;
         return curso;
@@ -110,7 +110,7 @@ final class Mapeos {
 
     static Grupo grupo(ResultSet rs) throws SQLException {
         Grupo grupo = new Grupo();
-        grupo.setIdGrupo(rs.getInt("id_grupo"));
+        grupo.establecerIdGrupo(rs.getInt("id_grupo"));
         grupo.nombreGrupo = rs.getString("g_nombre");
         grupo.periodoGrupo = rs.getString("g_periodo");
         grupo.codigoAccesoGrupo = rs.getString("g_codigo");
@@ -121,13 +121,13 @@ final class Mapeos {
 
     static Inscripcion inscripcion(ResultSet rs) throws SQLException {
         Estudiante estudiante = new Estudiante();
-        estudiante.setIdUsuario(rs.getInt("e_id"));
+        estudiante.establecerIdUsuario(rs.getInt("e_id"));
         estudiante.identificacionUsuario = rs.getString("e_identificacion");
         estudiante.nombreUsuario = rs.getString("e_nombre");
         estudiante.correoUsuario = rs.getString("e_correo");
 
         Inscripcion inscripcion = new Inscripcion();
-        inscripcion.setIdInscripcion(rs.getInt("id_inscripcion"));
+        inscripcion.establecerIdInscripcion(rs.getInt("id_inscripcion"));
         inscripcion.fechaInscripcion = fecha(rs, "i_fecha");
         inscripcion.estadoInscripcion = EstadoInscripcion.valueOf(rs.getString("i_estado"));
         inscripcion.estudianteInscripcion = estudiante;

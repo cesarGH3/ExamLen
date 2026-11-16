@@ -17,11 +17,11 @@ public class IntentoPractica {
         respuestasPracticaIntentoPractica = new ArrayList<>();
     }
 
-    public int getIdIntentoPractica() {
+    public int consultarIdIntentoPractica() {
         return idIntentoPractica;
     }
 
-    public void setIdIntentoPractica(int idIntentoPractica) {
+    public void establecerIdIntentoPractica(int idIntentoPractica) {
         this.idIntentoPractica = idIntentoPractica;
     }
 }

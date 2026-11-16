@@ -18,11 +18,11 @@ public class MaterialPractica {
         intentosPracticaMaterialPractica = new ArrayList<>();
     }
 
-    public int getIdMaterialPractica() {
+    public int consultarIdMaterialPractica() {
         return idMaterialPractica;
     }
 
-    public void setIdMaterialPractica(int idMaterialPractica) {
+    public void establecerIdMaterialPractica(int idMaterialPractica) {
         this.idMaterialPractica = idMaterialPractica;
     }
 }

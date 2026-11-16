@@ -16,11 +16,11 @@ public class VersionPregunta {
         versionOpcionesVersionPregunta = new ArrayList<>();
     }
 
-    public int getIdVersionPregunta() {
+    public int consultarIdVersionPregunta() {
         return idVersionPregunta;
     }
 
-    public void setIdVersionPregunta(int idVersionPregunta) {
+    public void establecerIdVersionPregunta(int idVersionPregunta) {
         this.idVersionPregunta = idVersionPregunta;
     }
 }

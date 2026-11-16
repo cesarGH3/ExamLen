@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * GET /api/v1/calificaciones?grupoId=X&evaluacionId=Y (evaluacionId = evaluación virtual del
@@ -98,7 +99,7 @@ public class ApiCalificacionesServlet extends HttpServlet {
         }
 
         JsonObject grupoJson = new JsonObject();
-        grupoJson.addProperty("id", grupo.getIdGrupo());
+        grupoJson.addProperty("id", grupo.consultarIdGrupo());
         grupoJson.addProperty("nombre", grupo.nombreGrupo);
         grupoJson.addProperty("periodo", grupo.periodoGrupo);
 
@@ -111,22 +112,49 @@ public class ApiCalificacionesServlet extends HttpServlet {
             if (inscripcion.estadoInscripcion != EstadoInscripcion.ACTIVA) {
                 continue;
             }
-            Intento intento = intentoDAO.buscarPorEvaluacionEInscripcion(evaluacionId,
-                    inscripcion.getIdInscripcion()).orElse(null);
+            List<Intento> intentos = intentoDAO.listarPorEvaluacionEInscripcion(evaluacionId,
+                    inscripcion.consultarIdInscripcion());
             JsonObject fila = new JsonObject();
             fila.addProperty("identificacion", inscripcion.estudianteInscripcion.identificacionUsuario);
             fila.addProperty("nombre", inscripcion.estudianteInscripcion.nombreUsuario);
-            if (intento == null) {
+            JsonArray intentosJson = new JsonArray();
+            for (Intento intento : intentos) {
+                JsonObject item = new JsonObject();
+                item.addProperty("id", intento.consultarIdIntento());
+                item.addProperty("numeroIntento", intento.consultarNumeroIntento());
+                item.addProperty("estado", intento.estadoIntento.name());
+                if (intento.estadoIntento == EstadoIntento.CALIFICADO) {
+                    item.addProperty("calificacion", intento.calificacionIntento);
+                } else {
+                    item.add("calificacion", com.google.gson.JsonNull.INSTANCE);
+                }
+                if (intento.fechaFinIntento != null) {
+                    item.addProperty("fechaPresentacion", Fechas.formato(Fechas.PATRON_FECHA_HORA,
+                            intento.fechaFinIntento));
+                } else {
+                    item.add("fechaPresentacion", com.google.gson.JsonNull.INSTANCE);
+                }
+                intentosJson.add(item);
+            }
+            fila.add("intentos", intentosJson);
+            if (intentos.isEmpty()) {
                 fila.addProperty("estado", "NO_PRESENTADO");
                 fila.add("calificacion", com.google.gson.JsonNull.INSTANCE);
                 fila.add("fechaPresentacion", com.google.gson.JsonNull.INSTANCE);
-            } else if (intento.estadoIntento == EstadoIntento.CALIFICADO) {
-                fila.addProperty("estado", "CALIFICADO");
-                fila.addProperty("calificacion", intento.calificacionIntento);
-                fila.addProperty("fechaPresentacion", Fechas.formato(Fechas.PATRON_FECHA_HORA,
-                        intento.fechaFinIntento));
+            } else if (intentos.size() == 1) {
+                Intento intento = intentos.get(0);
+                if (intento.estadoIntento == EstadoIntento.CALIFICADO) {
+                    fila.addProperty("estado", "CALIFICADO");
+                    fila.addProperty("calificacion", intento.calificacionIntento);
+                    fila.addProperty("fechaPresentacion", Fechas.formato(Fechas.PATRON_FECHA_HORA,
+                            intento.fechaFinIntento));
+                } else {
+                    fila.addProperty("estado", "PENDIENTE");
+                    fila.add("calificacion", com.google.gson.JsonNull.INSTANCE);
+                    fila.add("fechaPresentacion", com.google.gson.JsonNull.INSTANCE);
+                }
             } else {
-                fila.addProperty("estado", "PENDIENTE");
+                fila.addProperty("estado", "MULTIPLES");
                 fila.add("calificacion", com.google.gson.JsonNull.INSTANCE);
                 fila.add("fechaPresentacion", com.google.gson.JsonNull.INSTANCE);
             }
@@ -137,6 +165,6 @@ public class ApiCalificacionesServlet extends HttpServlet {
         cuerpo.add("grupo", grupoJson);
         cuerpo.add("evaluacion", evaluacionJson);
         cuerpo.add("resultados", resultados);
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 }

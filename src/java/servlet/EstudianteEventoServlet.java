@@ -22,7 +22,7 @@ public class EstudianteEventoServlet extends ServletBase {
         Estudiante estudiante = (Estudiante) usuarioActual(req);
         int idIntento = Validador.parsearId(req.getParameter("idIntento"));
         if (idIntento > 0) {
-            Intento intento = intentoDAO.buscarPorIdDeEstudiante(idIntento, estudiante.getIdUsuario()).orElse(null);
+            Intento intento = intentoDAO.buscarPorIdDeEstudiante(idIntento, estudiante.consultarIdUsuario()).orElse(null);
             if (intento != null && intento.estadoIntento == EstadoIntento.EN_CURSO) {
                 int idVirtual = intentoDAO.idVirtualDeIntento(idIntento);
                 boolean supervision = virtualDAO.buscarPorId(idVirtual)

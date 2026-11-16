@@ -42,6 +42,18 @@ public class ServicioEvaluacionVirtual {
         this.eventoDAO = eventoDAO;
     }
 
+    /** Preguntas de la version del intento que aun no tienen respuesta valida persistida. */
+    public List<Integer> consultarPreguntasPendientes(Intento intento) {
+        return respuestaDAO.consultarPreguntasPendientes(intento.consultarIdIntento(),
+                intento.versionEvaluacionIntento.consultarIdVersionEvaluacion());
+    }
+
+    /** Aplica la politica de respuestas completas solo al envio manual. El vencimiento la evita. */
+    public boolean puedeFinalizarManualmente(Intento intento, EvaluacionVirtual virtual) {
+        return !virtual.consultarExigirRespuestasCompletas()
+                || consultarPreguntasPendientes(intento).isEmpty();
+    }
+
     /**
      * Sincroniza los estados con las fechas del servidor (lo llama el programador): abre
      * PROGRAMADAS en ventana, cierra virtuales vencidas y finaliza intentos vencidos
@@ -145,7 +157,7 @@ public class ServicioEvaluacionVirtual {
      */
     private void finalizarIntentosEnCurso(int idEvaluacionVirtual) {
         for (Intento intento : intentoDAO.listarEnCursoPorVirtual(idEvaluacionVirtual)) {
-            int pendientes = respuestaDAO.calificarAutomaticas(intento.getIdIntento());
+            int pendientes = respuestaDAO.calificarAutomaticas(intento.consultarIdIntento());
             if (pendientes == 0) {
                 intentoDAO.calificarIntento(intento);
             } else {
@@ -162,7 +174,7 @@ public class ServicioEvaluacionVirtual {
      * eventos de esos tipos, no se vuelven a generar (vale para cierre manual y automatico).
      */
     private void analizarSupervision(EvaluacionVirtual virtual) {
-        int idVirtual = virtual.getIdEvaluacionVirtual();
+        int idVirtual = virtual.consultarIdEvaluacionVirtual();
         List<Intento> intentos = intentoDAO.listarPorEvaluacionVirtual(idVirtual);
         if (!eventoDAO.existeEventoDeTipoEnVirtual(idVirtual, TipoEventoSupervision.TIEMPO_ATIPICO)) {
             registrarTiemposAtipicos(intentos);
@@ -177,7 +189,7 @@ public class ServicioEvaluacionVirtual {
         Map<Integer, Long> duraciones = new HashMap<>();
         for (Intento intento : intentos) {
             if (intento.fechaInicioIntento != null && intento.fechaFinIntento != null) {
-                duraciones.put(intento.getIdIntento(),
+                duraciones.put(intento.consultarIdIntento(),
                         intento.fechaFinIntento.getTime() - intento.fechaInicioIntento.getTime());
             }
         }
@@ -187,7 +199,7 @@ public class ServicioEvaluacionVirtual {
         }
         double fraccion = ConfiguracionSupervision.fraccionMedianaTiempo();
         for (Intento intento : intentos) {
-            Long duracion = duraciones.get(intento.getIdIntento());
+            Long duracion = duraciones.get(intento.consultarIdIntento());
             if (duracion != null && AnalisisSupervision.tiempoAtipico(duracion, mediana, fraccion)) {
                 eventoDAO.registrarEventoSupervision(intento, TipoEventoSupervision.TIEMPO_ATIPICO,
                         "Duró " + duracionTexto(duracion) + ": menos del " + Math.round(fraccion * 100)
@@ -204,7 +216,7 @@ public class ServicioEvaluacionVirtual {
         }
         Map<Integer, Intento> intentosPorId = new HashMap<>();
         for (Intento intento : intentos) {
-            intentosPorId.put(intento.getIdIntento(), intento);
+            intentosPorId.put(intento.consultarIdIntento(), intento);
         }
         Map<Integer, List<RespuestaDAO.TextoRespuesta>> porPregunta = new HashMap<>();
         for (RespuestaDAO.TextoRespuesta texto : textos) {
@@ -270,9 +282,9 @@ public class ServicioEvaluacionVirtual {
         String cola = " en " + coincidencias.size()
                 + (coincidencias.size() == 1 ? " respuesta: " : " respuestas: ") + cuerpo;
         eventoDAO.registrarEventoSupervision(intentoA, TipoEventoSupervision.SIMILITUD_RESPUESTAS,
-                recortar(inicio + nombreDe(intentoB.getIdIntento()) + cola, MAX_DESCRIPCION));
+                recortar(inicio + nombreDe(intentoB.consultarIdIntento()) + cola, MAX_DESCRIPCION));
         eventoDAO.registrarEventoSupervision(intentoB, TipoEventoSupervision.SIMILITUD_RESPUESTAS,
-                recortar(inicio + nombreDe(intentoA.getIdIntento()) + cola, MAX_DESCRIPCION));
+                recortar(inicio + nombreDe(intentoA.consultarIdIntento()) + cola, MAX_DESCRIPCION));
     }
 
     private String nombreDe(int idIntento) {

@@ -49,6 +49,24 @@ public class DocenteEvaluacionServlet extends ServletBase {
         List<Grupo> grupos = agrupar(seleccionadas, ordenes, puntajes);
 
         Map<String, String> datos = new HashMap<>();
+        Map<String, String> nueva = new HashMap<>();
+        nueva.put("ctx", req.getContextPath()); nueva.put("csrf", csrf(req)); nueva.put("id", String.valueOf(id));
+        nueva.put("destino", ruta(req, RUTA));
+        nueva.put("tituloNuevaPregunta", "Crear pregunta en esta evaluación");
+        nueva.put("ayudaNuevaPregunta", "Completa la pregunta y sus respuestas. No necesitas un banco.");
+        Map<String, String> guardado = recuperarFormulario(req);
+        nueva.put("enunciado", guardado.getOrDefault("enunciado", ""));
+        nueva.put("tema", guardado.getOrDefault("tema", ""));
+        nueva.put("opcionesTipo", Formulario.opciones(vistas, logica.TipoPregunta.values(),
+                Formulario.enumeracion(logica.TipoPregunta.class, guardado.get("tipo")), "Selecciona"));
+        nueva.put("opcionesNivel", Formulario.opciones(vistas, NivelIngles.values(),
+                Formulario.enumeracion(NivelIngles.class, guardado.get("nivel")), "Selecciona"));
+        nueva.put("opcionesDificultad", Formulario.opciones(vistas, Dificultad.values(),
+                Formulario.enumeracion(Dificultad.class, guardado.get("dificultad")), "Selecciona"));
+        nueva.put("opcionesCompetencia", Formulario.opciones(vistas, Competencia.values(),
+                Formulario.enumeracion(Competencia.class, guardado.get("competencia")), "Selecciona"));
+        datos.put("nuevaPregunta", evaluacion.estadoEvaluacion == EstadoEvaluacion.ARCHIVADA ? ""
+                : vistas.componer("_evaluacion-nueva-pregunta.html", nueva));
         datos.put("id", String.valueOf(id));
         datos.put("titulo", evaluacion.tituloEvaluacion);
         datos.put("estado", Etiquetas.de(evaluacion.estadoEvaluacion));
@@ -92,6 +110,40 @@ public class DocenteEvaluacionServlet extends ServletBase {
         try {
             Evaluacion evaluacion = evaluacionDelDocente(docente, id);
             switch (parametro(req, "accion")) {
+                case "crearPregunta": {
+                    exigirEditable(evaluacion);
+                    String enunciado = Validador.limpiarTexto(req.getParameter("enunciado") == null ? "" : req.getParameter("enunciado"));
+                    String tema = parametro(req, "tema");
+                    logica.TipoPregunta tipo = Formulario.enumeracion(logica.TipoPregunta.class, parametro(req, "tipo"));
+                    NivelIngles nivel = Formulario.enumeracion(NivelIngles.class, parametro(req, "nivel"));
+                    Dificultad dificultad = Formulario.enumeracion(Dificultad.class, parametro(req, "dificultad"));
+                    Competencia competencia = Formulario.enumeracion(Competencia.class, parametro(req, "competencia"));
+                    List<String> errores = new ArrayList<>();
+                    Validador.validarLongitud(enunciado, 5, 65535, "El enunciado debe tener entre 5 y 65535 caracteres.", errores);
+                    Validador.validarLongitud(tema, 2, 120, "El tema debe tener entre 2 y 120 caracteres.", errores);
+                    Validador.validarRequerido(tipo, "Selecciona el tipo.", errores);
+                    Validador.validarRequerido(nivel, "Selecciona el nivel.", errores);
+                    Validador.validarRequerido(dificultad, "Selecciona la dificultad.", errores);
+                    Validador.validarRequerido(competencia, "Selecciona la competencia.", errores);
+                    if (!errores.isEmpty()) {
+                        guardarFormulario(req, Map.of("enunciado", enunciado, "tema", tema,
+                                "tipo", parametro(req, "tipo"), "nivel", parametro(req, "nivel"),
+                                "dificultad", parametro(req, "dificultad"), "competencia", parametro(req, "competencia")));
+                        throw new ValidacionException(errores);
+                    }
+                    Pregunta creada = preguntaDAO.crearEnEvaluacion(docente.consultarIdUsuario(), id, enunciado,
+                            tipo, nivel, dificultad, competencia, tema);
+                    destino = "/app/docente/pregunta?id=" + creada.consultarIdPregunta();
+                    agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Pregunta creada en la evaluación. Completa sus respuestas.");
+                    break;
+                }
+                case "copiarPregunta": {
+                    Pregunta original = preguntaDeDocente(docente, parametroId(req, "idPregunta"));
+                    Pregunta copia = preguntaDAO.copiarParaEvaluacion(docente.consultarIdUsuario(), id, original.consultarIdPregunta());
+                    destino = "/app/docente/pregunta?id=" + copia.consultarIdPregunta();
+                    agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Copia creada para esta evaluación. El original conserva sus referencias.");
+                    break;
+                }
                 case "configurar": {
                     int numeroPreguntas = entero(req, "numeroPreguntas");
                     int numeroVersiones = entero(req, "numeroVersiones");
@@ -131,9 +183,6 @@ public class DocenteEvaluacionServlet extends ServletBase {
                     int idPregunta = parametroId(req, "idPregunta");
                     Pregunta pregunta = preguntaDeDocente(docente, idPregunta);
                     exigirEditable(evaluacion);
-                    if (preguntaDAO.listarPorEvaluacion(id).size() <= 1) {
-                        throw new ValidacionException("La evaluación debe conservar al menos una pregunta.");
-                    }
                     evaluacionDAO.volverBorrador(evaluacion);
                     preguntaDAO.quitarPregunta(pregunta, evaluacion);
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Pregunta quitada de la evaluación.");
@@ -209,7 +258,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
                 }
                 case "moverPreguntaVersion": {
                     int idVersion = parametroId(req, "idVersion");
-                    verificarPropiedad(versionDAO.buscarPorIdDeDocente(idVersion, docente.getIdUsuario()).isPresent(),
+                    verificarPropiedad(versionDAO.buscarPorIdDeDocente(idVersion, docente.consultarIdUsuario()).isPresent(),
                             versionDAO.buscarPorId(idVersion).isPresent(), "Versión no encontrada");
                     String motivo = motivoBloqueoVersion(idVersion);
                     if (motivo != null) {
@@ -224,7 +273,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
                     return;
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
         }
         redirigir(req, resp, destino);
     }
@@ -232,7 +281,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
     // ------------------------------------------------------------------ acciones auxiliares
 
     private Evaluacion evaluacionDelDocente(Docente docente, int id) {
-        java.util.Optional<Evaluacion> propia = evaluacionDAO.buscarPorIdDeDocente(id, docente.getIdUsuario());
+        java.util.Optional<Evaluacion> propia = evaluacionDAO.buscarPorIdDeDocente(id, docente.consultarIdUsuario());
         verificarPropiedad(propia.isPresent(), evaluacionDAO.buscarPorId(id).isPresent(),
                 "Evaluación no encontrada");
         return propia.get();
@@ -241,7 +290,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
     private Pregunta preguntaDeDocente(Docente docente, int idPregunta) {
         Pregunta pregunta = preguntaDAO.buscarPorId(idPregunta)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pregunta no encontrada"));
-        verificarPropiedad(preguntaDAO.esDeDocente(idPregunta, docente.getIdUsuario()), true,
+        verificarPropiedad(preguntaDAO.esDeDocente(idPregunta, docente.consultarIdUsuario()), true,
                 "Pregunta no encontrada");
         return pregunta;
     }
@@ -259,9 +308,9 @@ public class DocenteEvaluacionServlet extends ServletBase {
         if (nivel == null || competencia == null || dificultad == null) {
             throw new ValidacionException("El grupo indicado no existe.");
         }
-        List<Pregunta> seleccionadas = preguntaDAO.listarPorEvaluacion(evaluacion.getIdEvaluacion());
-        List<Grupo> grupos = agrupar(seleccionadas, preguntaDAO.ordenDeEvaluacion(evaluacion.getIdEvaluacion()),
-                preguntaDAO.puntajeDeEvaluacion(evaluacion.getIdEvaluacion()));
+        List<Pregunta> seleccionadas = preguntaDAO.listarPorEvaluacion(evaluacion.consultarIdEvaluacion());
+        List<Grupo> grupos = agrupar(seleccionadas, preguntaDAO.ordenDeEvaluacion(evaluacion.consultarIdEvaluacion()),
+                preguntaDAO.puntajeDeEvaluacion(evaluacion.consultarIdEvaluacion()));
         int indice = -1;
         for (int i = 0; i < grupos.size(); i++) {
             Grupo grupo = grupos.get(i);
@@ -282,9 +331,9 @@ public class DocenteEvaluacionServlet extends ServletBase {
         if (actual.orden == vecino.orden) {
             return false;
         }
-        preguntaDAO.asignarOrdenGrupoEnEvaluacion(evaluacion.getIdEvaluacion(), actual.nivel, actual.competencia,
+        preguntaDAO.asignarOrdenGrupoEnEvaluacion(evaluacion.consultarIdEvaluacion(), actual.nivel, actual.competencia,
                 actual.dificultad, vecino.orden);
-        preguntaDAO.asignarOrdenGrupoEnEvaluacion(evaluacion.getIdEvaluacion(), vecino.nivel, vecino.competencia,
+        preguntaDAO.asignarOrdenGrupoEnEvaluacion(evaluacion.consultarIdEvaluacion(), vecino.nivel, vecino.competencia,
                 vecino.dificultad, actual.orden);
         return true;
     }
@@ -295,7 +344,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
         List<VersionPregunta> preguntas = versionPreguntaDAO.listarPorVersionEvaluacion(idVersion);
         int indice = -1;
         for (int i = 0; i < preguntas.size(); i++) {
-            if (preguntas.get(i).getIdVersionPregunta() == idVersionPregunta) {
+            if (preguntas.get(i).consultarIdVersionPregunta() == idVersionPregunta) {
                 indice = i;
                 break;
             }
@@ -318,8 +367,8 @@ public class DocenteEvaluacionServlet extends ServletBase {
     private String opcionesCursos(Docente docente) {
         StringBuilder sb = new StringBuilder();
         sb.append(Formulario.opcion(vistas, "", "Sin curso", true));
-        for (logica.Curso curso : cursoDAO.listarPorDocente(docente.getIdUsuario())) {
-            sb.append(Formulario.opcion(vistas, String.valueOf(curso.getIdCurso()), curso.nombreCurso, false));
+        for (logica.Curso curso : cursoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            sb.append(Formulario.opcion(vistas, String.valueOf(curso.consultarIdCurso()), curso.nombreCurso, false));
         }
         return sb.toString();
     }
@@ -357,14 +406,14 @@ public class DocenteEvaluacionServlet extends ServletBase {
         for (Pregunta pregunta : seleccionadas) {
             String clave = pregunta.nivelPregunta + "|" + pregunta.competenciaPregunta + "|" + pregunta.dificultadPregunta;
             Grupo grupo = mapa.get(clave);
-            int orden = ordenes.getOrDefault(pregunta.getIdPregunta(), 0);
+            int orden = ordenes.getOrDefault(pregunta.consultarIdPregunta(), 0);
             if (grupo == null) {
                 grupo = new Grupo();
                 grupo.nivel = pregunta.nivelPregunta;
                 grupo.competencia = pregunta.competenciaPregunta;
                 grupo.dificultad = pregunta.dificultadPregunta;
                 grupo.orden = orden;
-                grupo.puntaje = puntajes.getOrDefault(pregunta.getIdPregunta(), 0.0);
+                grupo.puntaje = puntajes.getOrDefault(pregunta.consultarIdPregunta(), 0.0);
                 mapa.put(clave, grupo);
             } else {
                 grupo.orden = Math.min(grupo.orden, orden);
@@ -388,7 +437,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
             Map<String, String> fila = new HashMap<>();
             fila.put("ctx", req.getContextPath());
             fila.put("csrf", csrf(req));
-            fila.put("id", String.valueOf(evaluacion.getIdEvaluacion()));
+            fila.put("id", String.valueOf(evaluacion.consultarIdEvaluacion()));
             fila.put("nivel", grupo.nivel.name());
             fila.put("competencia", grupo.competencia.name());
             fila.put("dificultad", grupo.dificultad.name());
@@ -404,11 +453,14 @@ public class DocenteEvaluacionServlet extends ServletBase {
                     preguntas.append(vistas.componer("_salto.html", Map.of()));
                 }
                 Map<String, String> item = new HashMap<>();
-                item.put("texto", Html.resumir(pregunta.enunciadoPregunta, 90));
+                item.put("texto", Html.resumir(pregunta.enunciadoPregunta, 90) + " — " + Etiquetas.de(pregunta.estadoPregunta));
+                item.put("copia", editable && pregunta.estadoPregunta != EstadoPregunta.ARCHIVADA && preguntaDAO.estaProtegida(pregunta)
+                        ? boton(req, RUTA, evaluacion.consultarIdEvaluacion(), "copiarPregunta", "Crear copia para editar aquí",
+                                "boton-contorno boton-pequeno", "idPregunta", String.valueOf(pregunta.consultarIdPregunta())) : "");
                 item.put("ctx", req.getContextPath());
                 item.put("csrf", csrf(req));
-                item.put("id", String.valueOf(evaluacion.getIdEvaluacion()));
-                item.put("idPregunta", String.valueOf(pregunta.getIdPregunta()));
+                item.put("id", String.valueOf(evaluacion.consultarIdEvaluacion()));
+                item.put("idPregunta", String.valueOf(pregunta.consultarIdPregunta()));
                 item.put("deshabilitar", editable ? "" : "disabled");
                 preguntas.append(vistas.componer("_pregunta-quitar.html", item));
             }
@@ -425,7 +477,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
                                         List<Pregunta> seleccionadas) {
         List<Integer> idsSeleccionados = new ArrayList<>();
         for (Pregunta pregunta : seleccionadas) {
-            idsSeleccionados.add(pregunta.getIdPregunta());
+            idsSeleccionados.add(pregunta.consultarIdPregunta());
         }
         String tema = parametro(req, "tema");
         if (tema.isBlank()) {
@@ -441,12 +493,12 @@ public class DocenteEvaluacionServlet extends ServletBase {
         criterios.competencia = Formulario.enumeracion(Competencia.class, req.getParameter("competencia"));
         criterios.excluirIds.addAll(idsSeleccionados);
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Pregunta pregunta : preguntaDAO.buscarDeDocente(docente.getIdUsuario(), criterios)) {
+        for (Pregunta pregunta : preguntaDAO.buscarDeDocente(docente.consultarIdUsuario(), criterios)) {
             Map<String, String> fila = new HashMap<>();
             fila.put("ctx", req.getContextPath());
             fila.put("csrf", csrf(req));
-            fila.put("id", String.valueOf(evaluacion.getIdEvaluacion()));
-            fila.put("idPregunta", String.valueOf(pregunta.getIdPregunta()));
+            fila.put("id", String.valueOf(evaluacion.consultarIdEvaluacion()));
+            fila.put("idPregunta", String.valueOf(pregunta.consultarIdPregunta()));
             fila.put("tema", pregunta.temaPregunta == null ? "" : pregunta.temaPregunta);
             fila.put("nivelTexto", Etiquetas.de(pregunta.nivelPregunta));
             fila.put("competenciaTexto", Etiquetas.de(pregunta.competenciaPregunta));
@@ -526,7 +578,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
         }
         List<Map<String, String>> filas = new ArrayList<>();
         for (VersionEvaluacion version : versiones) {
-            int idVersion = version.getIdVersionEvaluacion();
+            int idVersion = version.consultarIdVersionEvaluacion();
             String motivo = motivoBloqueoVersion(idVersion);
             boolean aplicada = !virtualDAO.estadosDeAplicacionDeVersion(idVersion).isEmpty();
             Map<String, String> fila = new HashMap<>();
@@ -556,7 +608,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
         if (idVersion < 0) {
             return "";
         }
-        VersionEvaluacion version = versionDAO.buscarPorIdDeDocente(idVersion, docente.getIdUsuario()).orElse(null);
+        VersionEvaluacion version = versionDAO.buscarPorIdDeDocente(idVersion, docente.consultarIdUsuario()).orElse(null);
         if (version == null) {
             return "";
         }
@@ -596,7 +648,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
                 indice == total - 1, "Bajar pregunta", "↓"));
         Map<String, String> enlace = new HashMap<>();
         enlace.put("clase", "boton boton-contorno boton-pequeno");
-        enlace.put("url", ruta(req, "/app/docente/version-pregunta?id=" + pregunta.getIdVersionPregunta()));
+        enlace.put("url", ruta(req, "/app/docente/version-pregunta?id=" + pregunta.consultarIdVersionPregunta()));
         enlace.put("texto", "Editar");
         acciones.append(vistas.componer("_enlace-accion.html", enlace));
         return acciones.toString();
@@ -610,7 +662,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
         datos.put("csrf", csrf(req));
         datos.put("id", String.valueOf(idEvaluacion));
         datos.put("idVersion", String.valueOf(idVersion));
-        datos.put("idVersionPregunta", String.valueOf(pregunta.getIdVersionPregunta()));
+        datos.put("idVersionPregunta", String.valueOf(pregunta.consultarIdVersionPregunta()));
         datos.put("direccion", direccion);
         datos.put("deshabilitar", deshabilitado ? "disabled" : "");
         datos.put("aria", aria);
@@ -624,7 +676,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
     private String construirComparativa(Evaluacion evaluacion, List<Pregunta> seleccionadas,
                                         Map<Integer, Double> puntajes) {
         List<VersionEvaluacionDAO.Distribucion> distribuciones =
-                versionDAO.listarDistribucionPorVersion(evaluacion.getIdEvaluacion());
+                versionDAO.listarDistribucionPorVersion(evaluacion.consultarIdEvaluacion());
         if (distribuciones.isEmpty()) {
             return filaVacia("6", "Todavía no hay versiones generadas.");
         }
@@ -723,7 +775,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
             String clave = (pregunta.temaPregunta == null ? "" : pregunta.temaPregunta) + " · "
                     + Etiquetas.de(pregunta.competenciaPregunta) + " · "
                     + Etiquetas.de(pregunta.dificultadPregunta) + " · "
-                    + formatoPuntaje(puntajes.getOrDefault(pregunta.getIdPregunta(), 0.0)) + " pts";
+                    + formatoPuntaje(puntajes.getOrDefault(pregunta.consultarIdPregunta(), 0.0)) + " pts";
             pool.merge(clave, 1, Integer::sum);
         }
         List<String> cortos = new ArrayList<>();
@@ -741,7 +793,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
     }
 
     private String accionesEstado(HttpServletRequest req, Evaluacion evaluacion) {
-        int id = evaluacion.getIdEvaluacion();
+        int id = evaluacion.consultarIdEvaluacion();
         StringBuilder sb = new StringBuilder();
         if (evaluacion.estadoEvaluacion == EstadoEvaluacion.BORRADOR) {
             sb.append(boton(req, RUTA, id, "marcarLista", "Marcar lista", ""));

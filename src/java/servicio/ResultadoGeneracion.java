@@ -6,18 +6,18 @@ import java.util.List;
 /** Resultado del parser: ítems válidos, descartados por formato y errores breves (CU-19 5b). */
 public final class ResultadoGeneracion {
 
-    private final List<PreguntaGenerada> items;
+    private final List<PreguntaGenerada> elementos;
     private final int descartados;
     private final List<String> errores;
 
-    public ResultadoGeneracion(List<PreguntaGenerada> items, int descartados, List<String> errores) {
-        this.items = List.copyOf(items);
+    public ResultadoGeneracion(List<PreguntaGenerada> elementos, int descartados, List<String> errores) {
+        this.elementos = List.copyOf(elementos);
         this.descartados = descartados;
         this.errores = List.copyOf(errores);
     }
 
-    public List<PreguntaGenerada> items() {
-        return items;
+    public List<PreguntaGenerada> elementos() {
+        return elementos;
     }
 
     public int descartados() {
@@ -29,12 +29,12 @@ public final class ResultadoGeneracion {
     }
 
     public int recibidos() {
-        return items.size() + descartados;
+        return elementos.size() + descartados;
     }
 
     public ResultadoGeneracion sumar(ResultadoGeneracion otro) {
-        List<PreguntaGenerada> todos = new ArrayList<>(items);
-        todos.addAll(otro.items);
+        List<PreguntaGenerada> todos = new ArrayList<>(elementos);
+        todos.addAll(otro.elementos);
         List<String> motivos = new ArrayList<>(errores);
         motivos.addAll(otro.errores);
         return new ResultadoGeneracion(todos, descartados + otro.descartados, motivos);

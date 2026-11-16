@@ -15,3 +15,7 @@
 015_evaluacion_titulo_descripcion_ers.sql
 016_pregunta_tema_120.sql
 017_fase10_usuarios_ia.sql
+018_pregunta_propietario_banco_opcional.sql
+019_intentos_evaluacion_virtual.sql
+020_politica_respuestas_completas.sql
+021_clave_ia_docente.sql

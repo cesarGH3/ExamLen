@@ -18,7 +18,7 @@ public class ValidacionException extends Exception {
         this(List.of(error));
     }
 
-    public List<String> getErrores() {
+    public List<String> consultarErrores() {
         return errores;
     }
 }

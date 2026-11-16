@@ -17,7 +17,7 @@
 {{{nav}}}
 <main class="contenido contenido-medio">
     <nav class="migas" aria-label="Ruta">
-        <a href="{{ctx}}/app/docente/bancos">Bancos de preguntas</a>
+        <a href="{{ctx}}/app/docente/preguntas">Preguntas</a>
         <span aria-hidden="true">/</span>
         <a href="{{bancoUrl}}">{{bancoNombre}}</a>
         <span aria-hidden="true">/</span>
@@ -31,7 +31,20 @@
         </div>
         <div class="acciones">{{{accionesEstado}}}</div>
     </header>
+    <div class="acciones">{{{volverEvaluaciones}}}</div>
+    {{{proteccion}}}
     {{{pendientes}}}
+    <section class="hoja">
+        <h2>Organización opcional</h2>
+        <form method="post" action="{{ctx}}/app/docente/pregunta" class="formulario">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input type="hidden" name="id" value="{{idPregunta}}">
+            <input type="hidden" name="accion" value="organizarBanco">
+            <label for="idBanco">Banco</label>
+            <select id="idBanco" name="idBanco">{{{opcionesBancos}}}</select>
+            <button class="boton boton-contorno" type="submit">Guardar organización</button>
+        </form>
+    </section>
 
     <section class="hoja">
         {{{datosPregunta}}}

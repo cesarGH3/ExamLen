@@ -7,6 +7,7 @@ import logica.Pregunta;
 import logica.TipoGeneracion;
 import logica.Usuario;
 import modelo.BancoPreguntasDAO;
+import modelo.ClaveIADocenteDAO;
 import modelo.DocumentoFuenteDAO;
 import modelo.EvaluacionDAO;
 import modelo.PersistenciaGeneracionDAO;
@@ -47,28 +48,31 @@ public final class ServicioGeneracionIA {
 
     private final SolicitudGeneracionDAO solicitudDAO;
     private final DocumentoFuenteDAO documentoDAO;
+    private final ClaveIADocenteDAO claveIADAO;
     private final UsuarioDAO usuarioDAO;
     private final BancoPreguntasDAO bancoDAO;
     private final PreguntaDAO preguntaDAO;
     private final EvaluacionDAO evaluacionDAO;
     private final PersistenciaGeneracionDAO persistenciaDAO;
-    private final int workers;
+    private final int trabajadores;
     private final int capacidadCola;
 
     private volatile ThreadPoolExecutor ejecutor;
 
     public ServicioGeneracionIA(SolicitudGeneracionDAO solicitudDAO, DocumentoFuenteDAO documentoDAO,
-                                UsuarioDAO usuarioDAO, BancoPreguntasDAO bancoDAO, PreguntaDAO preguntaDAO,
+                                ClaveIADocenteDAO claveIADAO, UsuarioDAO usuarioDAO,
+                                BancoPreguntasDAO bancoDAO, PreguntaDAO preguntaDAO,
                                 EvaluacionDAO evaluacionDAO, PersistenciaGeneracionDAO persistenciaDAO,
-                                int workers, int capacidadCola) {
+                                int trabajadores, int capacidadCola) {
         this.solicitudDAO = solicitudDAO;
         this.documentoDAO = documentoDAO;
+        this.claveIADAO = claveIADAO;
         this.usuarioDAO = usuarioDAO;
         this.bancoDAO = bancoDAO;
         this.preguntaDAO = preguntaDAO;
         this.evaluacionDAO = evaluacionDAO;
         this.persistenciaDAO = persistenciaDAO;
-        this.workers = Math.max(1, workers);
+        this.trabajadores = Math.max(1, trabajadores);
         this.capacidadCola = Math.max(1, capacidadCola);
     }
 
@@ -87,10 +91,10 @@ public final class ServicioGeneracionIA {
                 return hilo;
             }
         };
-        ejecutor = new ThreadPoolExecutor(workers, workers, 0L, TimeUnit.MILLISECONDS,
+        ejecutor = new ThreadPoolExecutor(trabajadores, trabajadores, 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(capacidadCola), fabricaHilos, new ThreadPoolExecutor.AbortPolicy());
-        LOG.log(Level.INFO, "Procesador de generacion IA iniciado (workers={0}, cola={1})",
-                new Object[]{workers, capacidadCola});
+        LOG.log(Level.INFO, "Procesador de generacion IA iniciado (trabajadores={0}, cola={1})",
+                new Object[]{trabajadores, capacidadCola});
     }
 
     /**
@@ -149,7 +153,7 @@ public final class ServicioGeneracionIA {
                         (System.nanoTime() - inicio) / 1_000_000});
         } catch (GeneracionFallidaException e) {
             LOG.log(Level.WARNING, "Solicitud {0} FALLIDA ({1}): {2}",
-                    new Object[]{trabajo.idSolicitud(), e.getTipo(), e.getMessage()});
+                    new Object[]{trabajo.idSolicitud(), e.consultarTipo(), e.getMessage()});
             marcarFallidaSegura(trabajo.idSolicitud(), mensajeSeguro(e.getMessage()));
         } catch (RuntimeException e) {
             LOG.log(Level.SEVERE, "Error inesperado en la generacion IA de la solicitud "
@@ -174,8 +178,20 @@ public final class ServicioGeneracionIA {
         String contexto = leerDocumento(trabajo);
         ProveedorIAFabrica fabrica = RegistroProveedoresIA.porCodigo(trabajo.proveedor())
                 .orElseThrow(() -> new GeneracionFallidaException(
-                        "El proveedor de IA indicado no está registrado.", TipoErrorIA.CONFIGURACION));
-        ProveedorIA proveedor = fabrica.crear(trabajo.modelo());
+                        "El proveedor de IA indicado no estA� registrado.", TipoErrorIA.CONFIGURACION));
+        String claveCifrada = claveIADAO.buscarCifrada(trabajo.idDocente(), trabajo.proveedor())
+                .orElseThrow(() -> new GeneracionFallidaException(
+                        "Configura tu clave de " + fabrica.nombreVisible()
+                        + " en Generación IA antes de solicitar contenido.",
+                        TipoErrorIA.CONFIGURACION));
+        String clave;
+        try {
+            clave = CifradoClaves.descifrar(claveCifrada);
+        } catch (RuntimeException e) {
+            throw new GeneracionFallidaException("No se pudo leer tu clave de IA. Vuelve a guardarla.",
+                    TipoErrorIA.CONFIGURACION, e);
+        }
+        ProveedorIA proveedor = fabrica.crear(trabajo.modelo(), clave);
 
         if (trabajo.tipo() != TipoGeneracion.MATERIAL_PRACTICA && trabajo.idBancoDestino() != null
                 && bancoDAO.buscarPorIdDeDocente(trabajo.idBancoDestino(), trabajo.idDocente()).isEmpty()) {
@@ -230,7 +246,7 @@ public final class ServicioGeneracionIA {
         ResultadoGeneracion recibido = proveedor.generarPreguntas(contexto, trabajo.instrucciones(),
                 trabajo.cantidad(), trabajo.nivel().name());
         ValidadorPreguntasGeneradas.Resultado validadas = ValidadorPreguntasGeneradas.normalizar(
-                recibido.items(), trabajo.nivel(), null, null, trabajo.competenciaElegida(),
+                recibido.elementos(), trabajo.nivel(), null, null, trabajo.competenciaElegida(),
                 trabajo.temaElegido());
         Resultado resultado = new Resultado();
         resultado.recibidos = recibido.recibidos();
@@ -258,7 +274,7 @@ public final class ServicioGeneracionIA {
             ResultadoGeneracion parcial = proveedor.generarPreguntas(contexto, instruccionesVariante,
                     cupos[i], base.nivelPregunta == null ? trabajo.nivel().name() : base.nivelPregunta.name());
             ValidadorPreguntasGeneradas.Resultado validadas = ValidadorPreguntasGeneradas.normalizar(
-                    parcial.items(), base.nivelPregunta, base.tipoPregunta, base.dificultadPregunta,
+                    parcial.elementos(), base.nivelPregunta, base.tipoPregunta, base.dificultadPregunta,
                     base.competenciaPregunta, base.temaPregunta);
             resultado.recibidos += parcial.recibidos();
             resultado.descartadas += parcial.descartados() + validadas.descartadas;
@@ -279,7 +295,7 @@ public final class ServicioGeneracionIA {
                     .buscarPorIdDeDocente(trabajo.idEvaluacionReferencia(), trabajo.idDocente())
                     .orElseThrow(() -> new GeneracionFallidaException(
                             "La evaluación de referencia ya no está disponible.", TipoErrorIA.DOCUMENTO));
-            List<Pregunta> fuentes = preguntaDAO.listarPorEvaluacion(evaluacion.getIdEvaluacion());
+            List<Pregunta> fuentes = preguntaDAO.listarPorEvaluacion(evaluacion.consultarIdEvaluacion());
             StringBuilder lista = new StringBuilder();
             int citadas = 0;
             for (Pregunta fuente : fuentes) {
@@ -300,7 +316,7 @@ public final class ServicioGeneracionIA {
         ResultadoGeneracion recibido = proveedor.generarPreguntas(contexto, instrucciones,
                 trabajo.cantidad(), trabajo.nivel().name());
         ValidadorPreguntasGeneradas.Resultado validadas = ValidadorPreguntasGeneradas.normalizar(
-                recibido.items(), trabajo.nivel(), null, null, trabajo.competenciaElegida(),
+                recibido.elementos(), trabajo.nivel(), null, null, trabajo.competenciaElegida(),
                 trabajo.temaElegido());
         Resultado resultado = new Resultado();
         resultado.recibidos = recibido.recibidos();

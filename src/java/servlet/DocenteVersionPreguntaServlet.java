@@ -82,10 +82,10 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
                     return;
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             guardarFormulario(req, formularioEnviado(req));
         }
-        redirigir(req, resp, RUTA + "?id=" + contexto.pregunta.getIdVersionPregunta());
+        redirigir(req, resp, RUTA + "?id=" + contexto.pregunta.consultarIdVersionPregunta());
     }
 
     // ------------------------------------------------------------------ acciones
@@ -119,7 +119,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
         Validador.validarLongitud(texto, 1, MAX_TEXTO_OPCION,
                 "La opción debe tener entre 1 y 500 caracteres.", errores);
         List<VersionOpcion> opciones = versionOpcionDAO.listarPorVersionPregunta(
-                contexto.pregunta.getIdVersionPregunta());
+                contexto.pregunta.consultarIdVersionPregunta());
         if (!errores.isEmpty()) {
             throw new ValidacionException(errores);
         }
@@ -147,7 +147,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
     private void eliminarOpcion(HttpServletRequest req, Contexto contexto) throws ValidacionException {
         VersionOpcion opcion = opcionDe(contexto, parametroId(req, "idOpcion"));
         List<VersionOpcion> opciones = versionOpcionDAO.listarPorVersionPregunta(
-                contexto.pregunta.getIdVersionPregunta());
+                contexto.pregunta.consultarIdVersionPregunta());
         if (opciones.size() <= 2) {
             throw new ValidacionException("Una pregunta de selección necesita al menos dos opciones.");
         }
@@ -166,8 +166,8 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
     }
 
     private VersionOpcion opcionDe(Contexto contexto, int idOpcion) {
-        return versionOpcionDAO.listarPorVersionPregunta(contexto.pregunta.getIdVersionPregunta()).stream()
-                .filter(o -> o.getIdVersionOpcion() == idOpcion)
+        return versionOpcionDAO.listarPorVersionPregunta(contexto.pregunta.consultarIdVersionPregunta()).stream()
+                .filter(o -> o.consultarIdVersionOpcion() == idOpcion)
                 .findFirst()
                 .orElseThrow(() -> new RecursoNoEncontradoException("La opción indicada no existe."));
     }
@@ -180,7 +180,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pregunta de la versión no encontrada"));
         int idVersion = versionPreguntaDAO.idVersionEvaluacionDePregunta(id);
         java.util.Optional<VersionEvaluacion> propia = versionDAO.buscarPorIdDeDocente(idVersion,
-                docente.getIdUsuario());
+                docente.consultarIdUsuario());
         verificarPropiedad(propia.isPresent(), versionDAO.buscarPorId(idVersion).isPresent(),
                 "Pregunta de la versión no encontrada");
         VersionEvaluacion version = propia.get();
@@ -239,7 +239,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
     }
 
     private String seccionOpcionesLectura(Contexto contexto) {
-        int id = contexto.pregunta.getIdVersionPregunta();
+        int id = contexto.pregunta.consultarIdVersionPregunta();
         List<Map<String, String>> filas = new ArrayList<>();
         for (VersionOpcion opcion : versionOpcionDAO.listarPorVersionPregunta(id)) {
             Map<String, String> fila = new HashMap<>();
@@ -265,7 +265,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
         Map<String, String> d = new HashMap<>();
         d.put("destino", ruta(req, RUTA));
         d.put("csrf", csrf(req));
-        d.put("id", String.valueOf(pregunta.getIdVersionPregunta()));
+        d.put("id", String.valueOf(pregunta.consultarIdVersionPregunta()));
         d.put("enunciado", formulario.getOrDefault("enunciado",
                 pregunta.enunciadoVersionPregunta == null ? "" : pregunta.enunciadoVersionPregunta));
         d.put("respuestaEsperada", formulario.getOrDefault("respuestaEsperada",
@@ -296,7 +296,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
     }
 
     private String seccionOpciones(HttpServletRequest req, Contexto contexto, Map<String, String> formulario) {
-        int id = contexto.pregunta.getIdVersionPregunta();
+        int id = contexto.pregunta.consultarIdVersionPregunta();
         List<VersionOpcion> opciones = versionOpcionDAO.listarPorVersionPregunta(id);
         int idEdicion = Validador.parsearId(parametro(req, "opcion"));
         List<Map<String, String>> filas = new ArrayList<>();
@@ -308,7 +308,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
                     ? vistas.componer("_insignia.html", Map.of("clase", "insignia-activo", "texto", "Correcta"))
                     : "");
             StringBuilder acciones = new StringBuilder();
-            String idOpcion = String.valueOf(opcion.getIdVersionOpcion());
+            String idOpcion = String.valueOf(opcion.consultarIdVersionOpcion());
             if (!opcion.esCorrectaVersionOpcion) {
                 acciones.append(boton(req, RUTA, id, "marcarCorrecta", "Marcar correcta",
                         "boton-contorno boton-pequeno", "idOpcion", idOpcion));
@@ -340,7 +340,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
         String opcionesHtml = vistas.componer("_pregunta-opciones.html", datos);
 
         VersionOpcion enEdicion = opciones.stream()
-                .filter(o -> o.getIdVersionOpcion() == idEdicion)
+                .filter(o -> o.consultarIdVersionOpcion() == idEdicion)
                 .findFirst().orElse(null);
         if (enEdicion == null) {
             return opcionesHtml;
@@ -349,7 +349,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
         edicion.put("destino", ruta(req, RUTA));
         edicion.put("csrf", csrf(req));
         edicion.put("id", String.valueOf(id));
-        edicion.put("idOpcion", String.valueOf(enEdicion.getIdVersionOpcion()));
+        edicion.put("idOpcion", String.valueOf(enEdicion.consultarIdVersionOpcion()));
         edicion.put("texto", enEdicion.textoVersionOpcion);
         edicion.put("marcada", enEdicion.esCorrectaVersionOpcion ? "checked" : "");
         edicion.put("volver", ruta(req, RUTA + "?id=" + id));

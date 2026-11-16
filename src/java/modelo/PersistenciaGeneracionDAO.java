@@ -44,21 +44,27 @@ public class PersistenciaGeneracionDAO extends DaoBase {
 
     /**
      * Guarda el resultado válido de una generación y devuelve cuántas preguntas quedaron.
-     * Para MATERIAL_PRACTICA crea su propio banco y material; para el resto usa el banco destino.
+     * Para MATERIAL_PRACTICA crea el material. El banco destino siempre es opcional.
      */
     public int persistir(int idDocente, int idSolicitud, TipoGeneracion tipo, NivelIngles nivel,
                          Integer idBancoDestino, String descripcionMaterial, String marca,
                          List<PreguntaPersistible> preguntas) {
         return enTransaccion(c -> {
-            int idBanco;
+            if (consultarUnoCon(c, "SELECT id_solicitud_generacion FROM solicitud_generacion "
+                    + "WHERE id_solicitud_generacion = ? AND id_docente = ? FOR UPDATE", sentencia -> {
+                sentencia.setInt(1, idSolicitud); sentencia.setInt(2, idDocente);
+            }, resultado -> resultado.getInt(1)).isEmpty()) {
+                throw new logica.OperacionNoPermitidaException("Solicitud ajena al docente.");
+            }
+            if (idBancoDestino != null && consultarUnoCon(c, "SELECT id_banco_preguntas FROM banco_preguntas "
+                    + "WHERE id_banco_preguntas = ? AND id_docente = ? FOR SHARE", sentencia -> {
+                sentencia.setInt(1, idBancoDestino); sentencia.setInt(2, idDocente);
+            }, resultado -> resultado.getInt(1)).isEmpty()) {
+                throw new logica.OperacionNoPermitidaException("Banco ajeno al docente.");
+            }
+            Integer idBanco = idBancoDestino;
             Integer idMaterial = null;
             if (tipo == TipoGeneracion.MATERIAL_PRACTICA) {
-                idBanco = insertarCon(c, "INSERT INTO banco_preguntas (id_docente, nombre, descripcion) "
-                        + "VALUES (?, ?, ?)", ps -> {
-                    ps.setInt(1, idDocente);
-                    ps.setString(2, "IA " + marca);
-                    ps.setString(3, recortar(descripcionMaterial, 200));
-                });
                 idMaterial = insertarCon(c, "INSERT INTO material_practica (id_docente, id_solicitud_generacion, "
                         + "titulo, descripcion, nivel, estado, origen) "
                         + "VALUES (?, ?, ?, ?, ?, 'BORRADOR', 'GENERADO_IA')", ps -> {
@@ -68,24 +74,23 @@ public class PersistenciaGeneracionDAO extends DaoBase {
                     ps.setString(4, recortar(descripcionMaterial, 500));
                     ps.setString(5, nivel == null ? null : nivel.name());
                 });
-            } else {
-                idBanco = idBancoDestino;
             }
             int guardadas = 0;
             for (PreguntaPersistible pregunta : preguntas) {
                 final Integer idMaterialFinal = idMaterial;
-                int idPregunta = insertarCon(c, "INSERT INTO pregunta (id_banco_preguntas, id_solicitud_generacion, "
+                int idPregunta = insertarCon(c, "INSERT INTO pregunta (id_docente, id_banco_preguntas, id_solicitud_generacion, "
                         + "enunciado, tipo, nivel, dificultad, competencia, tema, respuesta_esperada, "
-                        + "estado, origen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'BORRADOR', 'GENERADO_IA')", ps -> {
-                    ps.setInt(1, idBanco);
-                    ps.setInt(2, idSolicitud);
-                    ps.setString(3, pregunta.enunciado);
-                    ps.setString(4, pregunta.tipo.name());
-                    ps.setString(5, pregunta.nivel == null ? null : pregunta.nivel.name());
-                    ps.setString(6, pregunta.dificultad == null ? null : pregunta.dificultad.name());
-                    ps.setString(7, pregunta.competencia == null ? null : pregunta.competencia.name());
-                    ps.setString(8, pregunta.tema);
-                    ps.setString(9, pregunta.respuestaEsperada);
+                        + "estado, origen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'BORRADOR', 'GENERADO_IA')", ps -> {
+                    ps.setInt(1, idDocente);
+                    ps.setObject(2, idBanco, java.sql.Types.INTEGER);
+                    ps.setInt(3, idSolicitud);
+                    ps.setString(4, pregunta.enunciado);
+                    ps.setString(5, pregunta.tipo.name());
+                    ps.setString(6, pregunta.nivel == null ? null : pregunta.nivel.name());
+                    ps.setString(7, pregunta.dificultad == null ? null : pregunta.dificultad.name());
+                    ps.setString(8, pregunta.competencia == null ? null : pregunta.competencia.name());
+                    ps.setString(9, pregunta.tema);
+                    ps.setString(10, pregunta.respuestaEsperada);
                 });
                 int orden = 1;
                 for (OpcionPregunta opcion : pregunta.opciones) {

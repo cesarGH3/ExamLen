@@ -23,7 +23,7 @@ public class EstudiantePracticaPdfServlet extends ServletBase {
         int id = parametroId(req, "id");
         MaterialPractica material = materialDAO.buscarPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Material no encontrado"));
-        if (!materialDAO.esDeEstudiante(id, estudiante.getIdUsuario())) {
+        if (!materialDAO.esDeEstudiante(id, estudiante.consultarIdUsuario())) {
             // BORRADOR, ARCHIVADO o material de cursos sin inscripción activa: si existe, es ajeno (403).
             verificarPropiedad(false, materialDAO.buscarPorId(id).isPresent(), "Material no encontrado");
         }

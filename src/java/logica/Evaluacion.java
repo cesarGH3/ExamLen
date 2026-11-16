@@ -19,11 +19,11 @@ public class Evaluacion {
         versionesEvaluacion = new ArrayList<>();
     }
 
-    public int getIdEvaluacion() {
+    public int consultarIdEvaluacion() {
         return idEvaluacion;
     }
 
-    public void setIdEvaluacion(int idEvaluacion) {
+    public void establecerIdEvaluacion(int idEvaluacion) {
         this.idEvaluacion = idEvaluacion;
     }
 }

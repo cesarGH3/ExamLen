@@ -3,6 +3,7 @@ package servlet;
 import conexion.Conexion;
 import modelo.AdministradorDAO;
 import modelo.BancoPreguntasDAO;
+import modelo.ClaveIADocenteDAO;
 import modelo.CursoDAO;
 import modelo.DocenteDAO;
 import modelo.DocumentoFuenteDAO;
@@ -63,6 +64,7 @@ public class InicializadorAplicacion implements ServletContextListener {
     public static final String DOCUMENTO_DAO = "examlen.documentoFuenteDAO";
     public static final String SOLICITUD_DAO = "examlen.solicitudGeneracionDAO";
     public static final String TOKEN_DAO = "examlen.tokenRecuperacionDAO";
+    public static final String CLAVE_IA_DAO = "examlen.claveIADocenteDAO";
 
     private static final Logger LOG = Logger.getLogger(InicializadorAplicacion.class.getName());
 
@@ -103,6 +105,7 @@ public class InicializadorAplicacion implements ServletContextListener {
         contexto.setAttribute(DOCUMENTO_DAO, new DocumentoFuenteDAO(dataSource));
         contexto.setAttribute(SOLICITUD_DAO, new SolicitudGeneracionDAO(dataSource));
         contexto.setAttribute(TOKEN_DAO, new TokenRecuperacionDAO(dataSource));
+        contexto.setAttribute(CLAVE_IA_DAO, new ClaveIADocenteDAO(dataSource));
         LOG.info("ExamLen inicializado.");
     }
 }

@@ -22,11 +22,11 @@ public class BancoPreguntasDAO extends DaoBase {
         try {
             int id = insertar("INSERT INTO banco_preguntas (id_docente, nombre, "
                     + "descripcion) VALUES (?, ?, ?)", ps -> {
-                ps.setInt(1, docente.getIdUsuario());
+                ps.setInt(1, docente.consultarIdUsuario());
                 ps.setString(2, nombre);
                 ps.setString(3, descripcion);
             });
-            banco.setIdBancoPreguntas(id);
+            banco.establecerIdBancoPreguntas(id);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("Ya tienes un banco con ese nombre.");
         }
@@ -40,7 +40,7 @@ public class BancoPreguntasDAO extends DaoBase {
                     + "WHERE id_banco_preguntas = ?", ps -> {
                 ps.setString(1, nombre);
                 ps.setString(2, descripcion);
-                ps.setInt(3, banco.getIdBancoPreguntas());
+                ps.setInt(3, banco.consultarIdBancoPreguntas());
             });
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("Ya tienes un banco con ese nombre.");
@@ -102,7 +102,7 @@ public class BancoPreguntasDAO extends DaoBase {
 
     private BancoPreguntas mapear(java.sql.ResultSet rs) throws java.sql.SQLException {
         BancoPreguntas banco = new BancoPreguntas();
-        banco.setIdBancoPreguntas(rs.getInt("id_banco_preguntas"));
+        banco.establecerIdBancoPreguntas(rs.getInt("id_banco_preguntas"));
         banco.nombreBancoPreguntas = rs.getString("nombre");
         banco.descripcionBancoPreguntas = rs.getString("descripcion");
         return banco;

@@ -9,6 +9,8 @@ import logica.EvaluacionVirtual;
 import logica.Inscripcion;
 import logica.Intento;
 import logica.RecursoNoEncontradoException;
+import logica.RegistroDuplicadoException;
+import logica.ValidacionException;
 import logica.VersionEvaluacion;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -23,7 +25,7 @@ import javax.sql.DataSource;
 public class IntentoDAO extends DaoBase {
 
     private static final String COLUMNAS = "i.id_intento, i.id_evaluacion_virtual, i.id_inscripcion, "
-            + "i.id_version_evaluacion, i.fecha_inicio, i.fecha_fin, i.calificacion, "
+            + "i.numero_intento, i.id_version_evaluacion, i.fecha_inicio, i.fecha_fin, i.calificacion, "
             + "i.estado, v.codigo";
     private static final String ORIGEN = "intento i "
             + "JOIN version_evaluacion v ON v.id_version_evaluacion = i.id_version_evaluacion";
@@ -38,16 +40,143 @@ public class IntentoDAO extends DaoBase {
         intento.fechaInicioIntento = Fechas.ahora();
         intento.estadoIntento = EstadoIntento.EN_CURSO;
         intento.versionEvaluacionIntento = versionEvaluacion;
-        int id = insertar("INSERT INTO intento (id_evaluacion_virtual, id_inscripcion, id_version_evaluacion, "
-                + "estado) VALUES (?, ?, ?, 'EN_CURSO')", ps -> {
-            ps.setInt(1, evaluacionVirtual.getIdEvaluacionVirtual());
-            ps.setInt(2, inscripcion.getIdInscripcion());
-            ps.setInt(3, versionEvaluacion.getIdVersionEvaluacion());
+        intento.establecerNumeroIntento(1);
+        int id = insertar("INSERT INTO intento (id_evaluacion_virtual, id_inscripcion, numero_intento, "
+                + "id_version_evaluacion, estado) VALUES (?, ?, ?, ?, 'EN_CURSO')", ps -> {
+            ps.setInt(1, evaluacionVirtual.consultarIdEvaluacionVirtual());
+            ps.setInt(2, inscripcion.consultarIdInscripcion());
+            ps.setInt(3, intento.consultarNumeroIntento());
+            ps.setInt(4, versionEvaluacion.consultarIdVersionEvaluacion());
         });
-        intento.setIdIntento(id);
+        intento.establecerIdIntento(id);
         evaluacionVirtual.intentosEvaluacionVirtual.add(intento);
         inscripcion.intentosInscripcion.add(intento);
         return intento;
+    }
+
+    /**
+     * Inicia o reanuda un intento con una transaccion que bloquea la fila estable de la evaluacion
+     * virtual. El bloqueo serializa los inicios de un mismo estudiante y la clave unica compuesta
+     * de la base de datos actua como ultima barrera. No usa COUNT + INSERT sin proteccion.
+     */
+    public Intento iniciarIntento(EvaluacionVirtual evaluacionVirtual, Inscripcion inscripcion,
+                                  List<VersionEvaluacion> versiones) throws ValidacionException {
+        int idVirtual = evaluacionVirtual.consultarIdEvaluacionVirtual();
+        int idInscripcion = inscripcion.consultarIdInscripcion();
+        try {
+            return enTransaccion(c -> {
+                FilaVirtual fila = consultarUnoCon(c,
+                        "SELECT intentos_permitidos, estado, "
+                        + "(NOW() BETWEEN fecha_inicio AND fecha_fin) AS vigente "
+                        + "FROM evaluacion_virtual WHERE id_evaluacion_virtual = ? FOR UPDATE",
+                        ps -> ps.setInt(1, idVirtual), rs -> {
+                            FilaVirtual valor = new FilaVirtual();
+                            valor.intentosPermitidos = rs.getInt("intentos_permitidos");
+                            valor.estado = rs.getString("estado");
+                            valor.vigente = rs.getBoolean("vigente");
+                            return valor;
+                        }).orElseThrow(() -> new InicioRechazado("La evaluacion virtual no existe."));
+
+                boolean pertenece = consultarUnoCon(c,
+                        "SELECT 1 FROM inscripcion n JOIN evaluacion_virtual ev ON ev.id_grupo = n.id_grupo "
+                        + "WHERE n.id_inscripcion = ? AND ev.id_evaluacion_virtual = ? AND n.estado = 'ACTIVA'",
+                        ps -> {
+                            ps.setInt(1, idInscripcion);
+                            ps.setInt(2, idVirtual);
+                        }, rs -> Boolean.TRUE).isPresent();
+                if (!pertenece) {
+                    throw new InicioRechazado("La inscripcion no pertenece a esta evaluacion.");
+                }
+
+                List<Intento> intentos = consultarListaCon(c,
+                        "SELECT " + COLUMNAS + " FROM " + ORIGEN
+                        + " WHERE i.id_evaluacion_virtual = ? AND i.id_inscripcion = ? "
+                        + "ORDER BY i.numero_intento FOR UPDATE",
+                        ps -> {
+                            ps.setInt(1, idVirtual);
+                            ps.setInt(2, idInscripcion);
+                        }, IntentoDAO.this::mapear);
+                for (Intento existente : intentos) {
+                    if (existente.estadoIntento == EstadoIntento.EN_CURSO) {
+                        return existente;
+                    }
+                }
+                if (!"ABIERTA".equals(fila.estado) || !fila.vigente) {
+                    throw new InicioRechazado("La evaluacion no esta disponible en este momento.");
+                }
+
+                if (intentos.size() >= fila.intentosPermitidos) {
+                    throw new InicioRechazado("Ya usaste los " + fila.intentosPermitidos
+                            + " intentos permitidos para esta evaluacion.");
+                }
+                int siguiente = 1;
+                for (Intento previo : intentos) {
+                    siguiente = Math.max(siguiente, previo.consultarNumeroIntento() + 1);
+                }
+                if (siguiente > fila.intentosPermitidos) {
+                    throw new InicioRechazado("No quedan intentos disponibles para esta evaluacion.");
+                }
+                if (versiones == null || versiones.isEmpty()) {
+                    throw new InicioRechazado("La evaluacion no tiene versiones configuradas.");
+                }
+                VersionEvaluacion elegida = elegirVersion(c, idVirtual, versiones);
+                final int numero = siguiente;
+                int id = insertarCon(c, "INSERT INTO intento (id_evaluacion_virtual, id_inscripcion, "
+                        + "numero_intento, id_version_evaluacion, estado) "
+                        + "VALUES (?, ?, ?, ?, 'EN_CURSO')", ps -> {
+                            ps.setInt(1, idVirtual);
+                            ps.setInt(2, idInscripcion);
+                            ps.setInt(3, numero);
+                            ps.setInt(4, elegida.consultarIdVersionEvaluacion());
+                        });
+                Intento intento = consultarUnoCon(c,
+                        "SELECT " + COLUMNAS + " FROM " + ORIGEN + " WHERE i.id_intento = ?",
+                        ps -> ps.setInt(1, id), IntentoDAO.this::mapear)
+                        .orElseThrow(() -> new IllegalStateException("No se pudo leer el intento creado."));
+                evaluacionVirtual.establecerIntentosPermitidos(fila.intentosPermitidos);
+                evaluacionVirtual.intentosEvaluacionVirtual.add(intento);
+                inscripcion.intentosInscripcion.add(intento);
+                return intento;
+            });
+        } catch (InicioRechazado e) {
+            throw new ValidacionException(e.getMessage());
+        } catch (RegistroDuplicadoException e) {
+            return buscarIntentoEnCurso(idVirtual, idInscripcion)
+                    .orElseThrow(() -> new ValidacionException("No fue posible iniciar el intento."));
+        }
+    }
+
+    private static VersionEvaluacion elegirVersion(Connection c, int idVirtual,
+                                                   List<VersionEvaluacion> versiones) throws SQLException {
+        VersionEvaluacion elegida = versiones.get(0);
+        int minimo = Integer.MAX_VALUE;
+        for (VersionEvaluacion version : versiones) {
+            int usos = consultarUnoCon(c,
+                    "SELECT COUNT(*) FROM intento WHERE id_evaluacion_virtual = ? AND id_version_evaluacion = ?",
+                    ps -> {
+                        ps.setInt(1, idVirtual);
+                        ps.setInt(2, version.consultarIdVersionEvaluacion());
+                    }, rs -> rs.getInt(1)).orElse(0);
+            if (usos < minimo) {
+                minimo = usos;
+                elegida = version;
+            }
+        }
+        return elegida;
+    }
+
+    private static final class FilaVirtual {
+        int intentosPermitidos;
+        String estado;
+        boolean vigente;
+    }
+
+    private static final class InicioRechazado extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        InicioRechazado(String mensaje) {
+            super(mensaje);
+        }
     }
 
     /**
@@ -80,7 +209,7 @@ public class IntentoDAO extends DaoBase {
         enTransaccion(c -> {
             actualizarCon(c, "UPDATE " + CIERRE_JOIN + " SET " + CIERRE_FECHA_FIN + ", "
                     + "i.estado = 'FINALIZADO' WHERE i.id_intento = ? AND i.estado = 'EN_CURSO'",
-                    ps -> ps.setInt(1, intento.getIdIntento()));
+                    ps -> ps.setInt(1, intento.consultarIdIntento()));
             sincronizarCierre(c, intento);
             return null;
         });
@@ -89,7 +218,7 @@ public class IntentoDAO extends DaoBase {
     /** Refleja en memoria la fecha_fin y el estado reales del intento (sin sobrescribir la fecha). */
     private static void sincronizarCierre(Connection c, Intento intento) throws SQLException {
         consultarUnoCon(c, "SELECT fecha_fin, estado FROM intento WHERE id_intento = ?",
-                ps -> ps.setInt(1, intento.getIdIntento()), rs -> {
+                ps -> ps.setInt(1, intento.consultarIdIntento()), rs -> {
                     intento.fechaFinIntento = Mapeos.fecha(rs, "fecha_fin");
                     intento.estadoIntento = enumeracion(rs, "estado", EstadoIntento.class);
                     return null;
@@ -132,14 +261,14 @@ public class IntentoDAO extends DaoBase {
         Double nota = enTransaccion(c -> {
             List<Integer> versiones = consultarListaCon(c,
                     "SELECT id_version_evaluacion FROM intento WHERE id_intento = ? FOR UPDATE",
-                    ps -> ps.setInt(1, intento.getIdIntento()), rs -> rs.getInt(1));
+                    ps -> ps.setInt(1, intento.consultarIdIntento()), rs -> rs.getInt(1));
             if (versiones.isEmpty()) {
                 throw new RecursoNoEncontradoException("Intento no encontrado");
             }
             int idVersion = versiones.get(0);
             BigDecimal obtenidos = consultarUnoCon(c,
                     "SELECT COALESCE(SUM(puntaje), 0) FROM respuesta WHERE id_intento = ?",
-                    ps -> ps.setInt(1, intento.getIdIntento()), rs -> rs.getBigDecimal(1))
+                    ps -> ps.setInt(1, intento.consultarIdIntento()), rs -> rs.getBigDecimal(1))
                     .orElse(BigDecimal.ZERO);
             BigDecimal maximos = consultarUnoCon(c,
                     "SELECT COALESCE(SUM(puntaje), 0) FROM version_pregunta WHERE id_version_evaluacion = ?",
@@ -147,7 +276,7 @@ public class IntentoDAO extends DaoBase {
                     .orElse(BigDecimal.ZERO);
             if (maximos.signum() <= 0) {
                 LOG.log(Level.SEVERE, "Intento sin maximo de puntos: id={0}, version={1}; no se guarda calificacion",
-                        new Object[]{intento.getIdIntento(), idVersion});
+                        new Object[]{intento.consultarIdIntento(), idVersion});
                 if (marcarCalificado && intento.estadoIntento != EstadoIntento.CALIFICADO) {
                     finalizarSinNota(c, intento);
                 }
@@ -159,7 +288,7 @@ public class IntentoDAO extends DaoBase {
             if (obtenidos.compareTo(maximos) > 0) {
                 LOG.log(Level.SEVERE, "Inconsistencia de puntos: intento={0} obtenidos={1} maximos={2}; "
                         + "no se guarda calificacion",
-                        new Object[]{intento.getIdIntento(), obtenidos, maximos});
+                        new Object[]{intento.consultarIdIntento(), obtenidos, maximos});
                 if (marcarCalificado && intento.estadoIntento != EstadoIntento.CALIFICADO) {
                     finalizarSinNota(c, intento);
                 }
@@ -175,13 +304,13 @@ public class IntentoDAO extends DaoBase {
                 actualizarCon(c, "UPDATE " + CIERRE_JOIN + " SET " + CIERRE_FECHA_FIN + ", "
                         + "i.calificacion = ?, i.estado = 'CALIFICADO' WHERE i.id_intento = ?", ps -> {
                     ps.setBigDecimal(1, notaFinal);
-                    ps.setInt(2, intento.getIdIntento());
+                    ps.setInt(2, intento.consultarIdIntento());
                 });
                 sincronizarCierre(c, intento);
             } else {
                 actualizarCon(c, "UPDATE intento SET calificacion = ? WHERE id_intento = ?", ps -> {
                     ps.setBigDecimal(1, notaFinal);
-                    ps.setInt(2, intento.getIdIntento());
+                    ps.setInt(2, intento.consultarIdIntento());
                 });
             }
             return notaFinal.doubleValue();
@@ -196,7 +325,7 @@ public class IntentoDAO extends DaoBase {
     private static void finalizarSinNota(Connection c, Intento intento) throws SQLException {
         actualizarCon(c, "UPDATE " + CIERRE_JOIN + " SET " + CIERRE_FECHA_FIN + ", "
                 + "i.estado = 'FINALIZADO' WHERE i.id_intento = ? AND i.estado = 'EN_CURSO'",
-                ps -> ps.setInt(1, intento.getIdIntento()));
+                ps -> ps.setInt(1, intento.consultarIdIntento()));
     }
 
     /** Puntos obtenidos y maximos de la version del intento (solo lectura, para la vista del docente). */
@@ -239,12 +368,30 @@ public class IntentoDAO extends DaoBase {
         }, this::mapear);
     }
 
-    public Optional<Intento> buscarPorEvaluacionEInscripcion(int idEvaluacionVirtual, int idInscripcion) {
-        return consultarUno("SELECT " + COLUMNAS + " FROM " + ORIGEN
-                + " WHERE i.id_evaluacion_virtual = ? AND i.id_inscripcion = ?", ps -> {
+    public List<Intento> listarPorEvaluacionEInscripcion(int idEvaluacionVirtual, int idInscripcion) {
+        return consultarLista("SELECT " + COLUMNAS + " FROM " + ORIGEN
+                + " WHERE i.id_evaluacion_virtual = ? AND i.id_inscripcion = ? "
+                + "ORDER BY i.numero_intento", ps -> {
             ps.setInt(1, idEvaluacionVirtual);
             ps.setInt(2, idInscripcion);
         }, this::mapear);
+    }
+
+    public Optional<Intento> buscarIntentoEnCurso(int idEvaluacionVirtual, int idInscripcion) {
+        return consultarUno("SELECT " + COLUMNAS + " FROM " + ORIGEN
+                + " WHERE i.id_evaluacion_virtual = ? AND i.id_inscripcion = ? "
+                + "AND i.estado = 'EN_CURSO' ORDER BY i.numero_intento LIMIT 1", ps -> {
+            ps.setInt(1, idEvaluacionVirtual);
+            ps.setInt(2, idInscripcion);
+        }, this::mapear);
+    }
+
+    public int contarPorEvaluacionEInscripcion(int idEvaluacionVirtual, int idInscripcion) {
+        return contar("SELECT COUNT(*) FROM intento WHERE id_evaluacion_virtual = ? AND id_inscripcion = ?",
+                ps -> {
+                    ps.setInt(1, idEvaluacionVirtual);
+                    ps.setInt(2, idInscripcion);
+                });
     }
 
     public List<Intento> listarPorInscripcion(int idInscripcion) {
@@ -261,7 +408,7 @@ public class IntentoDAO extends DaoBase {
     /** Todos los intentos de una evaluación virtual, para el análisis de supervisión al cerrar (RF-50). */
     public List<Intento> listarPorEvaluacionVirtual(int idEvaluacionVirtual) {
         return consultarLista("SELECT " + COLUMNAS + " FROM " + ORIGEN
-                + " WHERE i.id_evaluacion_virtual = ? ORDER BY i.id_intento",
+                + " WHERE i.id_evaluacion_virtual = ? ORDER BY i.id_inscripcion, i.numero_intento",
                 ps -> ps.setInt(1, idEvaluacionVirtual), this::mapear);
     }
 
@@ -296,7 +443,7 @@ public class IntentoDAO extends DaoBase {
                 + "JOIN estudiante es ON es.id_usuario = e.id_usuario WHERE i.id_intento = ?",
                 ps -> ps.setInt(1, idIntento), rs -> {
                     Estudiante estudiante = new Estudiante();
-                    estudiante.setIdUsuario(rs.getInt("id_usuario"));
+                    estudiante.establecerIdUsuario(rs.getInt("id_usuario"));
                     estudiante.identificacionUsuario = rs.getString("identificacion");
                     estudiante.nombreUsuario = rs.getString("nombre");
                     estudiante.correoUsuario = rs.getString("correo");
@@ -349,13 +496,14 @@ public class IntentoDAO extends DaoBase {
 
     private Intento mapear(ResultSet rs) throws SQLException {
         Intento intento = new Intento();
-        intento.setIdIntento(rs.getInt("id_intento"));
+        intento.establecerIdIntento(rs.getInt("id_intento"));
+        intento.establecerNumeroIntento(rs.getInt("numero_intento"));
         intento.fechaInicioIntento = Mapeos.fecha(rs, "fecha_inicio");
         intento.fechaFinIntento = Mapeos.fecha(rs, "fecha_fin");
         intento.calificacionIntento = rs.getDouble("calificacion");
         intento.estadoIntento = enumeracion(rs, "estado", EstadoIntento.class);
         VersionEvaluacion version = new VersionEvaluacion();
-        version.setIdVersionEvaluacion(rs.getInt("id_version_evaluacion"));
+        version.establecerIdVersionEvaluacion(rs.getInt("id_version_evaluacion"));
         version.codigoVersionEvaluacion = rs.getString("codigo");
         intento.versionEvaluacionIntento = version;
         return intento;

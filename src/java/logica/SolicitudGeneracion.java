@@ -35,11 +35,11 @@ public class SolicitudGeneracion {
         materialesPracticaSolicitudGeneracion = new ArrayList<>();
     }
 
-    public int getIdSolicitudGeneracion() {
+    public int consultarIdSolicitudGeneracion() {
         return idSolicitudGeneracion;
     }
 
-    public void setIdSolicitudGeneracion(int idSolicitudGeneracion) {
+    public void establecerIdSolicitudGeneracion(int idSolicitudGeneracion) {
         this.idSolicitudGeneracion = idSolicitudGeneracion;
     }
 }

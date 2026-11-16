@@ -207,6 +207,22 @@
         });
     }
 
+    // Antes de un envio manual se intenta vaciar la cola local; el servidor sigue siendo la autoridad.
+    var enviandoConCola = false;
+    form.addEventListener('submit', function (evento) {
+        if (enviandoConCola || bloqueado || leerRespuestas().length === 0) {
+            return;
+        }
+        evento.preventDefault();
+        enviandoConCola = true;
+        descargarRespuestas().then(function () {
+            enviandoConCola = false;
+            if (!bloqueado) {
+                form.submit();
+            }
+        });
+    });
+
     form.addEventListener('change', function (evento) {
         var elemento = evento.target;
         if (elemento.type === 'radio') {

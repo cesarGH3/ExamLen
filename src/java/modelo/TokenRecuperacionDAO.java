@@ -22,15 +22,15 @@ public class TokenRecuperacionDAO extends DaoBase {
         enTransaccion(c -> {
             actualizarCon(c, "UPDATE token_recuperacion SET usado = TRUE "
                     + "WHERE id_usuario = ? AND usado = FALSE",
-                    ps -> ps.setInt(1, token.usuarioTokenRecuperacion.getIdUsuario()));
+                    ps -> ps.setInt(1, token.usuarioTokenRecuperacion.consultarIdUsuario()));
             int id = insertarCon(c, "INSERT INTO token_recuperacion (token_hash, fecha_creacion, "
                     + "fecha_expiracion, usado, id_usuario) VALUES (?, ?, ?, FALSE, ?)", ps -> {
                 ps.setString(1, token.tokenHashTokenRecuperacion);
                 ps.setTimestamp(2, new Timestamp(token.fechaCreacionTokenRecuperacion.getTime()));
                 ps.setTimestamp(3, new Timestamp(token.fechaExpiracionTokenRecuperacion.getTime()));
-                ps.setInt(4, token.usuarioTokenRecuperacion.getIdUsuario());
+                ps.setInt(4, token.usuarioTokenRecuperacion.consultarIdUsuario());
             });
-            token.setIdTokenRecuperacion(id);
+            token.establecerIdTokenRecuperacion(id);
             return null;
         });
     }
@@ -47,7 +47,7 @@ public class TokenRecuperacionDAO extends DaoBase {
                 + " JOIN token_recuperacion t ON t.id_usuario = u.id_usuario WHERE t.token_hash = ?",
                 ps -> ps.setString(1, tokenHash), rs -> {
                     TokenRecuperacion token = new TokenRecuperacion();
-                    token.setIdTokenRecuperacion(rs.getInt("id_token_recuperacion"));
+                    token.establecerIdTokenRecuperacion(rs.getInt("id_token_recuperacion"));
                     token.tokenHashTokenRecuperacion = rs.getString("token_hash");
                     token.fechaCreacionTokenRecuperacion = Mapeos.fecha(rs, "fecha_creacion");
                     token.fechaExpiracionTokenRecuperacion = Mapeos.fecha(rs, "fecha_expiracion");
@@ -59,7 +59,7 @@ public class TokenRecuperacionDAO extends DaoBase {
 
     public void marcarUsado(TokenRecuperacion token) {
         actualizar("UPDATE token_recuperacion SET usado = TRUE WHERE id_token_recuperacion = ?",
-                ps -> ps.setInt(1, token.getIdTokenRecuperacion()));
+                ps -> ps.setInt(1, token.consultarIdTokenRecuperacion()));
     }
 
     public void invalidarTokensDeUsuario(int idUsuario) {

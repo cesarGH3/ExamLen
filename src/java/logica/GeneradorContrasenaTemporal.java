@@ -15,7 +15,7 @@ public final class GeneradorContrasenaTemporal {
     private static final String TODOS = MAYUSCULAS + MINUSCULAS + NUMEROS + ESPECIALES;
     private static final int LONGITUD = 16;
 
-    private final SecureRandom random = new SecureRandom();
+    private final SecureRandom aleatorio = new SecureRandom();
 
     public String generar() {
         List<Character> caracteres = new ArrayList<>(LONGITUD);
@@ -26,7 +26,7 @@ public final class GeneradorContrasenaTemporal {
         while (caracteres.size() < LONGITUD) {
             caracteres.add(tomar(TODOS));
         }
-        Collections.shuffle(caracteres, random);
+        Collections.shuffle(caracteres, aleatorio);
         StringBuilder sb = new StringBuilder(LONGITUD);
         for (char c : caracteres) {
             sb.append(c);
@@ -35,6 +35,6 @@ public final class GeneradorContrasenaTemporal {
     }
 
     private char tomar(String conjunto) {
-        return conjunto.charAt(random.nextInt(conjunto.length()));
+        return conjunto.charAt(aleatorio.nextInt(conjunto.length()));
     }
 }

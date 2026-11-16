@@ -109,10 +109,27 @@
                 <label for="idVersiones">Versiones a aplicar (Ctrl para varias)</label>
                 <select id="idVersiones" name="idVersiones" multiple size="5" required>{{{opcionesVersiones}}}</select>
             </div>
+            <fieldset class="campo">
+                <legend>Intentos permitidos</legend>
+                <label class="casilla">
+                    <input type="radio" name="intentosPermitidos" value="1" checked>
+                    1 intento
+                </label>
+                <label class="casilla">
+                    <input type="radio" name="intentosPermitidos" value="2">
+                    2 intentos
+                </label>
+            </fieldset>
             <label class="casilla">
                 <input type="checkbox" name="supervision" value="1">
                 Activar supervisión
             </label>
+            <label class="casilla">
+                <input type="checkbox" name="exigirRespuestasCompletas" value="1">
+                Exigir que el estudiante responda todas las preguntas antes de enviarla
+            </label>
+            <p class="ayuda">Si se activa, el estudiante no podrá enviarla manualmente mientras tenga
+                preguntas pendientes. Si se vence el tiempo, la evaluación se enviará automáticamente.</p>
             <div class="acciones">
                 <button type="submit" class="boton">Programar</button>
             </div>

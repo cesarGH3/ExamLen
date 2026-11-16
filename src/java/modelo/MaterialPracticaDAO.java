@@ -44,12 +44,12 @@ public class MaterialPracticaDAO extends DaoBase {
         int id = insertar("INSERT INTO material_practica (id_docente, titulo, "
                 + "descripcion, nivel, estado, origen) "
                 + "VALUES (?, ?, ?, ?, 'BORRADOR', 'MANUAL')", ps -> {
-            ps.setInt(1, docente.getIdUsuario());
+            ps.setInt(1, docente.consultarIdUsuario());
             ps.setString(2, titulo);
             ps.setString(3, descripcion);
             ps.setString(4, nivel.name());
         });
-        material.setIdMaterialPractica(id);
+        material.establecerIdMaterialPractica(id);
         return material;
     }
 
@@ -63,9 +63,15 @@ public class MaterialPracticaDAO extends DaoBase {
             List<String> estados = consultarListaCon(c, "SELECT p.estado FROM material_pregunta mp "
                     + "JOIN pregunta p ON p.id_pregunta = mp.id_pregunta "
                     + "WHERE mp.id_material_practica = ? FOR UPDATE",
-                    ps -> ps.setInt(1, material.getIdMaterialPractica()), rs -> rs.getString("estado"));
+                    ps -> ps.setInt(1, material.consultarIdMaterialPractica()), rs -> rs.getString("estado"));
             if (estados.isEmpty()) {
                 return new int[]{-1, 0};
+            }
+            int cursos = consultarUnoCon(c, "SELECT COUNT(*) FROM curso_material "
+                    + "WHERE id_material_practica = ?", sentencia -> sentencia.setInt(1, material.consultarIdMaterialPractica()),
+                    fila -> fila.getInt(1)).orElse(0);
+            if (cursos == 0) {
+                return new int[]{-2, estados.size()};
             }
             int noAprobadas = 0;
             for (String estado : estados) {
@@ -77,11 +83,14 @@ public class MaterialPracticaDAO extends DaoBase {
                 return new int[]{noAprobadas, estados.size()};
             }
             actualizarCon(c, "UPDATE material_practica SET estado = 'PUBLICADO' "
-                    + "WHERE id_material_practica = ?", ps -> ps.setInt(1, material.getIdMaterialPractica()));
+                    + "WHERE id_material_practica = ?", ps -> ps.setInt(1, material.consultarIdMaterialPractica()));
             return new int[]{0, estados.size()};
         });
         if (resultado[0] == -1) {
             throw new ValidacionException("Agrega al menos una pregunta antes de publicar el material.");
+        }
+        if (resultado[0] == -2) {
+            throw new ValidacionException("Asigna al menos un curso antes de publicar el material.");
         }
         if (resultado[0] > 0) {
             throw new ValidacionException("No se puede publicar el material: " + resultado[0] + " de "
@@ -103,37 +112,49 @@ public class MaterialPracticaDAO extends DaoBase {
 
     public void marcarOrigenIa(MaterialPractica material) {
         actualizar("UPDATE material_practica SET origen = 'GENERADO_IA' "
-                + "WHERE id_material_practica = ?", ps -> ps.setInt(1, material.getIdMaterialPractica()));
+                + "WHERE id_material_practica = ?", ps -> ps.setInt(1, material.consultarIdMaterialPractica()));
         material.origenMaterialPractica = OrigenContenido.GENERADO_IA;
     }
 
     // ------------------------------------------------------------------ preguntas y cursos
 
     public void agregarPregunta(MaterialPractica material, int idPregunta) {
-        volverBorrador(material);
-        actualizar("INSERT IGNORE INTO material_pregunta (id_material_practica, id_pregunta) "
-                + "VALUES (?, ?)", ps -> {
-            ps.setInt(1, material.getIdMaterialPractica());
-            ps.setInt(2, idPregunta);
+        enTransaccion(conexion -> {
+            Integer propietario = consultarUnoCon(conexion,
+                    "SELECT id_docente FROM material_practica WHERE id_material_practica = ? AND estado <> 'ARCHIVADO' FOR UPDATE",
+                    sentencia -> sentencia.setInt(1, material.consultarIdMaterialPractica()), resultado -> resultado.getInt(1))
+                    .orElseThrow(() -> new logica.OperacionNoPermitidaException("Material no editable."));
+            Pregunta pregunta = PreguntaDAO.cargarPregunta(conexion, idPregunta, true);
+            if (pregunta.idDocente != propietario || pregunta.estadoPregunta != logica.EstadoPregunta.APROBADA) {
+                throw new logica.OperacionNoPermitidaException("Selecciona una pregunta propia aprobada.");
+            }
+            actualizarCon(conexion, "UPDATE material_practica SET estado = 'BORRADOR' WHERE id_material_practica = ?",
+                    sentencia -> sentencia.setInt(1, material.consultarIdMaterialPractica()));
+            actualizarCon(conexion, "INSERT IGNORE INTO material_pregunta (id_material_practica, id_pregunta) VALUES (?, ?)",
+                    sentencia -> { sentencia.setInt(1, material.consultarIdMaterialPractica()); sentencia.setInt(2, idPregunta); });
+            return null;
         });
+        material.estadoMaterialPractica = logica.EstadoMaterial.BORRADOR;
     }
 
     public void quitarPregunta(MaterialPractica material, int idPregunta) {
         volverBorrador(material);
         actualizar("DELETE FROM material_pregunta WHERE id_material_practica = ? AND id_pregunta = ?", ps -> {
-            ps.setInt(1, material.getIdMaterialPractica());
+            ps.setInt(1, material.consultarIdMaterialPractica());
             ps.setInt(2, idPregunta);
         });
     }
 
     public List<Pregunta> listarPreguntas(int idMaterialPractica) {
-        List<Pregunta> preguntas = consultarLista("SELECT p.id_pregunta, p.id_banco_preguntas, p.enunciado, "
+        List<Pregunta> preguntas = consultarLista("SELECT p.id_pregunta, p.id_docente, p.id_banco_preguntas, p.enunciado, "
                 + "p.tipo, p.nivel, p.dificultad, p.competencia, p.tema, "
                 + "p.respuesta_esperada, p.estado, p.origen FROM material_pregunta mpp "
                 + "JOIN pregunta p ON p.id_pregunta = mpp.id_pregunta WHERE mpp.id_material_practica = ? "
                 + "ORDER BY p.id_pregunta", ps -> ps.setInt(1, idMaterialPractica), rs -> {
                     Pregunta pregunta = new Pregunta();
-                    pregunta.setIdPregunta(rs.getInt("id_pregunta"));
+                    pregunta.establecerIdPregunta(rs.getInt("id_pregunta"));
+                    pregunta.idDocente = rs.getInt("id_docente");
+                    pregunta.idBancoPreguntas = rs.getObject("id_banco_preguntas") == null ? null : rs.getInt("id_banco_preguntas");
                     pregunta.enunciadoPregunta = rs.getString("enunciado");
                     pregunta.tipoPregunta = enumeracion(rs, "tipo", logica.TipoPregunta.class);
                     pregunta.nivelPregunta = enumeracion(rs, "nivel", NivelIngles.class);
@@ -148,7 +169,7 @@ public class MaterialPracticaDAO extends DaoBase {
         for (Pregunta pregunta : preguntas) {
             pregunta.opcionesPregunta.addAll(consultarLista("SELECT id_opcion_respuesta, texto, "
                     + "es_correcta FROM opcion_respuesta WHERE id_pregunta = ? "
-                    + "ORDER BY id_opcion_respuesta", ps -> ps.setInt(1, pregunta.getIdPregunta()),
+                    + "ORDER BY id_opcion_respuesta", ps -> ps.setInt(1, pregunta.consultarIdPregunta()),
                     PreguntaDAO::mapearOpcion));
         }
         return preguntas;
@@ -195,7 +216,7 @@ public class MaterialPracticaDAO extends DaoBase {
         volverBorrador(material);
         actualizar("INSERT IGNORE INTO curso_material (id_curso, id_material_practica) VALUES (?, ?)", ps -> {
             ps.setInt(1, idCurso);
-            ps.setInt(2, material.getIdMaterialPractica());
+            ps.setInt(2, material.consultarIdMaterialPractica());
         });
     }
 
@@ -203,7 +224,7 @@ public class MaterialPracticaDAO extends DaoBase {
         volverBorrador(material);
         actualizar("DELETE FROM curso_material WHERE id_curso = ? AND id_material_practica = ?", ps -> {
             ps.setInt(1, idCurso);
-            ps.setInt(2, material.getIdMaterialPractica());
+            ps.setInt(2, material.consultarIdMaterialPractica());
         });
     }
 
@@ -212,7 +233,7 @@ public class MaterialPracticaDAO extends DaoBase {
                 + "JOIN curso c ON c.id_curso = cmp.id_curso WHERE cmp.id_material_practica = ? "
                 + "ORDER BY c.nombre", ps -> ps.setInt(1, idMaterialPractica), rs -> {
                     Curso curso = new Curso();
-                    curso.setIdCurso(rs.getInt("id_curso"));
+                    curso.establecerIdCurso(rs.getInt("id_curso"));
                     curso.nombreCurso = rs.getString("nombre");
                     return curso;
                 });
@@ -325,7 +346,7 @@ public class MaterialPracticaDAO extends DaoBase {
 
     private byte[] construirPDF(MaterialPractica material, boolean clave, boolean respuestasFinales) {
         StringBuilder nombresCursos = new StringBuilder();
-        for (Curso curso : listarCursos(material.getIdMaterialPractica())) {
+        for (Curso curso : listarCursos(material.consultarIdMaterialPractica())) {
             if (nombresCursos.length() > 0) {
                 nombresCursos.append(", ");
             }
@@ -355,7 +376,7 @@ public class MaterialPracticaDAO extends DaoBase {
             }
 
             int numero = 1;
-            for (PreguntaPDF pregunta : cargarPreguntasPDF(material.getIdMaterialPractica())) {
+            for (PreguntaPDF pregunta : cargarPreguntasPDF(material.consultarIdMaterialPractica())) {
                 PdfPTable bloque = PdfFormato.bloquePregunta();
                 bloque.addCell(PdfFormato.celda(new Paragraph(numero + ". " + pregunta.enunciado, fuentePregunta)));
                 char letra = 'a';
@@ -382,7 +403,7 @@ public class MaterialPracticaDAO extends DaoBase {
                 documento.add(new Paragraph("Respuestas correctas / esperadas", fuentePregunta));
                 documento.add(new Paragraph(" "));
                 int indice = 1;
-                for (PreguntaPDF pregunta : cargarPreguntasPDF(material.getIdMaterialPractica())) {
+                for (PreguntaPDF pregunta : cargarPreguntasPDF(material.consultarIdMaterialPractica())) {
                     String respuesta = "";
                     for (String[] opcion : pregunta.opciones) {
                         if (Boolean.parseBoolean(opcion[1])) {
@@ -417,14 +438,14 @@ public class MaterialPracticaDAO extends DaoBase {
     private void cambiarEstado(MaterialPractica material, String estadoBd, EstadoMaterial estado) {
         actualizar("UPDATE material_practica SET estado = ? WHERE id_material_practica = ?", ps -> {
             ps.setString(1, estadoBd);
-            ps.setInt(2, material.getIdMaterialPractica());
+            ps.setInt(2, material.consultarIdMaterialPractica());
         });
         material.estadoMaterialPractica = estado;
     }
 
     private MaterialPractica mapear(ResultSet rs) throws SQLException {
         MaterialPractica material = new MaterialPractica();
-        material.setIdMaterialPractica(rs.getInt("id_material_practica"));
+        material.establecerIdMaterialPractica(rs.getInt("id_material_practica"));
         material.tituloMaterialPractica = rs.getString("titulo");
         material.descripcionMaterialPractica = rs.getString("descripcion");
         material.nivelMaterialPractica = enumeracion(rs, "nivel", NivelIngles.class);

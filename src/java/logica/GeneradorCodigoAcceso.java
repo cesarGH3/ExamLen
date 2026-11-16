@@ -13,7 +13,7 @@ public final class GeneradorCodigoAcceso {
     public static final int LONGITUD = 8;
     private static final String ALFABETO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     private static final Pattern FORMATO = Pattern.compile("^[" + ALFABETO + "]{" + LONGITUD + "}$");
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final SecureRandom ALEATORIO = new SecureRandom();
 
     public String generar() {
         return generarAleatorio();
@@ -23,7 +23,7 @@ public final class GeneradorCodigoAcceso {
     public static String generarAleatorio() {
         StringBuilder sb = new StringBuilder(LONGITUD);
         for (int i = 0; i < LONGITUD; i++) {
-            sb.append(ALFABETO.charAt(RANDOM.nextInt(ALFABETO.length())));
+            sb.append(ALFABETO.charAt(ALEATORIO.nextInt(ALFABETO.length())));
         }
         return sb.toString();
     }

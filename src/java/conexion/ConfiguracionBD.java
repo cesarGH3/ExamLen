@@ -13,7 +13,8 @@ import java.util.regex.Pattern;
  * (creacion de la base y aplicacion de migraciones al arrancar ExamLen).
  *
  * Orden de resolucion por campo: variable de entorno -> propiedad del sistema ->
- * archivo {catalina.base}/conf/catalina.properties (mismo mecanismo JNDI actual) ->
+ * archivo examlen.properties incluido en WEB-INF/classes ->
+ * archivo {catalina.base}/conf/catalina.properties (compatibilidad) ->
  * valor por defecto (solo host, puerto y nombre de base admiten defecto).
  * La contrasena nunca tiene valor por defecto y jamas se registra en logs.
  *
@@ -26,8 +27,10 @@ public final class ConfiguracionBD {
     private static final String PROPIEDAD_URL = "examlen.db.url";
     private static final String PROPIEDAD_USUARIO = "examlen.db.user";
     private static final String PROPIEDAD_CONTRASENA = "examlen.db.password";
+    private static final String ARCHIVO_APP = "examlen.properties";
+    private static final Properties PROPIEDADES_APP = leerPropiedadesApp();
 
-    private static final String HOST_POR_DEFECTO = "localhost";
+    private static final String HOST_POR_DEFECTO = "gitua.site";
     private static final int PUERTO_POR_DEFECTO = 3306;
     private static final String BASE_POR_DEFECTO = "examlen";
 
@@ -51,7 +54,8 @@ public final class ConfiguracionBD {
     public static ConfiguracionBD resolver() {
         Properties catalina = leerCatalinaProperties();
 
-        String url = primero(System.getProperty(PROPIEDAD_URL), catalina.getProperty(PROPIEDAD_URL));
+        String url = primero(System.getProperty(PROPIEDAD_URL), PROPIEDADES_APP.getProperty(PROPIEDAD_URL),
+                catalina.getProperty(PROPIEDAD_URL));
         String hostUrl = null;
         String puertoUrl = null;
         String baseUrl = null;
@@ -73,9 +77,9 @@ public final class ConfiguracionBD {
         }
 
         String usuario = primero(System.getenv("DB_USER"), System.getProperty(PROPIEDAD_USUARIO),
-                catalina.getProperty(PROPIEDAD_USUARIO));
+                PROPIEDADES_APP.getProperty(PROPIEDAD_USUARIO), catalina.getProperty(PROPIEDAD_USUARIO));
         String contrasena = primero(System.getenv("DB_PASSWORD"), System.getProperty(PROPIEDAD_CONTRASENA),
-                catalina.getProperty(PROPIEDAD_CONTRASENA));
+                PROPIEDADES_APP.getProperty(PROPIEDAD_CONTRASENA), catalina.getProperty(PROPIEDAD_CONTRASENA));
 
         int puerto = PUERTO_POR_DEFECTO;
         if (puertoTexto != null && !puertoTexto.isBlank()) {
@@ -134,6 +138,18 @@ public final class ConfiguracionBD {
             }
         }
         return null;
+    }
+
+    private static Properties leerPropiedadesApp() {
+        Properties propiedades = new Properties();
+        try (InputStream entrada = ConfiguracionBD.class.getClassLoader().getResourceAsStream(ARCHIVO_APP)) {
+            if (entrada != null) {
+                propiedades.load(entrada);
+            }
+        } catch (IOException e) {
+            // Sin archivo de aplicacion se conserva el mecanismo externo de Tomcat.
+        }
+        return propiedades;
     }
 
     private static Properties leerCatalinaProperties() {

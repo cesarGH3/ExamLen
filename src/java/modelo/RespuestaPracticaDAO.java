@@ -64,14 +64,14 @@ public class RespuestaPracticaDAO extends DaoBase {
                 + "WHERE rp.id_intento_practica = ? ORDER BY rp.id_respuesta_practica",
                 ps -> ps.setInt(1, idIntentoPractica), rs -> {
                     RespuestaPractica respuesta = new RespuestaPractica();
-                    respuesta.setIdRespuestaPractica(rs.getInt("id_respuesta_practica"));
+                    respuesta.establecerIdRespuestaPractica(rs.getInt("id_respuesta_practica"));
                     respuesta.contenidoRespuestaPractica = rs.getString("contenido");
                     respuesta.esCorrectaRespuestaPractica = rs.getObject("es_correcta") == null
                             ? null : rs.getBoolean("es_correcta");
                     respuesta.retroalimentacionRespuestaPractica = rs.getString("retroalimentacion");
                     respuesta.respuestaCorrectaRespuestaPractica = rs.getString("texto_correcto");
                     Pregunta pregunta = new Pregunta();
-                    pregunta.setIdPregunta(rs.getInt("id_pregunta"));
+                    pregunta.establecerIdPregunta(rs.getInt("id_pregunta"));
                     pregunta.enunciadoPregunta = rs.getString("enunciado");
                     pregunta.tipoPregunta = enumeracion(rs, "tipo", TipoPregunta.class);
                     pregunta.temaPregunta = rs.getString("tema");
@@ -81,7 +81,7 @@ public class RespuestaPracticaDAO extends DaoBase {
                     Object idOpcion = rs.getObject("id_opcion_respuesta");
                     if (idOpcion != null) {
                         OpcionRespuesta opcion = new OpcionRespuesta();
-                        opcion.setIdOpcionRespuesta(rs.getInt("id_opcion_respuesta"));
+                        opcion.establecerIdOpcionRespuesta(rs.getInt("id_opcion_respuesta"));
                         opcion.textoOpcionRespuesta = rs.getString("texto");
                         respuesta.opcionRespuestaRespuestaPractica = opcion;
                     }
@@ -95,7 +95,7 @@ public class RespuestaPracticaDAO extends DaoBase {
                 + "WHERE id_intento_practica = ? ORDER BY id_respuesta_practica", ps -> ps.setInt(1, idIntentoPractica),
                 rs -> {
                     RespuestaPractica respuesta = new RespuestaPractica();
-                    respuesta.setIdRespuestaPractica(rs.getInt("id_respuesta_practica"));
+                    respuesta.establecerIdRespuestaPractica(rs.getInt("id_respuesta_practica"));
                     respuesta.contenidoRespuestaPractica = rs.getString("contenido");
                     respuesta.esCorrectaRespuestaPractica = rs.getObject("es_correcta") == null
                             ? null : rs.getBoolean("es_correcta");

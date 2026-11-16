@@ -18,11 +18,11 @@ public class Grupo {
         evaluacionesVirtualesGrupo = new ArrayList<>();
     }
 
-    public int getIdGrupo() {
+    public int consultarIdGrupo() {
         return idGrupo;
     }
 
-    public void setIdGrupo(int idGrupo) {
+    public void establecerIdGrupo(int idGrupo) {
         this.idGrupo = idGrupo;
     }
 }

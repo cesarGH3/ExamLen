@@ -24,7 +24,7 @@ public class GeneracionFallidaException extends Exception {
         this.tipo = tipo;
     }
 
-    public TipoErrorIA getTipo() {
+    public TipoErrorIA consultarTipo() {
         return tipo;
     }
 }

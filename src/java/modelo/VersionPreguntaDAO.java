@@ -37,7 +37,7 @@ public class VersionPreguntaDAO extends DaoBase {
     public void actualizarOrden(VersionPregunta versionPregunta, int orden) {
         actualizar("UPDATE version_pregunta SET orden = ? WHERE id_version_pregunta = ?", ps -> {
             ps.setInt(1, orden);
-            ps.setInt(2, versionPregunta.getIdVersionPregunta());
+            ps.setInt(2, versionPregunta.consultarIdVersionPregunta());
         });
         versionPregunta.ordenVersionPregunta = orden;
     }
@@ -50,7 +50,7 @@ public class VersionPreguntaDAO extends DaoBase {
             ps.setString(1, enunciado);
             ps.setString(2, respuestaEsperada);
             ps.setDouble(3, puntaje);
-            ps.setInt(4, versionPregunta.getIdVersionPregunta());
+            ps.setInt(4, versionPregunta.consultarIdVersionPregunta());
         });
         versionPregunta.enunciadoVersionPregunta = enunciado;
         versionPregunta.respuestaEsperadaVersionPregunta = respuestaEsperada;
@@ -97,7 +97,7 @@ public class VersionPreguntaDAO extends DaoBase {
 
     private VersionPregunta mapear(ResultSet rs) throws SQLException {
         VersionPregunta versionPregunta = new VersionPregunta();
-        versionPregunta.setIdVersionPregunta(rs.getInt("id_version_pregunta"));
+        versionPregunta.establecerIdVersionPregunta(rs.getInt("id_version_pregunta"));
         versionPregunta.enunciadoVersionPregunta = rs.getString("enunciado");
         versionPregunta.respuestaEsperadaVersionPregunta = rs.getString("respuesta_esperada");
         versionPregunta.ordenVersionPregunta = rs.getInt("orden");

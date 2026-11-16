@@ -98,7 +98,7 @@ public final class RendimientoEscenarios {
 
     private int secuencia;
     private boolean listo;
-    private Administrador admin;
+    private Administrador administrador;
     private Docente docente;
     private Estudiante estudiante;
     private logica.Curso curso;
@@ -158,9 +158,9 @@ public final class RendimientoEscenarios {
         int paso = 0;
         try {
             paso = 1;
-            admin = administradorDAO.listarAdministradores().get(0);
+            administrador = administradorDAO.listarAdministradores().get(0);
             paso = 2;
-            docente = docenteDAO.registrarDocente(admin, "PERF-DOC", "PERF Docente", "perf.docente@examlen.local",
+            docente = docenteDAO.registrarDocente(administrador, "PERF-DOC", "PERF Docente", "perf.docente@examlen.local",
                     "ExamLen", "Perf#20261");
             paso = 3;
             estudiante = estudianteDAO.crearEstudiante("PERF-EST", "PERF Estudiante", "perf.est@examlen.local", "B1",
@@ -174,22 +174,22 @@ public final class RendimientoEscenarios {
             paso = 7;
             banco = bancoDAO.crearBancoPreguntas(docente, "PERF_BANCO", "");
             paso = 8;
-            pregunta = preguntaDAO.crearPregunta(banco, "PERF pregunta base", TipoPregunta.SELECCION_MULTIPLE,
+            pregunta = preguntaDAO.crearPregunta(docente.consultarIdUsuario(), banco.consultarIdBancoPreguntas(), "PERF pregunta base", TipoPregunta.SELECCION_MULTIPLE,
                     NivelIngles.B1, Dificultad.BAJA, Competencia.GRAMMAR, "PERF");
             paso = 9;
             opcion = opcionDAO.crearOpcionRespuesta(pregunta, "PERF opcion correcta", true);
             opcionDAO.crearOpcionRespuesta(pregunta, "PERF opcion incorrecta", false);
             paso = 10;
-            preguntaDAO.aprobarPregunta(pregunta);
+            // La pregunta manual válida ya está aprobada (RF-22).
             paso = 11;
             evaluacion = evaluacionDAO.crearEvaluacionConPregunta(docente, "PERF_EVALUACION", "", 1, 1, 30,
-                    pregunta.getIdPregunta());
+                    pregunta.consultarIdPregunta());
             evaluacionDAO.marcarListaEvaluacion(evaluacion);
             paso = 12;
             List<VersionEvaluacion> versiones = versionDAO.generarVersionEvaluacion(evaluacion);
             version = versiones.get(0);
             paso = 13;
-            versionPregunta = versionPreguntaDAO.listarPorVersionEvaluacion(version.getIdVersionEvaluacion()).get(0);
+            versionPregunta = versionPreguntaDAO.listarPorVersionEvaluacion(version.consultarIdVersionEvaluacion()).get(0);
             paso = 14;
             versionPreguntaDAO.actualizar(versionPregunta, versionPregunta.enunciadoVersionPregunta,
                     versionPregunta.respuestaEsperadaVersionPregunta, 1);
@@ -213,38 +213,38 @@ public final class RendimientoEscenarios {
             case "CU-02": {
                 boolean cambio = usuarioDAO.cambiarContrasenaUsuario(docente, "Perf#20261", "Perf#20262");
                 usuarioDAO.restablecerContrasenaUsuario(docente, "Perf#20261");
-                Docente recargado = (Docente) usuarioDAO.buscarPorId(docente.getIdUsuario()).orElse(docente);
+                Docente recargado = (Docente) usuarioDAO.buscarPorId(docente.consultarIdUsuario()).orElse(docente);
                 return verificado(cambio && usuarioDAO.verificarContrasenaUsuario(recargado, "Perf#20261"));
             }
             case "CU-03": {
                 usuarioDAO.actualizarUsuario(estudiante, "PERF Estudiante", "perf.est@examlen.local");
                 return verificado("PERF Estudiante".equals(
-                        usuarioDAO.buscarPorId(estudiante.getIdUsuario()).orElseThrow().nombreUsuario));
+                        usuarioDAO.buscarPorId(estudiante.consultarIdUsuario()).orElseThrow().nombreUsuario));
             }
             case "CU-04": {
                 int n = ++secuencia;
                 Estudiante nuevo = estudianteDAO.crearEstudiante("PERF-EST2-" + n, "PERF Estudiante 2",
                         "perf.est2." + n + "@examlen.local", "A2", "ExamLen", "Perf#20261");
-                return verificado(nuevo.getIdUsuario() > 0);
+                return verificado(nuevo.consultarIdUsuario() > 0);
             }
             case "CU-05": {
                 int n = ++secuencia;
                 Administrador nuevo = administradorDAO.crearAdministrador("PERF-ADM2-" + n, "PERF Admin 2",
                         "perf.adm2." + n + "@examlen.local", "Perf#20261", "ExamLen", new java.util.Date());
-                return verificado(nuevo.getIdUsuario() > 0);
+                return verificado(nuevo.consultarIdUsuario() > 0);
             }
             case "CU-06": {
                 int n = ++secuencia;
-                Docente nuevo = docenteDAO.registrarDocente(admin, "PERF-DOC2-" + n, "PERF Docente 2",
+                Docente nuevo = docenteDAO.registrarDocente(administrador, "PERF-DOC2-" + n, "PERF Docente 2",
                         "perf.doc2." + n + "@examlen.local", "ExamLen", "Perf#20261");
-                return verificado(nuevo.getIdUsuario() > 0);
+                return verificado(nuevo.consultarIdUsuario() > 0);
             }
             case "CU-07":
                 return verificado(!estudianteDAO.listarEstudiantes("PERF").isEmpty());
             case "CU-08": {
                 usuarioDAO.desactivarUsuario(estudiante);
                 usuarioDAO.activarUsuario(estudiante);
-                return verificado(usuarioDAO.buscarPorId(estudiante.getIdUsuario()).orElseThrow().activoUsuario);
+                return verificado(usuarioDAO.buscarPorId(estudiante.consultarIdUsuario()).orElseThrow().activoUsuario);
             }
             case "CU-09": {
                 usuarioDAO.restablecerContrasenaUsuario(estudiante, "Perf#20263");
@@ -255,7 +255,7 @@ public final class RendimientoEscenarios {
                 TokenRecuperacion token = TokenRecuperacion.generarTokenRecuperacion(estudiante);
                 tokenDAO.crearToken(token);
                 boolean consumido = tokenDAO.consumirTokenYRestablecer(
-                        TokenRecuperacion.hash(token.getTokenPlanoTokenRecuperacion()), "Perf#20264");
+                        TokenRecuperacion.hash(token.consultarTokenPlanoTokenRecuperacion()), "Perf#20264");
                 usuarioDAO.restablecerContrasenaUsuario(estudiante, "Perf#20261");
                 Resultado r = verificado(consumido);
                 r.observacion = "SMTP_STUB_BENCHMARK (no se envia correo real)";
@@ -265,7 +265,7 @@ public final class RendimientoEscenarios {
                 int n = ++secuencia;
                 logica.Curso nuevo = cursoDAO.crearCurso(docente, "PERF_CURSO2-" + n, "", NivelIngles.A2);
                 cursoDAO.actualizarCurso(nuevo, "PERF_CURSO2-" + n, "editado");
-                return verificado("editado".equals(cursoDAO.buscarPorId(nuevo.getIdCurso()).orElseThrow()
+                return verificado("editado".equals(cursoDAO.buscarPorId(nuevo.consultarIdCurso()).orElseThrow()
                         .descripcionCurso));
             }
             case "CU-12": {
@@ -273,13 +273,13 @@ public final class RendimientoEscenarios {
                 Grupo nuevo = grupoDAO.abrirGrupo(curso, "PERF-G2-" + n, "2026-2");
                 grupoDAO.cerrarGrupo(nuevo);
                 grupoDAO.reabrirGrupo(nuevo);
-                return verificado("ABIERTO".equals(grupoDAO.buscarPorId(nuevo.getIdGrupo()).orElseThrow()
+                return verificado("ABIERTO".equals(grupoDAO.buscarPorId(nuevo.consultarIdGrupo()).orElseThrow()
                         .estadoGrupo.name()));
             }
             case "CU-13": {
                 inscripcionDAO.retirarInscripcion(inscripcion);
                 inscripcionDAO.reincorporarInscripcion(inscripcion);
-                return verificado("ACTIVA".equals(inscripcionDAO.buscarPorId(inscripcion.getIdInscripcion())
+                return verificado("ACTIVA".equals(inscripcionDAO.buscarPorId(inscripcion.consultarIdInscripcion())
                         .orElseThrow().estadoInscripcion.name()));
             }
             case "CU-14": {
@@ -287,7 +287,7 @@ public final class RendimientoEscenarios {
                 Estudiante otro = estudianteDAO.crearEstudiante("PERF-EST3-" + n, "PERF Estudiante 3",
                         "perf.est3." + n + "@examlen.local", "A1", "ExamLen", "Perf#20261");
                 Inscripcion nueva = inscripcionDAO.crearInscripcion(otro, grupo);
-                return verificado(nueva.getIdInscripcion() > 0);
+                return verificado(nueva.consultarIdInscripcion() > 0);
             }
             case "CU-15": {
                 int n = ++secuencia;
@@ -296,7 +296,7 @@ public final class RendimientoEscenarios {
                 return verificado(true);
             }
             case "CU-16": {
-                Pregunta nueva = preguntaDAO.crearPregunta(banco, "PERF pregunta 2", TipoPregunta.SELECCION_MULTIPLE,
+                Pregunta nueva = preguntaDAO.crearPregunta(docente.consultarIdUsuario(), banco.consultarIdBancoPreguntas(), "PERF pregunta 2", TipoPregunta.SELECCION_MULTIPLE,
                         NivelIngles.B1, Dificultad.MEDIA, Competencia.VOCABULARY, "PERF");
                 OpcionRespuesta o1 = opcionDAO.crearOpcionRespuesta(nueva, "PERF op 1", true);
                 opcionDAO.crearOpcionRespuesta(nueva, "PERF op 2", false);
@@ -306,19 +306,19 @@ public final class RendimientoEscenarios {
                 return verificado(true);
             }
             case "CU-17": {
-                Pregunta nueva = preguntaDAO.crearPregunta(banco, "PERF pregunta 3", TipoPregunta.RESPUESTA_ABIERTA,
+                Pregunta nueva = preguntaDAO.crearPregunta(docente.consultarIdUsuario(), banco.consultarIdBancoPreguntas(), "PERF pregunta 3", TipoPregunta.RESPUESTA_ABIERTA,
                         NivelIngles.B1, Dificultad.BAJA, Competencia.WRITING, "PERF");
-                preguntaDAO.aprobarPregunta(nueva);
+                // Aprobación automática de la pregunta manual.
                 preguntaDAO.archivarPregunta(nueva);
                 preguntaDAO.restaurarPregunta(nueva);
-                return verificado("BORRADOR".equals(preguntaDAO.buscarPorId(nueva.getIdPregunta()).orElseThrow()
+                return verificado("APROBADA".equals(preguntaDAO.buscarPorId(nueva.consultarIdPregunta()).orElseThrow()
                         .estadoPregunta.name()));
             }
             case "CU-18": {
                 DocumentoFuente documento = documentoDAO.cargarDocumentoFuente(docente, "perf.txt", "TXT",
                         java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "perf.txt").toString());
                 documentoDAO.eliminar(documento);
-                return verificado(documentoDAO.buscarPorId(documento.getIdDocumentoFuente()).isEmpty());
+                return verificado(documentoDAO.buscarPorId(documento.consultarIdDocumentoFuente()).isEmpty());
             }
             case "CU-19": {
                 AceptacionIA aceptacion = aceptarIA();
@@ -330,9 +330,9 @@ public final class RendimientoEscenarios {
             }
             case "CU-20": {
                 Evaluacion nueva = evaluacionDAO.crearEvaluacionConPregunta(docente, "PERF_EVALUACION2", "", 1, 1,
-                        30, pregunta.getIdPregunta());
-                return verificado(nueva.getIdEvaluacion() > 0
-                        && evaluacionDAO.buscarPorIdDeDocente(nueva.getIdEvaluacion(), docente.getIdUsuario())
+                        30, pregunta.consultarIdPregunta());
+                return verificado(nueva.consultarIdEvaluacion() > 0
+                        && evaluacionDAO.buscarPorIdDeDocente(nueva.consultarIdEvaluacion(), docente.consultarIdUsuario())
                                 .isPresent());
             }
             case "CU-21": {
@@ -343,7 +343,7 @@ public final class RendimientoEscenarios {
                 versionPreguntaDAO.actualizar(versionPregunta, "PERF versión editada",
                         versionPregunta.respuestaEsperadaVersionPregunta, versionPregunta.puntajeVersionPregunta);
                 return verificado("PERF versión editada".equals(versionPreguntaDAO
-                        .buscarPorId(versionPregunta.getIdVersionPregunta()).orElseThrow().enunciadoVersionPregunta));
+                        .buscarPorId(versionPregunta.consultarIdVersionPregunta()).orElseThrow().enunciadoVersionPregunta));
             }
             case "CU-23": {
                 byte[] pdf = versionDAO.generarPDFVersionEvaluacion(version, null);
@@ -355,34 +355,34 @@ public final class RendimientoEscenarios {
             }
             case "CU-25": {
                 EvaluacionVirtual virtual = programarVirtual();
-                virtualDAO.agregarVersion(virtual.getIdEvaluacionVirtual(), version.getIdVersionEvaluacion());
-                return verificado(virtualDAO.listarVersiones(virtual.getIdEvaluacionVirtual()).size() == 1);
+                virtualDAO.agregarVersion(virtual.consultarIdEvaluacionVirtual(), version.consultarIdVersionEvaluacion());
+                return verificado(virtualDAO.listarVersiones(virtual.consultarIdEvaluacionVirtual()).size() == 1);
             }
             case "CU-26": {
                 EvaluacionVirtual virtual = programarVirtual();
-                virtualDAO.agregarVersion(virtual.getIdEvaluacionVirtual(), version.getIdVersionEvaluacion());
-                boolean abierta = servicioVirtual.abrir(virtual.getIdEvaluacionVirtual());
-                boolean cerrada = servicioVirtual.cerrar(virtual.getIdEvaluacionVirtual());
+                virtualDAO.agregarVersion(virtual.consultarIdEvaluacionVirtual(), version.consultarIdVersionEvaluacion());
+                boolean abierta = servicioVirtual.abrir(virtual.consultarIdEvaluacionVirtual());
+                boolean cerrada = servicioVirtual.cerrar(virtual.consultarIdEvaluacionVirtual());
                 return verificado(abierta && cerrada);
             }
             case "CU-27": {
                 EvaluacionVirtual virtual = virtualAbierta();
                 logica.Intento intento = intentoDAO.crearIntento(virtual, inscripcion, version);
                 boolean guardada = respuestaDAO.guardarRespuestaVigente(intento, versionPregunta, "PERF respuesta", -1);
-                return verificado(intento.getIdIntento() > 0 && guardada);
+                return verificado(intento.consultarIdIntento() > 0 && guardada);
             }
             case "CU-28": {
                 EvaluacionVirtual virtual = virtualAbierta();
                 logica.Intento intento = intentoDAO.crearIntento(virtual, inscripcion, version);
                 eventoDAO.registrarEventoSupervision(intento, logica.TipoEventoSupervision.CAMBIO_PESTANA,
                         "PERF evento");
-                return verificado(eventoDAO.contarPorIntento(intento.getIdIntento()) >= 1);
+                return verificado(eventoDAO.contarPorIntento(intento.consultarIdIntento()) >= 1);
             }
             case "CU-29": {
                 EvaluacionVirtual virtual = virtualAbierta();
                 logica.Intento intento = intentoDAO.crearIntento(virtual, inscripcion, version);
                 respuestaDAO.guardarRespuestaVigente(intento, versionPregunta, "PERF respuesta", -1);
-                Respuesta respuesta = respuestaDAO.listarConPregunta(intento.getIdIntento()).get(0);
+                Respuesta respuesta = respuestaDAO.listarConPregunta(intento.consultarIdIntento()).get(0);
                 respuestaDAO.calificarManualmenteRespuesta(respuesta, 1, "PERF comentario");
                 Double nota = intentoDAO.calificarIntento(intento);
                 return verificado(nota != null);
@@ -392,22 +392,22 @@ public final class RendimientoEscenarios {
                 logica.Intento intento = intentoDAO.crearIntento(virtual, inscripcion, version);
                 eventoDAO.registrarEventoSupervision(intento, logica.TipoEventoSupervision.PERDIDA_FOCO,
                         "PERF evento 2");
-                return verificado(!eventoDAO.contarPorTipo(intento.getIdIntento()).isEmpty()
-                        && !eventoDAO.listarPorIntento(intento.getIdIntento()).isEmpty());
+                return verificado(!eventoDAO.contarPorTipo(intento.consultarIdIntento()).isEmpty()
+                        && !eventoDAO.listarPorIntento(intento.consultarIdIntento()).isEmpty());
             }
             case "CU-31": {
                 EvaluacionVirtual virtual = virtualAbierta();
                 logica.Intento intento = intentoDAO.crearIntento(virtual, inscripcion, version);
                 respuestaDAO.guardarRespuestaVigente(intento, versionPregunta, "PERF respuesta 31", -1);
-                return verificado(!respuestaDAO.listarConPregunta(intento.getIdIntento()).isEmpty()
-                        && intentoDAO.buscarPorIdDeDocente(intento.getIdIntento(), docente.getIdUsuario()).isPresent());
+                return verificado(!respuestaDAO.listarConPregunta(intento.consultarIdIntento()).isEmpty()
+                        && intentoDAO.buscarPorIdDeDocente(intento.consultarIdIntento(), docente.consultarIdUsuario()).isPresent());
             }
             case "CU-32": {
                 logica.MaterialPractica material = materialDAO.crearMaterialPractica(docente, "PERF_MATERIAL",
                         "", NivelIngles.B1);
-                materialDAO.agregarPregunta(material, pregunta.getIdPregunta());
+                materialDAO.agregarPregunta(material, pregunta.consultarIdPregunta());
                 materialDAO.publicarMaterialPractica(material);
-                return verificado("PUBLICADO".equals(materialDAO.buscarPorId(material.getIdMaterialPractica())
+                return verificado("PUBLICADO".equals(materialDAO.buscarPorId(material.consultarIdMaterialPractica())
                         .orElseThrow().estadoMaterialPractica.name()));
             }
             case "CU-33": {
@@ -424,8 +424,8 @@ public final class RendimientoEscenarios {
                 respuesta.opcionRespuestaRespuestaPractica = opcion;
                 respuesta.contenidoRespuestaPractica = opcion.textoOpcionRespuesta;
                 respuesta.esCorrectaRespuestaPractica = true;
-                intentoPracticaDAO.guardarRespuesta(intento.getIdIntentoPractica(), respuesta);
-                Double nota = intentoPracticaDAO.finalizarIntento(intento.getIdIntentoPractica());
+                intentoPracticaDAO.guardarRespuesta(intento.consultarIdIntentoPractica(), respuesta);
+                Double nota = intentoPracticaDAO.finalizarIntento(intento.consultarIdIntentoPractica());
                 return verificado(nota != null && nota == 100.0);
             }
             default:
@@ -441,17 +441,17 @@ public final class RendimientoEscenarios {
         String modelo = RegistroProveedoresIA.modeloEfectivo("GEMINI", null);
         logica.SolicitudGeneracion solicitud = solicitudDAO.crearSolicitudGeneracion(docente,
                 TipoGeneracion.PREGUNTAS, "Tema: PERF. Competencia: GRAMMAR. Benchmark", 1, NivelIngles.B1, modelo,
-                null, banco.getIdBancoPreguntas());
-        aceptacion.idSolicitud = solicitud.getIdSolicitudGeneracion();
-        TrabajoGeneracionIA trabajo = new TrabajoGeneracionIA(solicitud.getIdSolicitudGeneracion(),
-                docente.getIdUsuario(), TipoGeneracion.PREGUNTAS, "Tema: PERF. Competencia: GRAMMAR. Benchmark",
-                1, NivelIngles.B1, "GEMINI", modelo, null, banco.getIdBancoPreguntas(), "PERF", Competencia.GRAMMAR,
+                null, banco.consultarIdBancoPreguntas());
+        aceptacion.idSolicitud = solicitud.consultarIdSolicitudGeneracion();
+        TrabajoGeneracionIA trabajo = new TrabajoGeneracionIA(solicitud.consultarIdSolicitudGeneracion(),
+                docente.consultarIdUsuario(), TipoGeneracion.PREGUNTAS, "Tema: PERF. Competencia: GRAMMAR. Benchmark",
+                1, NivelIngles.B1, "GEMINI", modelo, null, banco.consultarIdBancoPreguntas(), "PERF", Competencia.GRAMMAR,
                 List.of(), null);
         aceptacion.proveedorDisponible = RegistroProveedoresIA.porCodigo("GEMINI")
                 .map(f -> f.disponible()).orElse(false);
         aceptacion.encolada = servicioIA != null && servicioIA.encolar(trabajo);
         if (!aceptacion.encolada) {
-            solicitudDAO.marcarFallidaSolicitudGeneracion(solicitud.getIdSolicitudGeneracion(),
+            solicitudDAO.marcarFallidaSolicitudGeneracion(solicitud.consultarIdSolicitudGeneracion(),
                     "Servicio de generación no disponible.");
         }
         return aceptacion;
@@ -505,15 +505,15 @@ public final class RendimientoEscenarios {
 
     private EvaluacionVirtual virtualAbierta() throws Exception {
         EvaluacionVirtual virtual = programarVirtual();
-        virtualDAO.agregarVersion(virtual.getIdEvaluacionVirtual(), version.getIdVersionEvaluacion());
-        servicioVirtual.abrir(virtual.getIdEvaluacionVirtual());
+        virtualDAO.agregarVersion(virtual.consultarIdEvaluacionVirtual(), version.consultarIdVersionEvaluacion());
+        servicioVirtual.abrir(virtual.consultarIdEvaluacionVirtual());
         return virtual;
     }
 
     private logica.MaterialPractica materialPublicado() throws Exception {
         logica.MaterialPractica material = materialDAO.crearMaterialPractica(docente, "PERF_MATERIAL",
                 "", NivelIngles.B1);
-        materialDAO.agregarPregunta(material, pregunta.getIdPregunta());
+        materialDAO.agregarPregunta(material, pregunta.consultarIdPregunta());
         materialDAO.publicarMaterialPractica(material);
         return material;
     }

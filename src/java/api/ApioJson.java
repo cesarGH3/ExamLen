@@ -23,7 +23,7 @@ public final class ApioJson {
     private ApioJson() {
     }
 
-    public static void ok(HttpServletResponse resp, JsonObject cuerpo) throws IOException {
+    public static void responderCorrecto(HttpServletResponse resp, JsonObject cuerpo) throws IOException {
         escribir(resp, HttpServletResponse.SC_OK, cuerpo);
     }
 

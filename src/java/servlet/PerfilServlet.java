@@ -40,7 +40,7 @@ public class PerfilServlet extends ServletBase {
             agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Datos actualizados.");
             redirigir(req, resp, "/app/perfil");
         } catch (ValidacionException e) {
-            mostrar(req, resp, usuario, nombre, correo, e.getErrores());
+            mostrar(req, resp, usuario, nombre, correo, e.consultarErrores());
         }
     }
 

@@ -65,21 +65,21 @@ public class RecuperarContrasenaServlet extends ServletBase {
         if (usuario == null || !usuario.activoUsuario) {
             return;
         }
-        if (tokenDAO.contarSolicitudesRecientes(usuario.getIdUsuario()) >= MAX_SOLICITUDES_POR_HORA) {
+        if (tokenDAO.contarSolicitudesRecientes(usuario.consultarIdUsuario()) >= MAX_SOLICITUDES_POR_HORA) {
             LOG.warning("Solicitud de recuperación bloqueada por el límite de 3 por hora (usuario "
-                    + usuario.getIdUsuario() + ")");
+                    + usuario.consultarIdUsuario() + ")");
             return;
         }
         TokenRecuperacion token = TokenRecuperacion.generarTokenRecuperacion(usuario);
         tokenDAO.crearToken(token);
-        String enlace = enlaceRecuperacion(req, token.getTokenPlanoTokenRecuperacion());
+        String enlace = enlaceRecuperacion(req, token.consultarTokenPlanoTokenRecuperacion());
         if (!servicioCorreo.enviarEnlaceRecuperacion(usuario.correoUsuario, enlace)) {
             // CU-10 5a: si el envío falla, se compensa invalidando el token recién creado para no
             // dejar enlaces utilizables sin posibilidad razonable de entrega. El mensaje externo no
             // cambia (no enumera) e indica reintentar o pedir el restablecimiento al administrador.
             LOG.warning("El correo de recuperación no se pudo enviar; se invalida el token recién creado "
-                    + "para la cuenta " + usuario.getIdUsuario() + ".");
-            tokenDAO.invalidarTokensDeUsuario(usuario.getIdUsuario());
+                    + "para la cuenta " + usuario.consultarIdUsuario() + ".");
+            tokenDAO.invalidarTokensDeUsuario(usuario.consultarIdUsuario());
         }
     }
 

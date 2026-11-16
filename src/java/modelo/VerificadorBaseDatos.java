@@ -19,6 +19,7 @@ public class VerificadorBaseDatos {
     }
 
     public boolean estaDisponible() {
+        if (!InicializadorEsquema.consultarDisponibilidadEsquema()) return false;
         try (Connection conexion = dataSource.getConnection()) {
             return conexion.isValid(SEGUNDOS_ESPERA);
         } catch (SQLException e) {

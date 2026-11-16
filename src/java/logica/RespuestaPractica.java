@@ -11,11 +11,11 @@ public class RespuestaPractica {
     public Pregunta preguntaRespuestaPractica;
     public OpcionRespuesta opcionRespuestaRespuestaPractica;
 
-    public int getIdRespuestaPractica() {
+    public int consultarIdRespuestaPractica() {
         return idRespuestaPractica;
     }
 
-    public void setIdRespuestaPractica(int idRespuestaPractica) {
+    public void establecerIdRespuestaPractica(int idRespuestaPractica) {
         this.idRespuestaPractica = idRespuestaPractica;
     }
 }

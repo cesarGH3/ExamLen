@@ -12,15 +12,16 @@ import java.util.List;
  */
 public class ClienteGemini implements ProveedorIA {
 
-    public static final String MODELO_PREDETERMINADO = "gemini-3.1-flash-lite";
+    public static final String MODELO_PREDETERMINADO = "gemini-3.5-flash-lite";
+    public static final String MODELO_ALTERNATIVO = "gemini-flash-lite-latest";
     private static final String URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     private final String modelo;
     private final String clave;
 
-    public ClienteGemini(String modelo) {
+    public ClienteGemini(String modelo, String clave) {
         this.modelo = modelo == null || modelo.isBlank() ? MODELO_PREDETERMINADO : modelo.strip();
-        this.clave = ConfiguracionIA.claveGemini();
+        this.clave = clave == null || clave.isBlank() ? null : clave.strip();
     }
 
     @Override
@@ -37,7 +38,8 @@ public class ClienteGemini implements ProveedorIA {
     public ResultadoGeneracion generarPreguntas(String contexto, String instrucciones, int cantidad, String nivel)
             throws GeneracionFallidaException {
         if (clave == null) {
-            throw new GeneracionFallidaException(ConfiguracionIA.mensajeFaltaClave(), TipoErrorIA.CONFIGURACION);
+            throw new GeneracionFallidaException("El docente no tiene configurada una clave de Gemini.",
+                    TipoErrorIA.CONFIGURACION);
         }
         JsonObject parte = new JsonObject();
         parte.addProperty("text", ProveedorIA.armarPrompt(contexto, instrucciones, cantidad, nivel));
@@ -50,7 +52,7 @@ public class ClienteGemini implements ProveedorIA {
         JsonObject cuerpo = new JsonObject();
         cuerpo.add("contents", contenidos);
 
-        String respuesta = HttpJson.postJson(URL + modelo + ":generateContent?key=" + clave, null,
+        String respuesta = HttpJson.enviarJson(URL + modelo + ":generateContent?key=" + clave, null,
                 cuerpo.toString(), "Gemini");
         try {
             JsonObject objeto = JsonParser.parseString(respuesta).getAsJsonObject();
@@ -65,6 +67,10 @@ public class ClienteGemini implements ProveedorIA {
 
     /** Lista permitida de modelos (configurable con gemini.modelos). */
     static List<String> modelosPermitidos() {
-        return ConfiguracionIA.modelos("GEMINI", MODELO_PREDETERMINADO);
+        List<String> configurados = ConfiguracionIA.modelos("GEMINI", MODELO_PREDETERMINADO);
+        if (configurados.size() == 1 && MODELO_PREDETERMINADO.equals(configurados.get(0))) {
+            return List.of(MODELO_PREDETERMINADO, MODELO_ALTERNATIVO);
+        }
+        return configurados;
     }
 }

@@ -21,12 +21,12 @@ public class VersionOpcionDAO extends DaoBase {
         opcion.ordenVersionOpcion = orden;
         int id = insertar("INSERT INTO version_opcion (id_version_pregunta, texto, "
                 + "es_correcta, orden) VALUES (?, ?, ?, ?)", ps -> {
-            ps.setInt(1, versionPregunta.getIdVersionPregunta());
+            ps.setInt(1, versionPregunta.consultarIdVersionPregunta());
             ps.setString(2, texto);
             ps.setBoolean(3, esCorrecta);
             ps.setInt(4, orden);
         });
-        opcion.setIdVersionOpcion(id);
+        opcion.establecerIdVersionOpcion(id);
         versionPregunta.versionOpcionesVersionPregunta.add(opcion);
         return opcion;
     }
@@ -37,7 +37,7 @@ public class VersionOpcionDAO extends DaoBase {
             ps.setString(1, texto);
             ps.setBoolean(2, esCorrecta);
             ps.setInt(3, orden);
-            ps.setInt(4, versionOpcion.getIdVersionOpcion());
+            ps.setInt(4, versionOpcion.consultarIdVersionOpcion());
         });
         versionOpcion.textoVersionOpcion = texto;
         versionOpcion.esCorrectaVersionOpcion = esCorrecta;
@@ -46,20 +46,20 @@ public class VersionOpcionDAO extends DaoBase {
 
     public void eliminarVersionOpcion(VersionOpcion versionOpcion) {
         actualizar("DELETE FROM version_opcion WHERE id_version_opcion = ?",
-                ps -> ps.setInt(1, versionOpcion.getIdVersionOpcion()));
+                ps -> ps.setInt(1, versionOpcion.consultarIdVersionOpcion()));
     }
 
     /** Marca una opción como correcta y desmarca las demás de la pregunta, en una transacción. */
     public void marcarCorrectaVersionOpcion(VersionPregunta versionPregunta, VersionOpcion versionOpcion) {
         enTransaccion(c -> {
             actualizarCon(c, "UPDATE version_opcion SET es_correcta = FALSE WHERE id_version_pregunta = ?",
-                    ps -> ps.setInt(1, versionPregunta.getIdVersionPregunta()));
+                    ps -> ps.setInt(1, versionPregunta.consultarIdVersionPregunta()));
             actualizarCon(c, "UPDATE version_opcion SET es_correcta = TRUE WHERE id_version_opcion = ?",
-                    ps -> ps.setInt(1, versionOpcion.getIdVersionOpcion()));
+                    ps -> ps.setInt(1, versionOpcion.consultarIdVersionOpcion()));
             return null;
         });
         for (VersionOpcion opcion : versionPregunta.versionOpcionesVersionPregunta) {
-            opcion.esCorrectaVersionOpcion = opcion.getIdVersionOpcion() == versionOpcion.getIdVersionOpcion();
+            opcion.esCorrectaVersionOpcion = opcion.consultarIdVersionOpcion() == versionOpcion.consultarIdVersionOpcion();
         }
         versionOpcion.esCorrectaVersionOpcion = true;
     }
@@ -80,7 +80,7 @@ public class VersionOpcionDAO extends DaoBase {
 
     private VersionOpcion mapear(ResultSet rs) throws SQLException {
         VersionOpcion opcion = new VersionOpcion();
-        opcion.setIdVersionOpcion(rs.getInt("id_version_opcion"));
+        opcion.establecerIdVersionOpcion(rs.getInt("id_version_opcion"));
         opcion.textoVersionOpcion = rs.getString("texto");
         opcion.esCorrectaVersionOpcion = rs.getBoolean("es_correcta");
         opcion.ordenVersionOpcion = rs.getInt("orden");

@@ -55,7 +55,7 @@ public class EstudiantePracticaServlet extends ServletBase {
             mostrarLista(req, resp, estudiante);
             return;
         }
-        if (!materialDAO.esDeEstudiante(id, estudiante.getIdUsuario())) {
+        if (!materialDAO.esDeEstudiante(id, estudiante.consultarIdUsuario())) {
             verificarPropiedad(false, materialDAO.buscarPorId(id).isPresent(), "Material no encontrado");
         }
         MaterialPractica material = materialDAO.buscarPorId(id)
@@ -67,7 +67,7 @@ public class EstudiantePracticaServlet extends ServletBase {
         }
         // RF-61: cada práctica es un intento independiente con su propio orden de preguntas.
         logica.IntentoPractica intento = intentoPracticaDAO.crearIntentoEnCurso(estudiante, material);
-        redirigir(req, resp, RUTA + "?intento=" + intento.getIdIntentoPractica());
+        redirigir(req, resp, RUTA + "?intento=" + intento.consultarIdIntentoPractica());
     }
 
     @Override
@@ -87,7 +87,7 @@ public class EstudiantePracticaServlet extends ServletBase {
                     int idPregunta = parametroId(req, "idPregunta");
                     Pregunta pregunta = null;
                     for (Pregunta candidata : materialDAO.listarPreguntas(idMaterial)) {
-                        if (candidata.getIdPregunta() == idPregunta) {
+                        if (candidata.consultarIdPregunta() == idPregunta) {
                             pregunta = candidata;
                             break;
                         }
@@ -115,7 +115,7 @@ public class EstudiantePracticaServlet extends ServletBase {
                     return;
             }
         } catch (logica.ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
         }
         redirigir(req, resp, RUTA + "?intento=" + idIntento);
     }
@@ -125,7 +125,7 @@ public class EstudiantePracticaServlet extends ServletBase {
     /** RNF-02: intento inexistente -> 404; intento de otro estudiante -> 403. */
     private logica.IntentoPractica intentoDelEstudiante(Estudiante estudiante, int idIntento) {
         java.util.Optional<logica.IntentoPractica> propio = intentoPracticaDAO
-                .buscarPorIdDeEstudiante(idIntento, estudiante.getIdUsuario());
+                .buscarPorIdDeEstudiante(idIntento, estudiante.consultarIdUsuario());
         verificarPropiedad(propio.isPresent(), intentoPracticaDAO.buscarPorId(idIntento).isPresent(),
                 "Intento no encontrado");
         return propio.get();
@@ -151,21 +151,21 @@ public class EstudiantePracticaServlet extends ServletBase {
         Collections.shuffle(preguntas, new Random(idIntento));
         Map<Integer, RespuestaPractica> respondidas = new HashMap<>();
         for (RespuestaPractica respuesta : respuestaPracticaDAO.listarConPregunta(idIntento)) {
-            respondidas.put(respuesta.preguntaRespuestaPractica.getIdPregunta(), respuesta);
+            respondidas.put(respuesta.preguntaRespuestaPractica.consultarIdPregunta(), respuesta);
         }
 
         List<Map<String, String>> filas = new ArrayList<>();
         int numero = 1;
         int pendientes = 0;
         for (Pregunta pregunta : preguntas) {
-            RespuestaPractica respuesta = respondidas.get(pregunta.getIdPregunta());
+            RespuestaPractica respuesta = respondidas.get(pregunta.consultarIdPregunta());
             Map<String, String> fila = new HashMap<>();
             fila.put("numero", String.valueOf(numero));
             fila.put("enunciado", pregunta.enunciadoPregunta);
             fila.put("ctx", req.getContextPath());
             fila.put("csrf", csrf(req));
             fila.put("idIntento", String.valueOf(idIntento));
-            fila.put("idPregunta", String.valueOf(pregunta.getIdPregunta()));
+            fila.put("idPregunta", String.valueOf(pregunta.consultarIdPregunta()));
             if (respuesta == null) {
                 pendientes++;
                 fila.put("bloqueRespuesta", bloqueRespuesta(req, pregunta, "", "required"));
@@ -197,7 +197,7 @@ public class EstudiantePracticaServlet extends ServletBase {
     private String bloqueRespuesta(HttpServletRequest req, Pregunta pregunta, String valor, String atributos) {
         if (pregunta.opcionesPregunta.isEmpty()) {
             Map<String, String> datosTexto = new HashMap<>();
-            datosTexto.put("id", String.valueOf(pregunta.getIdPregunta()));
+            datosTexto.put("id", String.valueOf(pregunta.consultarIdPregunta()));
             datosTexto.put("valor", valor);
             datosTexto.put("atributos", atributos);
             return vistas.componer("_respuesta-texto.html", datosTexto);
@@ -205,8 +205,8 @@ public class EstudiantePracticaServlet extends ServletBase {
         StringBuilder opciones = new StringBuilder();
         for (OpcionRespuesta opcion : pregunta.opcionesPregunta) {
             Map<String, String> datosOpcion = new HashMap<>();
-            datosOpcion.put("id", String.valueOf(pregunta.getIdPregunta()));
-            datosOpcion.put("valor", String.valueOf(opcion.getIdOpcionRespuesta()));
+            datosOpcion.put("id", String.valueOf(pregunta.consultarIdPregunta()));
+            datosOpcion.put("valor", String.valueOf(opcion.consultarIdOpcionRespuesta()));
             datosOpcion.put("atributos", atributos);
             datosOpcion.put("texto", opcion.textoOpcionRespuesta);
             opciones.append(vistas.componer("_opcion-examen.html", datosOpcion));
@@ -255,15 +255,15 @@ public class EstudiantePracticaServlet extends ServletBase {
             throws IOException {
         NivelIngles filtro = Formulario.enumeracion(NivelIngles.class, req.getParameter("nivel"));
         List<Map<String, String>> filas = new ArrayList<>();
-        for (MaterialPractica material : materialDAO.listarPublicadosDeEstudiante(estudiante.getIdUsuario(), filtro)) {
+        for (MaterialPractica material : materialDAO.listarPublicadosDeEstudiante(estudiante.consultarIdUsuario(), filtro)) {
             Map<String, String> fila = new HashMap<>();
             fila.put("titulo", material.tituloMaterialPractica);
             fila.put("descripcion", Html.resumir(material.descripcionMaterialPractica, 120));
             fila.put("nivel", Etiquetas.de(material.nivelMaterialPractica));
-            fila.put("preguntas", String.valueOf(materialDAO.contarPreguntas(material.getIdMaterialPractica())));
+            fila.put("preguntas", String.valueOf(materialDAO.contarPreguntas(material.consultarIdMaterialPractica())));
             Map<String, String> enlace = new HashMap<>();
             enlace.put("clase", "boton boton-pequeno");
-            enlace.put("url", ruta(req, RUTA + "?id=" + material.getIdMaterialPractica()));
+            enlace.put("url", ruta(req, RUTA + "?id=" + material.consultarIdMaterialPractica()));
             enlace.put("texto", "Practicar");
             fila.put("accion", vistas.componer("_enlace-accion.html", enlace));
             filas.add(fila);
@@ -355,17 +355,17 @@ public class EstudiantePracticaServlet extends ServletBase {
     private RespuestaPractica respuestaDe(HttpServletRequest req, Pregunta pregunta) {
         String contenido = "";
         OpcionRespuesta elegida = null;
-        int idOpcion = Validador.parsearId(req.getParameter("opcion_" + pregunta.getIdPregunta()));
+        int idOpcion = Validador.parsearId(req.getParameter("opcion_" + pregunta.consultarIdPregunta()));
         if (idOpcion > 0) {
             for (OpcionRespuesta opcion : pregunta.opcionesPregunta) {
-                if (opcion.getIdOpcionRespuesta() == idOpcion) {
+                if (opcion.consultarIdOpcionRespuesta() == idOpcion) {
                     elegida = opcion;
                     contenido = opcion.textoOpcionRespuesta;
                     break;
                 }
             }
         } else {
-            String texto = req.getParameter("contenido_" + pregunta.getIdPregunta());
+            String texto = req.getParameter("contenido_" + pregunta.consultarIdPregunta());
             contenido = texto == null ? "" : Validador.limpiarTexto(texto);
         }
         RespuestaPractica respuesta = new RespuestaPractica();

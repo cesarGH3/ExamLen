@@ -24,15 +24,15 @@ public class EstudianteHistorialPracticaServlet extends ServletBase {
         Map<String, String> datos = new HashMap<>();
         datos.put("filasIntentos", filasIntentos(req, estudiante));
         datos.put("filasCompetencias", filasResumen(
-                respuestaPracticaDAO.resumenPorCompetencia(estudiante.getIdUsuario())));
+                respuestaPracticaDAO.resumenPorCompetencia(estudiante.consultarIdUsuario())));
         datos.put("filasTemas", filasResumen(
-                respuestaPracticaDAO.resumenPorTema(estudiante.getIdUsuario())));
+                respuestaPracticaDAO.resumenPorTema(estudiante.consultarIdUsuario())));
         renderizar(req, resp, "estudiante-historial-practica.html", datos, null);
     }
 
     private String filasIntentos(HttpServletRequest req, Estudiante estudiante) {
         List<Map<String, String>> filas = new ArrayList<>();
-        for (IntentoPractica intento : intentoPracticaDAO.listarPorEstudiante(estudiante.getIdUsuario())) {
+        for (IntentoPractica intento : intentoPracticaDAO.listarPorEstudiante(estudiante.consultarIdUsuario())) {
             Map<String, String> fila = new HashMap<>();
             fila.put("fecha", fechaHora(intento.fechaInicioIntentoPractica));
             fila.put("material", intento.tituloMaterialPractica);
@@ -40,7 +40,7 @@ public class EstudianteHistorialPracticaServlet extends ServletBase {
                     ? "Sin calificación automática" : formatoNota(intento.calificacionIntentoPractica) + " %");
             Map<String, String> enlace = new HashMap<>();
             enlace.put("clase", "boton boton-contorno boton-pequeno");
-            enlace.put("url", ruta(req, "/app/estudiante/practica?resultado=" + intento.getIdIntentoPractica()));
+            enlace.put("url", ruta(req, "/app/estudiante/practica?resultado=" + intento.consultarIdIntentoPractica()));
             enlace.put("texto", "Ver detalle");
             fila.put("accion", vistas.componer("_enlace-accion.html", enlace));
             filas.add(fila);

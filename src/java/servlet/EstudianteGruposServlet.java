@@ -41,7 +41,7 @@ public class EstudianteGruposServlet extends ServletBase {
             return;
         }
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Inscripcion inscripcion : inscripcionDAO.listarActivasPorEstudiante(estudiante.getIdUsuario())) {
+        for (Inscripcion inscripcion : inscripcionDAO.listarActivasPorEstudiante(estudiante.consultarIdUsuario())) {
             Grupo grupo = inscripcion.grupoInscripcion;
             Map<String, String> fila = new HashMap<>();
             fila.put("curso", grupo.cursoGrupo.nombreCurso);
@@ -52,7 +52,7 @@ public class EstudianteGruposServlet extends ServletBase {
             fila.put("estado", Etiquetas.de(grupo.estadoGrupo));
             fila.put("claseEstado", grupo.estadoGrupo == EstadoGrupo.ABIERTO ? "insignia-activo" : "insignia-neutra");
             fila.put("accion", grupo.estadoGrupo == EstadoGrupo.ABIERTO
-                    ? boton(req, RUTA, inscripcion.getIdInscripcion(), "salir", "Salir", "boton-peligro boton-pequeno")
+                    ? boton(req, RUTA, inscripcion.consultarIdInscripcion(), "salir", "Salir", "boton-peligro boton-pequeno")
                     : "");
             filas.add(fila);
         }
@@ -75,7 +75,7 @@ public class EstudianteGruposServlet extends ServletBase {
             case "salir": {
                 int idInscripcion = parametroId(req, "id");
                 ejecutar(req, resp, RUTA, null, () -> {
-                    Inscripcion inscripcion = inscripcionDAO.buscarPorIdDeEstudiante(idInscripcion, estudiante.getIdUsuario())
+                    Inscripcion inscripcion = inscripcionDAO.buscarPorIdDeEstudiante(idInscripcion, estudiante.consultarIdUsuario())
                             .orElseThrow(() -> new RecursoNoEncontradoException("Inscripción no encontrada"));
                     try {
                         inscripcionDAO.eliminarInscripcion(inscripcion);
@@ -100,7 +100,7 @@ public class EstudianteGruposServlet extends ServletBase {
             validarCodigo(req, estudiante, codigo);
             redirigir(req, resp, RUTA + "?accion=confirmarUnirse&codigo=" + url(codigo));
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             redirigir(req, resp, RUTA);
         }
     }
@@ -121,7 +121,7 @@ public class EstudianteGruposServlet extends ServletBase {
                     "Te uniste a " + unido.cursoGrupo.nombreCurso + ", " + unido.nombreGrupo + " ("
                     + unido.periodoGrupo + ").");
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
         }
         redirigir(req, resp, RUTA);
     }
@@ -141,7 +141,7 @@ public class EstudianteGruposServlet extends ServletBase {
             datos.put("codigo", GeneradorCodigoAcceso.normalizar(codigo));
             renderizar(req, resp, "estudiante-confirmar-grupo.html", datos, null);
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             redirigir(req, resp, RUTA);
         }
     }
@@ -175,7 +175,7 @@ public class EstudianteGruposServlet extends ServletBase {
             if (!grupo.cursoGrupo.activoCurso) {
                 throw new ValidacionException("Ese grupo no está recibiendo inscripciones.");
             }
-            if (inscripcionDAO.buscarPorGrupoYEstudiante(grupo.getIdGrupo(), estudiante.getIdUsuario()).isPresent()) {
+            if (inscripcionDAO.buscarPorGrupoYEstudiante(grupo.consultarIdGrupo(), estudiante.consultarIdUsuario()).isPresent()) {
                 throw new ValidacionException("Ya perteneces a este grupo o fuiste retirado de él; pídele a tu "
                         + "docente que te reincorpore.");
             }

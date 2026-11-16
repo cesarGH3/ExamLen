@@ -64,7 +64,7 @@ public class ApiCatalogosServlet extends HttpServlet {
         JsonArray lista = new JsonArray();
         if (ApioJson.ROL_DOCENTE.equals(rol)) {
             for (Curso curso : cursoDAO.listarPorDocente(idUsuario)) {
-                for (Grupo grupo : grupoDAO.listarPorCurso(curso.getIdCurso())) {
+                for (Grupo grupo : grupoDAO.listarPorCurso(curso.consultarIdCurso())) {
                     lista.add(agrupar(grupo, curso.nombreCurso));
                 }
             }
@@ -75,12 +75,12 @@ public class ApiCatalogosServlet extends HttpServlet {
         }
         JsonObject cuerpo = new JsonObject();
         cuerpo.add("grupos", lista);
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 
     private static JsonObject agrupar(Grupo grupo, String curso) {
         JsonObject objeto = new JsonObject();
-        objeto.addProperty("id", grupo.getIdGrupo());
+        objeto.addProperty("id", grupo.consultarIdGrupo());
         objeto.addProperty("nombre", grupo.nombreGrupo);
         objeto.addProperty("periodo", grupo.periodoGrupo);
         objeto.addProperty("curso", curso);
@@ -113,9 +113,10 @@ public class ApiCatalogosServlet extends HttpServlet {
         JsonArray lista = new JsonArray();
         for (EvaluacionVirtual virtual : virtualDAO.listarPorGrupoDeDocente(grupoId, idDocente)) {
             JsonObject objeto = new JsonObject();
-            objeto.addProperty("id", virtual.getIdEvaluacionVirtual());
+            objeto.addProperty("id", virtual.consultarIdEvaluacionVirtual());
             objeto.addProperty("titulo", virtual.evaluacionEvaluacionVirtual.tituloEvaluacion);
             objeto.addProperty("estado", virtual.estadoEvaluacionVirtual.name());
+            objeto.addProperty("intentosPermitidos", virtual.consultarIntentosPermitidos());
             objeto.addProperty("inicio", logica.Fechas.formato(logica.Fechas.PATRON_FECHA_HORA,
                     virtual.fechaInicioEvaluacionVirtual));
             objeto.addProperty("fin", logica.Fechas.formato(logica.Fechas.PATRON_FECHA_HORA,
@@ -124,6 +125,6 @@ public class ApiCatalogosServlet extends HttpServlet {
         }
         JsonObject cuerpo = new JsonObject();
         cuerpo.add("evaluaciones", lista);
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 }

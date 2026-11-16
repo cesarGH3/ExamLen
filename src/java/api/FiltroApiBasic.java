@@ -74,12 +74,12 @@ public class FiltroApiBasic implements Filter {
             ApioJson.error(resp, HttpServletResponse.SC_UNAUTHORIZED, "CREDENCIALES_INVALIDAS", MENSAJE_GENERICO);
             return;
         }
-        if (usuarioDAO.estaBloqueado(usuario.getIdUsuario())) {
+        if (usuarioDAO.estaBloqueado(usuario.consultarIdUsuario())) {
             ApioJson.error(resp, HttpServletResponse.SC_UNAUTHORIZED, "CREDENCIALES_INVALIDAS", MENSAJE_GENERICO);
             return;
         }
         if (!contrasenaCorrecta) {
-            usuarioDAO.registrarIntentoFallido(usuario.getIdUsuario(), MAX_INTENTOS, MINUTOS_BLOQUEO);
+            usuarioDAO.registrarIntentoFallido(usuario.consultarIdUsuario(), MAX_INTENTOS, MINUTOS_BLOQUEO);
             ApioJson.error(resp, HttpServletResponse.SC_UNAUTHORIZED, "CREDENCIALES_INVALIDAS", MENSAJE_GENERICO);
             return;
         }
@@ -87,15 +87,15 @@ public class FiltroApiBasic implements Filter {
             ApioJson.error(resp, HttpServletResponse.SC_UNAUTHORIZED, "CUENTA_DESACTIVADA", MENSAJE_DESACTIVADA);
             return;
         }
-        usuarioDAO.reiniciarIntentos(usuario.getIdUsuario());
-        usuarioDAO.rehashSiLegacy(usuario, contrasena);
+        usuarioDAO.reiniciarIntentos(usuario.consultarIdUsuario());
+        usuarioDAO.recalcularHashSiEsAnterior(usuario, contrasena);
 
-        String rol = usuarioDAO.rolDeUsuario(usuario.getIdUsuario()).orElse("");
+        String rol = usuarioDAO.rolDeUsuario(usuario.consultarIdUsuario()).orElse("");
         if (rol.isBlank()) {
             ApioJson.error(resp, HttpServletResponse.SC_UNAUTHORIZED, "CREDENCIALES_INVALIDAS", MENSAJE_GENERICO);
             return;
         }
-        req.setAttribute(ApioJson.ATTR_ID_USUARIO, usuario.getIdUsuario());
+        req.setAttribute(ApioJson.ATTR_ID_USUARIO, usuario.consultarIdUsuario());
         req.setAttribute(ApioJson.ATTR_ROL, rol);
         req.setAttribute(ApioJson.ATTR_NOMBRE, usuario.nombreUsuario);
         req.setAttribute(ApioJson.ATTR_CORREO, usuario.correoUsuario);

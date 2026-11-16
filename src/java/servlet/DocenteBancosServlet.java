@@ -26,16 +26,16 @@ public class DocenteBancosServlet extends ServletBase {
         Map<String, String> formulario = recuperarFormulario(req);
         // CU-15: los conteos por estado se obtienen en una sola consulta (sin N+1).
         Map<Integer, Map<logica.EstadoPregunta, Integer>> conteos =
-                bancoDAO.contarPorEstadoDeDocente(docente.getIdUsuario());
+                bancoDAO.contarPorEstadoDeDocente(docente.consultarIdUsuario());
         List<Map<String, String>> filas = new ArrayList<>();
-        for (BancoPreguntas banco : bancoDAO.listarPorDocente(docente.getIdUsuario())) {
-            Map<logica.EstadoPregunta, Integer> porEstado = conteos.getOrDefault(banco.getIdBancoPreguntas(),
+        for (BancoPreguntas banco : bancoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            Map<logica.EstadoPregunta, Integer> porEstado = conteos.getOrDefault(banco.consultarIdBancoPreguntas(),
                     Map.of());
             int borrador = porEstado.getOrDefault(logica.EstadoPregunta.BORRADOR, 0);
             int aprobadas = porEstado.getOrDefault(logica.EstadoPregunta.APROBADA, 0);
             int archivadas = porEstado.getOrDefault(logica.EstadoPregunta.ARCHIVADA, 0);
             Map<String, String> fila = new HashMap<>();
-            fila.put("url", ruta(req, "/app/docente/banco?id=" + banco.getIdBancoPreguntas()));
+            fila.put("url", ruta(req, "/app/docente/banco?id=" + banco.consultarIdBancoPreguntas()));
             fila.put("nombre", banco.nombreBancoPreguntas);
             fila.put("descripcion", Html.resumir(banco.descripcionBancoPreguntas, 120));
             fila.put("borrador", String.valueOf(borrador));
@@ -70,9 +70,9 @@ public class DocenteBancosServlet extends ServletBase {
         try {
             BancoPreguntas banco = bancoDAO.crearBancoPreguntas(docente, nombre, descripcion);
             agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Banco creado. Agrega su primera pregunta.");
-            redirigir(req, resp, "/app/docente/banco?id=" + banco.getIdBancoPreguntas());
+            redirigir(req, resp, "/app/docente/banco?id=" + banco.consultarIdBancoPreguntas());
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             guardarFormulario(req, Map.of("nombre", nombre, "descripcion", descripcion));
             redirigir(req, resp, "/app/docente/bancos");
         }

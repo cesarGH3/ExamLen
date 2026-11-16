@@ -28,6 +28,8 @@
         <div class="acciones">{{{accionesEstado}}}</div>
     </div>
 
+    {{{nuevaPregunta}}}
+
     <section class="hoja">
         <h2>Configuración</h2>
         <p class="ayuda">La evaluación lleva exactamente las preguntas por versión configuradas (mínimo 1),
@@ -82,7 +84,7 @@
 
     <section class="hoja">
         <h2>Agregar preguntas aprobadas</h2>
-        <p class="ayuda">Solo aparecen preguntas aprobadas de tus bancos que aún no están en esta evaluación.
+        <p class="ayuda">Solo aparecen tus preguntas aprobadas, con banco o sin él, que aún no están en esta evaluación.
             Puedes filtrarlas por tema, nivel, dificultad y competencia.</p>
         <form method="get" action="{{ctx}}/app/docente/evaluacion" class="formulario">
             <input type="hidden" name="id" value="{{id}}">

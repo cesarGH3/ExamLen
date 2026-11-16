@@ -12,11 +12,11 @@ public class Respuesta {
     public VersionPregunta versionPreguntaRespuesta;
     public VersionOpcion versionOpcionRespuesta;
 
-    public int getIdRespuesta() {
+    public int consultarIdRespuesta() {
         return idRespuesta;
     }
 
-    public void setIdRespuesta(int idRespuesta) {
+    public void establecerIdRespuesta(int idRespuesta) {
         this.idRespuesta = idRespuesta;
     }
 }

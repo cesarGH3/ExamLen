@@ -1,12 +1,15 @@
 package servlet;
 
+import logica.Competencia;
 import logica.Curso;
+import logica.Dificultad;
 import logica.Docente;
 import logica.EstadoMaterial;
 import logica.EstadoPregunta;
 import logica.MaterialPractica;
 import logica.NivelIngles;
 import logica.Pregunta;
+import logica.TipoPregunta;
 import logica.RecursoNoEncontradoException;
 import logica.ValidacionException;
 import logica.Validador;
@@ -53,6 +56,7 @@ public class DocentePracticaServlet extends ServletBase {
         datos.put("urlClave", ruta(req, RUTA + "/pdf?id=" + id + "&tipo=clave"));
         datos.put("urlWord", ruta(req, RUTA + "/pdf?id=" + id + "&tipo=word"));
         datos.put("accionesEstado", accionesEstado(req, material));
+        datos.put("nuevaPregunta", formularioNuevaPregunta(req, material));
         datos.put("filasIncluidas", filasIncluidas(req, material, incluidas));
         datos.put("filasDisponibles", filasDisponibles(req, docente, material, incluidas));
         datos.put("filasCursos", filasCursos(req, material, cursosIncluidos));
@@ -79,7 +83,48 @@ public class DocentePracticaServlet extends ServletBase {
                     }
                     MaterialPractica material = materialDAO.crearMaterialPractica(docente, titulo, descripcion, nivel);
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Material creado. Agrega preguntas y cursos.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
+                    return;
+                }
+                case "crearPregunta": {
+                    MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
+                    if (material.estadoMaterialPractica == EstadoMaterial.ARCHIVADO) {
+                        throw new ValidacionException("El material está archivado y no se puede editar.");
+                    }
+                    String enunciado = Validador.limpiarTexto(req.getParameter("enunciado") == null
+                            ? "" : req.getParameter("enunciado"));
+                    String tema = parametro(req, "tema");
+                    TipoPregunta tipo = Formulario.enumeracion(TipoPregunta.class, parametro(req, "tipo"));
+                    NivelIngles nivel = Formulario.enumeracion(NivelIngles.class, parametro(req, "nivel"));
+                    Dificultad dificultad = Formulario.enumeracion(Dificultad.class, parametro(req, "dificultad"));
+                    Competencia competencia = Formulario.enumeracion(Competencia.class, parametro(req, "competencia"));
+                    List<String> errores = new ArrayList<>();
+                    Validador.validarLongitud(enunciado, 5, 65535,
+                            "El enunciado debe tener entre 5 y 65535 caracteres.", errores);
+                    Validador.validarLongitud(tema, 2, 120,
+                            "El tema debe tener entre 2 y 120 caracteres.", errores);
+                    Validador.validarRequerido(tipo, "Selecciona el tipo.", errores);
+                    Validador.validarRequerido(nivel, "Selecciona el nivel.", errores);
+                    Validador.validarRequerido(dificultad, "Selecciona la dificultad.", errores);
+                    Validador.validarRequerido(competencia, "Selecciona la competencia.", errores);
+                    if (!errores.isEmpty()) {
+                        guardarFormulario(req, valoresPregunta(req));
+                        throw new ValidacionException(errores);
+                    }
+                    Pregunta creada = preguntaDAO.crearEnMaterial(docente.consultarIdUsuario(),
+                            material.consultarIdMaterialPractica(), enunciado, tipo, nivel, dificultad, competencia, tema);
+                    agregarMensaje(req, MensajeFlash.Tipo.EXITO,
+                            "Pregunta creada en el material. Completa sus respuestas.");
+                    redirigir(req, resp, "/app/docente/pregunta?id=" + creada.consultarIdPregunta());
+                    return;
+                }
+                case "copiarPregunta": {
+                    MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
+                    Pregunta copia = preguntaDAO.copiarParaMaterial(docente.consultarIdUsuario(),
+                            material.consultarIdMaterialPractica(), parametroId(req, "idPregunta"));
+                    agregarMensaje(req, MensajeFlash.Tipo.EXITO,
+                            "Copia creada para este material. El original conserva sus referencias.");
+                    redirigir(req, resp, "/app/docente/pregunta?id=" + copia.consultarIdPregunta());
                     return;
                 }
                 case "agregarPregunta": {
@@ -88,51 +133,47 @@ public class DocentePracticaServlet extends ServletBase {
                     if (pregunta.estadoPregunta != EstadoPregunta.APROBADA) {
                         throw new ValidacionException("Solo se pueden incluir preguntas aprobadas.");
                     }
-                    materialDAO.agregarPregunta(material, pregunta.getIdPregunta());
+                    materialDAO.agregarPregunta(material, pregunta.consultarIdPregunta());
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Pregunta incluida en el material.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
                     return;
                 }
                 case "quitarPregunta": {
                     MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
-                    if (materialDAO.contarPreguntas(material.getIdMaterialPractica()) <= 1) {
-                        throw new ValidacionException("El material debe conservar al menos una pregunta. "
-                                + "Puedes archivarlo si ya no lo usas.");
-                    }
                     materialDAO.quitarPregunta(material, parametroId(req, "idPregunta"));
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Pregunta quitada del material.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
                     return;
                 }
                 case "agregarCurso": {
                     MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
                     int idCurso = parametroId(req, "idCurso");
-                    verificarPropiedad(cursoDAO.buscarPorIdDeDocente(idCurso, docente.getIdUsuario()).isPresent(),
+                    verificarPropiedad(cursoDAO.buscarPorIdDeDocente(idCurso, docente.consultarIdUsuario()).isPresent(),
                             cursoDAO.buscarPorId(idCurso).isPresent(), "Curso no encontrado");
                     materialDAO.agregarCurso(material, idCurso);
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Curso agregado al material.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
                     return;
                 }
                 case "quitarCurso": {
                     MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
                     materialDAO.quitarCurso(material, parametroId(req, "idCurso"));
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Curso quitado del material.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
                     return;
                 }
                 case "publicar": {
                     MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
                     materialDAO.publicarMaterialPractica(material);
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Material publicado. Los estudiantes de sus cursos ya pueden practicar.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
                     return;
                 }
                 case "archivar": {
                     MaterialPractica material = materialDelDocente(docente, parametroId(req, "id"));
                     materialDAO.archivarMaterialPractica(material);
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Material archivado.");
-                    redirigir(req, resp, RUTA + "?id=" + material.getIdMaterialPractica());
+                    redirigir(req, resp, RUTA + "?id=" + material.consultarIdMaterialPractica());
                     return;
                 }
                 default:
@@ -140,7 +181,7 @@ public class DocentePracticaServlet extends ServletBase {
                     return;
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             int id = Validador.parsearId(req.getParameter("id"));
             redirigir(req, resp, id >= 0 ? RUTA + "?id=" + id : RUTA);
         }
@@ -148,14 +189,51 @@ public class DocentePracticaServlet extends ServletBase {
 
     // ------------------------------------------------------------------ auxiliares
 
+    private String formularioNuevaPregunta(HttpServletRequest req, MaterialPractica material) {
+        if (material.estadoMaterialPractica == EstadoMaterial.ARCHIVADO) {
+            return "";
+        }
+        Map<String, String> guardado = recuperarFormulario(req);
+        Map<String, String> datos = new HashMap<>();
+        datos.put("ctx", req.getContextPath());
+        datos.put("csrf", csrf(req));
+        datos.put("id", String.valueOf(material.consultarIdMaterialPractica()));
+        datos.put("destino", ruta(req, RUTA));
+        datos.put("tituloNuevaPregunta", "Crear pregunta en este material");
+        datos.put("ayudaNuevaPregunta", "Completa la pregunta y sus respuestas. No necesitas un banco.");
+        datos.put("enunciado", guardado.getOrDefault("enunciado", ""));
+        datos.put("tema", guardado.getOrDefault("tema", ""));
+        datos.put("opcionesTipo", Formulario.opciones(vistas, TipoPregunta.values(),
+                Formulario.enumeracion(TipoPregunta.class, guardado.get("tipo")), "Selecciona"));
+        datos.put("opcionesNivel", Formulario.opciones(vistas, NivelIngles.values(),
+                Formulario.enumeracion(NivelIngles.class, guardado.get("nivel")), "Selecciona"));
+        datos.put("opcionesDificultad", Formulario.opciones(vistas, Dificultad.values(),
+                Formulario.enumeracion(Dificultad.class, guardado.get("dificultad")), "Selecciona"));
+        datos.put("opcionesCompetencia", Formulario.opciones(vistas, Competencia.values(),
+                Formulario.enumeracion(Competencia.class, guardado.get("competencia")), "Selecciona"));
+        return vistas.componer("_evaluacion-nueva-pregunta.html", datos);
+    }
+
+    private Map<String, String> valoresPregunta(HttpServletRequest req) {
+        Map<String, String> valores = new HashMap<>();
+        valores.put("enunciado", Validador.limpiarTexto(req.getParameter("enunciado") == null
+                ? "" : req.getParameter("enunciado")));
+        valores.put("tema", parametro(req, "tema"));
+        valores.put("tipo", parametro(req, "tipo"));
+        valores.put("nivel", parametro(req, "nivel"));
+        valores.put("dificultad", parametro(req, "dificultad"));
+        valores.put("competencia", parametro(req, "competencia"));
+        return valores;
+    }
+
     private void mostrarLista(HttpServletRequest req, HttpServletResponse resp, Docente docente) throws IOException {
         List<Map<String, String>> filas = new ArrayList<>();
-        for (MaterialPractica material : materialDAO.listarPorDocente(docente.getIdUsuario())) {
+        for (MaterialPractica material : materialDAO.listarPorDocente(docente.consultarIdUsuario())) {
             Map<String, String> fila = new HashMap<>();
-            fila.put("url", ruta(req, RUTA + "?id=" + material.getIdMaterialPractica()));
+            fila.put("url", ruta(req, RUTA + "?id=" + material.consultarIdMaterialPractica()));
             fila.put("titulo", material.tituloMaterialPractica);
-            fila.put("preguntas", String.valueOf(materialDAO.contarPreguntas(material.getIdMaterialPractica())));
-            fila.put("intentos", String.valueOf(intentoPracticaDAO.contarPorMaterial(material.getIdMaterialPractica())));
+            fila.put("preguntas", String.valueOf(materialDAO.contarPreguntas(material.consultarIdMaterialPractica())));
+            fila.put("intentos", String.valueOf(intentoPracticaDAO.contarPorMaterial(material.consultarIdMaterialPractica())));
             fila.put("estado", Etiquetas.de(material.estadoMaterialPractica));
             fila.put("claseEstado", claseEstado(material.estadoMaterialPractica));
             filas.add(fila);
@@ -168,7 +246,7 @@ public class DocentePracticaServlet extends ServletBase {
     }
 
     private MaterialPractica materialDelDocente(Docente docente, int id) {
-        java.util.Optional<MaterialPractica> propio = materialDAO.buscarPorIdDeDocente(id, docente.getIdUsuario());
+        java.util.Optional<MaterialPractica> propio = materialDAO.buscarPorIdDeDocente(id, docente.consultarIdUsuario());
         verificarPropiedad(propio.isPresent(), materialDAO.buscarPorId(id).isPresent(), "Material no encontrado");
         return propio.get();
     }
@@ -176,7 +254,7 @@ public class DocentePracticaServlet extends ServletBase {
     private Pregunta preguntaDeDocente(Docente docente, int idPregunta) {
         Pregunta pregunta = preguntaDAO.buscarPorId(idPregunta)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pregunta no encontrada"));
-        verificarPropiedad(preguntaDAO.esDeDocente(idPregunta, docente.getIdUsuario()), true,
+        verificarPropiedad(preguntaDAO.esDeDocente(idPregunta, docente.consultarIdUsuario()), true,
                 "Pregunta no encontrada");
         return pregunta;
     }
@@ -189,8 +267,17 @@ public class DocentePracticaServlet extends ServletBase {
             fila.put("meta", Etiquetas.de(pregunta.tipoPregunta) + " · " + Etiquetas.de(pregunta.nivelPregunta)
                     + " · " + Etiquetas.de(pregunta.dificultadPregunta) + " · "
                     + Etiquetas.de(pregunta.estadoPregunta));
-            fila.put("accion", boton(req, RUTA, material.getIdMaterialPractica(), "quitarPregunta", "Quitar",
-                    "boton-peligro boton-pequeno", "idPregunta", String.valueOf(pregunta.getIdPregunta())));
+            String editar = "<a class=\"boton boton-contorno boton-pequeno\" href=\""
+                    + ruta(req, "/app/docente/pregunta?id=" + pregunta.consultarIdPregunta()) + "\">Editar</a>";
+            String copiar = material.estadoMaterialPractica != EstadoMaterial.ARCHIVADO
+                    && preguntaDAO.estaProtegida(pregunta)
+                    ? boton(req, RUTA, material.consultarIdMaterialPractica(), "copiarPregunta",
+                            "Crear copia para editar aquí", "boton-contorno boton-pequeno",
+                            "idPregunta", String.valueOf(pregunta.consultarIdPregunta()))
+                    : "";
+            String quitar = boton(req, RUTA, material.consultarIdMaterialPractica(), "quitarPregunta", "Quitar",
+                    "boton-peligro boton-pequeno", "idPregunta", String.valueOf(pregunta.consultarIdPregunta()));
+            fila.put("accion", editar + " " + copiar + " " + quitar);
             filas.add(fila);
         }
         return componerFilas("_fila-practica-pregunta.html", filas,
@@ -201,19 +288,19 @@ public class DocentePracticaServlet extends ServletBase {
                                     List<Pregunta> incluidas) {
         List<Integer> ids = new ArrayList<>();
         for (Pregunta pregunta : incluidas) {
-            ids.add(pregunta.getIdPregunta());
+            ids.add(pregunta.consultarIdPregunta());
         }
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Pregunta pregunta : preguntaDAO.listarAprobadasDeDocente(docente.getIdUsuario())) {
-            if (ids.contains(pregunta.getIdPregunta())) {
+        for (Pregunta pregunta : preguntaDAO.listarAprobadasDeDocente(docente.consultarIdUsuario())) {
+            if (ids.contains(pregunta.consultarIdPregunta())) {
                 continue;
             }
             Map<String, String> fila = new HashMap<>();
             fila.put("enunciado", Html.resumir(pregunta.enunciadoPregunta, 110));
             fila.put("meta", Etiquetas.de(pregunta.tipoPregunta) + " · " + Etiquetas.de(pregunta.nivelPregunta)
                     + " · " + Etiquetas.de(pregunta.dificultadPregunta));
-            fila.put("accion", boton(req, RUTA, material.getIdMaterialPractica(), "agregarPregunta", "Agregar",
-                    "boton-contorno boton-pequeno", "idPregunta", String.valueOf(pregunta.getIdPregunta())));
+            fila.put("accion", boton(req, RUTA, material.consultarIdMaterialPractica(), "agregarPregunta", "Agregar",
+                    "boton-contorno boton-pequeno", "idPregunta", String.valueOf(pregunta.consultarIdPregunta())));
             filas.add(fila);
         }
         return componerFilas("_fila-practica-pregunta.html", filas,
@@ -226,8 +313,8 @@ public class DocentePracticaServlet extends ServletBase {
             Map<String, String> fila = new HashMap<>();
             fila.put("enunciado", curso.nombreCurso);
             fila.put("meta", "Curso");
-            fila.put("accion", boton(req, RUTA, material.getIdMaterialPractica(), "quitarCurso", "Quitar",
-                    "boton-peligro boton-pequeno", "idCurso", String.valueOf(curso.getIdCurso())));
+            fila.put("accion", boton(req, RUTA, material.consultarIdMaterialPractica(), "quitarCurso", "Quitar",
+                    "boton-peligro boton-pequeno", "idCurso", String.valueOf(curso.consultarIdCurso())));
             filas.add(fila);
         }
         return componerFilas("_fila-practica-pregunta.html", filas,
@@ -238,18 +325,18 @@ public class DocentePracticaServlet extends ServletBase {
                                           List<Curso> incluidos) {
         List<Integer> ids = new ArrayList<>();
         for (Curso curso : incluidos) {
-            ids.add(curso.getIdCurso());
+            ids.add(curso.consultarIdCurso());
         }
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Curso curso : cursoDAO.listarPorDocente(docente.getIdUsuario())) {
-            if (ids.contains(curso.getIdCurso())) {
+        for (Curso curso : cursoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            if (ids.contains(curso.consultarIdCurso())) {
                 continue;
             }
             Map<String, String> fila = new HashMap<>();
             fila.put("enunciado", curso.nombreCurso);
             fila.put("meta", Etiquetas.de(curso.nivelCurso) + (curso.activoCurso ? "" : " · Inactivo"));
-            fila.put("accion", boton(req, RUTA, material.getIdMaterialPractica(), "agregarCurso", "Agregar",
-                    "boton-contorno boton-pequeno", "idCurso", String.valueOf(curso.getIdCurso())));
+            fila.put("accion", boton(req, RUTA, material.consultarIdMaterialPractica(), "agregarCurso", "Agregar",
+                    "boton-contorno boton-pequeno", "idCurso", String.valueOf(curso.consultarIdCurso())));
             filas.add(fila);
         }
         return componerFilas("_fila-practica-pregunta.html", filas,
@@ -278,7 +365,7 @@ public class DocentePracticaServlet extends ServletBase {
     }
 
     private String accionesEstado(HttpServletRequest req, MaterialPractica material) {
-        int id = material.getIdMaterialPractica();
+        int id = material.consultarIdMaterialPractica();
         StringBuilder sb = new StringBuilder();
         if (material.estadoMaterialPractica == EstadoMaterial.BORRADOR) {
             sb.append(boton(req, RUTA, id, "publicar", "Publicar", ""));

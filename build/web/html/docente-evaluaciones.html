@@ -22,8 +22,7 @@
 
     <section class="hoja">
         <h2>Crear evaluación</h2>
-        <p class="ayuda">Crea la evaluación con su configuración y su primera pregunta aprobada; después
-            podrás agregar más preguntas y generar las versiones.</p>
+        <p class="ayuda">Crea tu evaluación base. Después escribe sus preguntas, configura y genera versiones equivalentes.</p>
         <form method="post" action="{{ctx}}/app/docente/evaluaciones" class="formulario">
             <input type="hidden" name="_csrf" value="{{csrf}}">
             <div class="campos-fila">
@@ -37,27 +36,6 @@
                     <input id="descripcion" name="descripcion" type="text"
                            autocomplete="off" value="{{descripcion}}">
                 </div>
-            </div>
-            <div class="campos-fila campos-tres">
-                <div class="campo">
-                    <label for="numeroPreguntas">Preguntas por versión</label>
-                    <input id="numeroPreguntas" name="numeroPreguntas" type="number" min="1" required
-                           value="{{numeroPreguntas}}">
-                </div>
-                <div class="campo">
-                    <label for="numeroVersiones">Número de versiones</label>
-                    <input id="numeroVersiones" name="numeroVersiones" type="number" min="1" max="10" required
-                           value="{{numeroVersiones}}">
-                </div>
-                <div class="campo">
-                    <label for="duracionMinutos">Duración (minutos)</label>
-                    <input id="duracionMinutos" name="duracionMinutos" type="number" min="1" required
-                           value="{{duracionMinutos}}">
-                </div>
-            </div>
-            <div class="campo">
-                <label for="idPregunta">Primera pregunta (aprobada)</label>
-                <select id="idPregunta" name="idPregunta" required>{{{opcionesPreguntas}}}</select>
             </div>
             <div class="acciones">
                 <button type="submit" class="boton">Crear evaluación</button>

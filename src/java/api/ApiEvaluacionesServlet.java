@@ -80,7 +80,7 @@ public class ApiEvaluacionesServlet extends HttpServlet {
                 return;
             }
             String codigo = partes[2];
-            VersionEvaluacion version = versionPorCodigo(evaluacion.getIdEvaluacion(), codigo);
+            VersionEvaluacion version = versionPorCodigo(evaluacion.consultarIdEvaluacion(), codigo);
             if (version == null) {
                 ApioJson.error(resp, HttpServletResponse.SC_NOT_FOUND, "NO_ENCONTRADO",
                         "La versión indicada no existe.");
@@ -113,7 +113,7 @@ public class ApiEvaluacionesServlet extends HttpServlet {
         JsonArray lista = new JsonArray();
         for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(ApioJson.idUsuario(req))) {
             JsonObject objeto = new JsonObject();
-            objeto.addProperty("id", evaluacion.getIdEvaluacion());
+            objeto.addProperty("id", evaluacion.consultarIdEvaluacion());
             objeto.addProperty("titulo", evaluacion.tituloEvaluacion);
             objeto.addProperty("estado", evaluacion.estadoEvaluacion.name());
             objeto.addProperty("numeroPreguntas", evaluacion.numeroPreguntasEvaluacion);
@@ -123,7 +123,7 @@ public class ApiEvaluacionesServlet extends HttpServlet {
         }
         JsonObject cuerpo = new JsonObject();
         cuerpo.add("evaluaciones", lista);
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 
     private Evaluacion evaluacionPermitida(HttpServletRequest req, HttpServletResponse resp, int idEvaluacion)
@@ -154,36 +154,36 @@ public class ApiEvaluacionesServlet extends HttpServlet {
 
     private void versiones(HttpServletResponse resp, Evaluacion evaluacion) throws IOException {
         JsonArray lista = new JsonArray();
-        for (VersionEvaluacion version : versionDAO.listarPorEvaluacion(evaluacion.getIdEvaluacion())) {
+        for (VersionEvaluacion version : versionDAO.listarPorEvaluacion(evaluacion.consultarIdEvaluacion())) {
             lista.add(aVersionJson(version));
         }
         JsonObject cuerpo = new JsonObject();
-        cuerpo.addProperty("evaluacionId", evaluacion.getIdEvaluacion());
+        cuerpo.addProperty("evaluacionId", evaluacion.consultarIdEvaluacion());
         cuerpo.addProperty("titulo", evaluacion.tituloEvaluacion);
         cuerpo.add("versiones", lista);
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 
     private void detalle(HttpServletResponse resp, Evaluacion evaluacion, VersionEvaluacion version)
             throws IOException {
         JsonObject cuerpo = new JsonObject();
-        cuerpo.addProperty("evaluacionId", evaluacion.getIdEvaluacion());
+        cuerpo.addProperty("evaluacionId", evaluacion.consultarIdEvaluacion());
         cuerpo.addProperty("titulo", evaluacion.tituloEvaluacion);
         cuerpo.addProperty("duracionMinutos", evaluacion.duracionMinutosEvaluacion);
         cuerpo.addProperty("codigo", version.codigoVersionEvaluacion);
         cuerpo.addProperty("numeroPreguntas",
-                versionPreguntaDAO.listarPorVersionEvaluacion(version.getIdVersionEvaluacion()).size());
+                versionPreguntaDAO.listarPorVersionEvaluacion(version.consultarIdVersionEvaluacion()).size());
         cuerpo.addProperty("fechaGeneracion",
                 Fechas.formato(Fechas.PATRON_FECHA_HORA, version.fechaGeneracionVersionEvaluacion));
-        ApioJson.ok(resp, cuerpo);
+        ApioJson.responderCorrecto(resp, cuerpo);
     }
 
     private JsonObject aVersionJson(VersionEvaluacion version) {
         JsonObject objeto = new JsonObject();
-        objeto.addProperty("id", version.getIdVersionEvaluacion());
+        objeto.addProperty("id", version.consultarIdVersionEvaluacion());
         objeto.addProperty("codigo", version.codigoVersionEvaluacion);
         objeto.addProperty("numeroPreguntas",
-                versionPreguntaDAO.listarPorVersionEvaluacion(version.getIdVersionEvaluacion()).size());
+                versionPreguntaDAO.listarPorVersionEvaluacion(version.consultarIdVersionEvaluacion()).size());
         objeto.addProperty("fechaGeneracion",
                 Fechas.formato(Fechas.PATRON_FECHA_HORA, version.fechaGeneracionVersionEvaluacion));
         return objeto;

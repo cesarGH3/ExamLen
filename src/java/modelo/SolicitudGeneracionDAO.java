@@ -65,7 +65,7 @@ public class SolicitudGeneracionDAO extends DaoBase {
                 + "tipo, instrucciones, cantidad, "
                 + "nivel, modelo, estado, proveedor, tema, competencia, id_evaluacion_referencia, id_preguntas_base) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', ?, ?, ?, ?, ?)", ps -> {
-            ps.setInt(1, docente.getIdUsuario());
+            ps.setInt(1, docente.consultarIdUsuario());
             if (idDocumentoFuente == null) {
                 ps.setNull(2, Types.INTEGER);
             } else {
@@ -122,7 +122,7 @@ public class SolicitudGeneracionDAO extends DaoBase {
             }
             throw e;
         }
-        solicitud.setIdSolicitudGeneracion(id);
+        solicitud.establecerIdSolicitudGeneracion(id);
         return solicitud;
     }
 
@@ -221,7 +221,7 @@ public class SolicitudGeneracionDAO extends DaoBase {
 
     private SolicitudGeneracion mapear(ResultSet rs) throws SQLException {
         SolicitudGeneracion solicitud = new SolicitudGeneracion();
-        solicitud.setIdSolicitudGeneracion(rs.getInt("id_solicitud_generacion"));
+        solicitud.establecerIdSolicitudGeneracion(rs.getInt("id_solicitud_generacion"));
         solicitud.tipoSolicitudGeneracion = enumeracion(rs, "tipo", TipoGeneracion.class);
         solicitud.instruccionesSolicitudGeneracion = rs.getString("instrucciones");
         solicitud.cantidadSolicitudGeneracion = rs.getInt("cantidad");
@@ -233,13 +233,13 @@ public class SolicitudGeneracionDAO extends DaoBase {
         int idDocumento = rs.getInt("id_documento_fuente");
         if (!rs.wasNull()) {
             logica.DocumentoFuente documento = new logica.DocumentoFuente();
-            documento.setIdDocumentoFuente(idDocumento);
+            documento.establecerIdDocumentoFuente(idDocumento);
             solicitud.documentoFuenteSolicitudGeneracion = documento;
         }
         int idBanco = rs.getInt("id_banco_destino");
         if (!rs.wasNull()) {
             logica.BancoPreguntas banco = new logica.BancoPreguntas();
-            banco.setIdBancoPreguntas(idBanco);
+            banco.establecerIdBancoPreguntas(idBanco);
             solicitud.bancoPreguntaSolicitudGeneracion = banco;
         }
         solicitud.cantidadRecibidaSolicitudGeneracion = enteroOpcional(rs, "cantidad_recibida");

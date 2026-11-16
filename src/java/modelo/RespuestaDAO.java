@@ -31,11 +31,11 @@ public class RespuestaDAO extends DaoBase {
         respuesta.versionPreguntaRespuesta = versionPregunta;
         int id = insertar("INSERT INTO respuesta (id_intento, id_version_pregunta, contenido) "
                 + "VALUES (?, ?, ?)", ps -> {
-            ps.setInt(1, intento.getIdIntento());
-            ps.setInt(2, versionPregunta.getIdVersionPregunta());
+            ps.setInt(1, intento.consultarIdIntento());
+            ps.setInt(2, versionPregunta.consultarIdVersionPregunta());
             ps.setString(3, contenido);
         });
-        respuesta.setIdRespuesta(id);
+        respuesta.establecerIdRespuesta(id);
         intento.respuestasIntento.add(respuesta);
         return respuesta;
     }
@@ -43,7 +43,7 @@ public class RespuestaDAO extends DaoBase {
     public void modificarRespuesta(Respuesta respuesta, String contenido) {
         actualizar("UPDATE respuesta SET contenido = ? WHERE id_respuesta = ?", ps -> {
             ps.setString(1, contenido);
-            ps.setInt(2, respuesta.getIdRespuesta());
+            ps.setInt(2, respuesta.consultarIdRespuesta());
         });
         respuesta.contenidoRespuesta = contenido;
     }
@@ -70,7 +70,7 @@ public class RespuestaDAO extends DaoBase {
         double puntaje = correcta ? versionPregunta.puntajeVersionPregunta : 0.0;
         actualizar("UPDATE respuesta SET puntaje = ? WHERE id_respuesta = ?", ps -> {
             ps.setDouble(1, puntaje);
-            ps.setInt(2, respuesta.getIdRespuesta());
+            ps.setInt(2, respuesta.consultarIdRespuesta());
         });
         respuesta.puntajeRespuesta = puntaje;
         return puntaje;
@@ -85,7 +85,7 @@ public class RespuestaDAO extends DaoBase {
             } else {
                 ps.setString(2, comentario);
             }
-            ps.setInt(3, respuesta.getIdRespuesta());
+            ps.setInt(3, respuesta.consultarIdRespuesta());
         });
         respuesta.puntajeRespuesta = puntaje;
         respuesta.comentarioDocenteRespuesta = comentario;
@@ -142,21 +142,21 @@ public class RespuestaDAO extends DaoBase {
             List<String> vigencia = consultarListaCon(c,
                     "SELECT i.estado FROM " + IntentoDAO.LIMITE_JOIN + " WHERE i.id_intento = ? "
                     + "AND i.estado = 'EN_CURSO' AND " + IntentoDAO.LIMITE_EFECTIVO + " > NOW() FOR UPDATE",
-                    ps -> ps.setInt(1, intento.getIdIntento()), rs -> rs.getString(1));
+                    ps -> ps.setInt(1, intento.consultarIdIntento()), rs -> rs.getString(1));
             if (vigencia.isEmpty()) {
                 return false;
             }
             List<Integer> existentes = consultarListaCon(c, "SELECT id_respuesta FROM respuesta "
                     + "WHERE id_intento = ? AND id_version_pregunta = ?", ps -> {
-                        ps.setInt(1, intento.getIdIntento());
-                        ps.setInt(2, pregunta.getIdVersionPregunta());
+                        ps.setInt(1, intento.consultarIdIntento());
+                        ps.setInt(2, pregunta.consultarIdVersionPregunta());
                     }, rs -> rs.getInt(1));
             final int idRespuesta;
             if (existentes.isEmpty()) {
                 idRespuesta = insertarCon(c, "INSERT INTO respuesta (id_intento, id_version_pregunta, "
                         + "contenido) VALUES (?, ?, ?)", ps -> {
-                            ps.setInt(1, intento.getIdIntento());
-                            ps.setInt(2, pregunta.getIdVersionPregunta());
+                            ps.setInt(1, intento.consultarIdIntento());
+                            ps.setInt(2, pregunta.consultarIdVersionPregunta());
                             ps.setString(3, contenido);
                         });
             } else {
@@ -255,6 +255,34 @@ public class RespuestaDAO extends DaoBase {
     }
 
     /**
+     * Preguntas de la version asignada que aun no tienen una respuesta valida persistida.
+     * Para opciones exige una opcion de la misma version_pregunta; para texto exige contenido
+     * no vacio despues de trim. Devuelve el orden visible de cada pregunta.
+     */
+    public List<Integer> consultarPreguntasPendientes(int idIntento, int idVersionEvaluacion) {
+        return consultarLista("SELECT vp.orden AS numero_pregunta FROM version_pregunta vp "
+                + "JOIN pregunta p ON p.id_pregunta = vp.id_pregunta "
+                + "WHERE vp.id_version_evaluacion = ? AND NOT ("
+                + "(p.tipo IN ('SELECCION_MULTIPLE','VERDADERO_FALSO') AND EXISTS ("
+                + "SELECT 1 FROM respuesta r JOIN version_opcion vo ON vo.id_version_opcion = r.id_version_opcion "
+                + "WHERE r.id_intento = ? AND r.id_version_pregunta = vp.id_version_pregunta "
+                + "AND vo.id_version_pregunta = vp.id_version_pregunta)) "
+                + "OR (p.tipo IN ('RESPUESTA_CORTA','RESPUESTA_ABIERTA') AND EXISTS ("
+                + "SELECT 1 FROM respuesta r WHERE r.id_intento = ? "
+                + "AND r.id_version_pregunta = vp.id_version_pregunta "
+                + "AND r.contenido IS NOT NULL AND TRIM(r.contenido) <> ''))"
+                + ") ORDER BY vp.orden", ps -> {
+                    ps.setInt(1, idVersionEvaluacion);
+                    ps.setInt(2, idIntento);
+                    ps.setInt(3, idIntento);
+                }, rs -> rs.getInt("numero_pregunta"));
+    }
+
+    public int contarPreguntasPendientes(int idIntento, int idVersionEvaluacion) {
+        return consultarPreguntasPendientes(idIntento, idVersionEvaluacion).size();
+    }
+
+    /**
      * Respuestas realmente pendientes de calificacion manual: abiertas CON contenido y sin puntaje.
      * Una abierta en blanco no es una respuesta que el docente deba calificar (RF-53).
      */
@@ -309,14 +337,14 @@ public class RespuestaDAO extends DaoBase {
 
     private Respuesta mapearConPregunta(ResultSet rs) throws SQLException {
         Respuesta respuesta = new Respuesta();
-        respuesta.setIdRespuesta(rs.getInt("id_respuesta"));
+        respuesta.establecerIdRespuesta(rs.getInt("id_respuesta"));
         respuesta.contenidoRespuesta = rs.getString("contenido");
         respuesta.fechaRespuesta = Mapeos.fecha(rs, "fecha");
         respuesta.puntajeRespuesta = rs.getDouble("puntaje");
         respuesta.comentarioDocenteRespuesta = rs.getString("comentario_docente");
 
         VersionPregunta versionPregunta = new VersionPregunta();
-        versionPregunta.setIdVersionPregunta(rs.getInt("id_version_pregunta"));
+        versionPregunta.establecerIdVersionPregunta(rs.getInt("id_version_pregunta"));
         versionPregunta.enunciadoVersionPregunta = rs.getString("enunciado");
         versionPregunta.respuestaEsperadaVersionPregunta = rs.getString("respuesta_esperada");
         versionPregunta.puntajeVersionPregunta = rs.getDouble("puntaje_version");
@@ -325,7 +353,7 @@ public class RespuestaDAO extends DaoBase {
         Object idOpcion = rs.getObject("id_version_opcion");
         if (idOpcion != null) {
             VersionOpcion opcion = new VersionOpcion();
-            opcion.setIdVersionOpcion(rs.getInt("id_version_opcion"));
+            opcion.establecerIdVersionOpcion(rs.getInt("id_version_opcion"));
             opcion.textoVersionOpcion = rs.getString("texto");
             opcion.esCorrectaVersionOpcion = rs.getBoolean("es_correcta");
             respuesta.versionOpcionRespuesta = opcion;
@@ -339,9 +367,9 @@ public class RespuestaDAO extends DaoBase {
             if (opcion == null) {
                 ps.setNull(1, Types.INTEGER);
             } else {
-                ps.setInt(1, opcion.getIdVersionOpcion());
+                ps.setInt(1, opcion.consultarIdVersionOpcion());
             }
-            ps.setInt(2, respuesta.getIdRespuesta());
+            ps.setInt(2, respuesta.consultarIdRespuesta());
         });
         respuesta.versionOpcionRespuesta = opcion;
     }
@@ -352,7 +380,7 @@ public class RespuestaDAO extends DaoBase {
 
     private Respuesta mapear(ResultSet rs) throws SQLException {
         Respuesta respuesta = new Respuesta();
-        respuesta.setIdRespuesta(rs.getInt("id_respuesta"));
+        respuesta.establecerIdRespuesta(rs.getInt("id_respuesta"));
         respuesta.contenidoRespuesta = rs.getString("contenido");
         respuesta.fechaRespuesta = Mapeos.fecha(rs, "fecha");
         respuesta.puntajeRespuesta = rs.getDouble("puntaje");

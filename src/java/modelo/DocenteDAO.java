@@ -28,7 +28,7 @@ public class DocenteDAO extends DaoBase {
         docente.activoUsuario = true;
         docente.debeCambiarContrasenaDocente = true;
 
-        Integer registradoPor = administrador.getIdUsuario();
+        Integer registradoPor = administrador.consultarIdUsuario();
         try {
             int id = enTransaccion(c -> {
                 int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
@@ -46,7 +46,7 @@ public class DocenteDAO extends DaoBase {
                 });
                 return idUsuario;
             });
-            docente.setIdUsuario(id);
+            docente.establecerIdUsuario(id);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("La identificación o el correo ya están registrados.");
         }

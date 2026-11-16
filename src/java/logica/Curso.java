@@ -18,11 +18,11 @@ public class Curso {
         materialesPracticaCurso = new ArrayList<>();
     }
 
-    public int getIdCurso() {
+    public int consultarIdCurso() {
         return idCurso;
     }
 
-    public void setIdCurso(int idCurso) {
+    public void establecerIdCurso(int idCurso) {
         this.idCurso = idCurso;
     }
 }

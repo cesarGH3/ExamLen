@@ -23,15 +23,15 @@ public class AdministradorDAO extends DaoBase {
     public Administrador crearAdministrador(String identificacion, String nombre, String correo,
                                             String contrasenaTemporal, String institucion,
                                             java.util.Date fechaNacimiento) throws ValidacionException {
-        Administrador admin = construirAdministrador(identificacion, nombre, correo, contrasenaTemporal,
+        Administrador administrador = construirAdministrador(identificacion, nombre, correo, contrasenaTemporal,
                 institucion, fechaNacimiento);
         try {
-            int id = enTransaccion(c -> insertarAdministrador(c, admin, fechaNacimiento));
-            admin.setIdUsuario(id);
+            int id = enTransaccion(c -> insertarAdministrador(c, administrador, fechaNacimiento));
+            administrador.establecerIdUsuario(id);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("La identificación o el correo ya están registrados.");
         }
-        return admin;
+        return administrador;
     }
 
     /**
@@ -42,7 +42,7 @@ public class AdministradorDAO extends DaoBase {
     public Administrador crearPrimerAdministrador(String identificacion, String nombre, String correo,
                                                   String contrasena, String institucion,
                                                   java.util.Date fechaNacimiento) throws ValidacionException {
-        Administrador admin = construirAdministrador(identificacion, nombre, correo, contrasena,
+        Administrador administrador = construirAdministrador(identificacion, nombre, correo, contrasena,
                 institucion, fechaNacimiento);
         try {
             Boolean creado = enTransaccion(c -> {
@@ -51,13 +51,13 @@ public class AdministradorDAO extends DaoBase {
                 if (existentes > 0) {
                     return Boolean.FALSE;
                 }
-                admin.setIdUsuario(insertarAdministrador(c, admin, fechaNacimiento));
+                administrador.establecerIdUsuario(insertarAdministrador(c, administrador, fechaNacimiento));
                 return Boolean.TRUE;
             });
             if (!creado) {
                 throw new ValidacionException("Ya existe un administrador registrado.");
             }
-            return admin;
+            return administrador;
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("La identificación o el correo ya están registrados.");
         }
@@ -66,30 +66,30 @@ public class AdministradorDAO extends DaoBase {
     private Administrador construirAdministrador(String identificacion, String nombre, String correo,
                                                  String contrasena, String institucion,
                                                  java.util.Date fechaNacimiento) {
-        Administrador admin = new Administrador();
-        admin.identificacionUsuario = identificacion;
-        admin.nombreUsuario = nombre;
-        admin.correoUsuario = correo;
-        admin.institucionUsuario = institucion;
-        admin.fechaNacimientoAdministrador = fechaNacimiento;
-        admin.contrasenaHashUsuario = hashContrasena.generarHash(contrasena);
-        admin.activoUsuario = true;
-        return admin;
+        Administrador administrador = new Administrador();
+        administrador.identificacionUsuario = identificacion;
+        administrador.nombreUsuario = nombre;
+        administrador.correoUsuario = correo;
+        administrador.institucionUsuario = institucion;
+        administrador.fechaNacimientoAdministrador = fechaNacimiento;
+        administrador.contrasenaHashUsuario = hashContrasena.generarHash(contrasena);
+        administrador.activoUsuario = true;
+        return administrador;
     }
 
-    private static int insertarAdministrador(Connection c, Administrador admin, java.util.Date fechaNacimiento)
+    private static int insertarAdministrador(Connection c, Administrador administrador, java.util.Date fechaNacimiento)
             throws SQLException {
         int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
                 + "institucion, contrasena_hash, activo) VALUES (?, ?, ?, ?, ?, TRUE)", ps -> {
-            ps.setString(1, admin.identificacionUsuario);
-            ps.setString(2, admin.nombreUsuario);
-            ps.setString(3, admin.correoUsuario);
-            if (admin.institucionUsuario == null) {
+            ps.setString(1, administrador.identificacionUsuario);
+            ps.setString(2, administrador.nombreUsuario);
+            ps.setString(3, administrador.correoUsuario);
+            if (administrador.institucionUsuario == null) {
                 ps.setNull(4, Types.VARCHAR);
             } else {
-                ps.setString(4, admin.institucionUsuario);
+                ps.setString(4, administrador.institucionUsuario);
             }
-            ps.setString(5, admin.contrasenaHashUsuario);
+            ps.setString(5, administrador.contrasenaHashUsuario);
         });
         actualizarCon(c, "INSERT INTO administrador (id_usuario, fecha_nacimiento) VALUES (?, ?)", ps -> {
             ps.setInt(1, idUsuario);
@@ -111,7 +111,7 @@ public class AdministradorDAO extends DaoBase {
                         + "AND EXISTS (SELECT 1 FROM administrador a WHERE a.id_usuario = u.id_usuario)", ps -> {
                     ps.setString(1, nombre);
                     ps.setString(2, correo);
-                    ps.setInt(3, administrador.getIdUsuario());
+                    ps.setInt(3, administrador.consultarIdUsuario());
                 });
                 actualizarCon(c, "UPDATE administrador SET fecha_nacimiento = ? WHERE id_usuario = ?", ps -> {
                     if (fechaNacimiento == null) {
@@ -119,7 +119,7 @@ public class AdministradorDAO extends DaoBase {
                     } else {
                         ps.setDate(1, new Date(fechaNacimiento.getTime()));
                     }
-                    ps.setInt(2, administrador.getIdUsuario());
+                    ps.setInt(2, administrador.consultarIdUsuario());
                 });
                 return null;
             });
@@ -146,6 +146,6 @@ public class AdministradorDAO extends DaoBase {
     public void eliminarAdministrador(Administrador administrador) {
         actualizar("DELETE FROM usuario WHERE id_usuario = ? AND EXISTS "
                 + "(SELECT 1 FROM administrador a WHERE a.id_usuario = usuario.id_usuario)",
-                ps -> ps.setInt(1, administrador.getIdUsuario()));
+                ps -> ps.setInt(1, administrador.consultarIdUsuario()));
     }
 }

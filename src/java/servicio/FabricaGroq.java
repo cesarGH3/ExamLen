@@ -29,7 +29,7 @@ public final class FabricaGroq implements ProveedorIAFabrica {
     }
 
     @Override
-    public ProveedorIA crear(String modelo) {
-        return new ClienteGroq(modelo);
+    public ProveedorIA crear(String modelo, String clave) {
+        return new ClienteGroq(modelo, clave);
     }
 }

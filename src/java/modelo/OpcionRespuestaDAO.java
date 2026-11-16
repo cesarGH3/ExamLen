@@ -31,19 +31,20 @@ public class OpcionRespuestaDAO extends DaoBase {
         opcion.textoOpcionRespuesta = texto;
         opcion.esCorrectaOpcionRespuesta = false;
         enTransaccion(c -> {
-            PreguntaDAO.desaprobarSiAprobada(c, pregunta);
+            PreguntaDAO.prepararEdicion(c, pregunta);
             int id = insertarCon(c, "INSERT INTO opcion_respuesta (id_pregunta, texto, "
                     + "es_correcta) VALUES (?, ?, FALSE)", ps -> {
-                ps.setInt(1, pregunta.getIdPregunta());
+                ps.setInt(1, pregunta.consultarIdPregunta());
                 ps.setString(2, texto);
             });
-            opcion.setIdOpcionRespuesta(id);
+            opcion.establecerIdOpcionRespuesta(id);
             if (esCorrecta) {
                 actualizarCon(c, "UPDATE opcion_respuesta SET es_correcta = FALSE WHERE id_pregunta = ?",
-                        ps -> ps.setInt(1, pregunta.getIdPregunta()));
+                        ps -> ps.setInt(1, pregunta.consultarIdPregunta()));
                 actualizarCon(c, "UPDATE opcion_respuesta SET es_correcta = TRUE WHERE id_opcion_respuesta = ?",
                         ps -> ps.setInt(1, id));
             }
+            PreguntaDAO.actualizarDisponibilidad(c, pregunta, true);
             return null;
         });
         pregunta.opcionesPregunta.add(opcion);
@@ -62,11 +63,12 @@ public class OpcionRespuestaDAO extends DaoBase {
         exigirPertenece(pregunta, opcion);
         PreguntaDAO.exigirEditable(pregunta);
         enTransaccion(c -> {
-            PreguntaDAO.desaprobarSiAprobada(c, pregunta);
+            PreguntaDAO.prepararEdicion(c, pregunta);
             actualizarCon(c, "DELETE FROM opcion_respuesta WHERE id_opcion_respuesta = ? AND id_pregunta = ?", ps -> {
-                ps.setInt(1, opcion.getIdOpcionRespuesta());
-                ps.setInt(2, pregunta.getIdPregunta());
+                ps.setInt(1, opcion.consultarIdOpcionRespuesta());
+                ps.setInt(2, pregunta.consultarIdPregunta());
             });
+            PreguntaDAO.actualizarDisponibilidad(c, pregunta, true);
             return null;
         });
         pregunta.opcionesPregunta.remove(opcion);
@@ -79,11 +81,12 @@ public class OpcionRespuestaDAO extends DaoBase {
         exigirPertenece(pregunta, opcion);
         PreguntaDAO.exigirEditable(pregunta);
         enTransaccion(c -> {
-            PreguntaDAO.desaprobarSiAprobada(c, pregunta);
+            PreguntaDAO.prepararEdicion(c, pregunta);
             actualizarCon(c, "UPDATE opcion_respuesta SET es_correcta = FALSE WHERE id_pregunta = ?",
-                    ps -> ps.setInt(1, pregunta.getIdPregunta()));
+                    ps -> ps.setInt(1, pregunta.consultarIdPregunta()));
             actualizarCon(c, "UPDATE opcion_respuesta SET es_correcta = TRUE WHERE id_opcion_respuesta = ?",
-                    ps -> ps.setInt(1, opcion.getIdOpcionRespuesta()));
+                    ps -> ps.setInt(1, opcion.consultarIdOpcionRespuesta()));
+            PreguntaDAO.actualizarDisponibilidad(c, pregunta, true);
             return null;
         });
         for (OpcionRespuesta o : pregunta.opcionesPregunta) {
@@ -100,13 +103,14 @@ public class OpcionRespuestaDAO extends DaoBase {
         exigirPertenece(pregunta, opcion);
         PreguntaDAO.exigirEditable(pregunta);
         enTransaccion(c -> {
-            PreguntaDAO.desaprobarSiAprobada(c, pregunta);
+            PreguntaDAO.prepararEdicion(c, pregunta);
             actualizarCon(c, "UPDATE opcion_respuesta SET texto = ? WHERE id_opcion_respuesta = ? AND id_pregunta = ?",
                     ps -> {
                         ps.setString(1, texto);
-                        ps.setInt(2, opcion.getIdOpcionRespuesta());
-                        ps.setInt(3, pregunta.getIdPregunta());
+                        ps.setInt(2, opcion.consultarIdOpcionRespuesta());
+                        ps.setInt(3, pregunta.consultarIdPregunta());
                     });
+            PreguntaDAO.actualizarDisponibilidad(c, pregunta, true);
             return null;
         });
         opcion.textoOpcionRespuesta = texto;

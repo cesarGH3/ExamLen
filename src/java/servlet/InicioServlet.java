@@ -10,6 +10,7 @@ import logica.Estudiante;
 import logica.Evaluacion;
 import logica.EvaluacionVirtual;
 import logica.Inscripcion;
+import logica.Intento;
 import logica.NivelIngles;
 import logica.SolicitudGeneracion;
 import logica.Usuario;
@@ -58,18 +59,18 @@ public class InicioServlet extends ServletBase {
             Docente docente = (Docente) usuario;
             int cursos = 0;
             int gruposAbiertos = 0;
-            for (Curso curso : cursoDAO.listarPorDocente(docente.getIdUsuario())) {
+            for (Curso curso : cursoDAO.listarPorDocente(docente.consultarIdUsuario())) {
                 cursos++;
-                gruposAbiertos += grupoDAO.contarAbiertosPorCurso(curso.getIdCurso());
+                gruposAbiertos += grupoDAO.contarAbiertosPorCurso(curso.consultarIdCurso());
             }
             int evaluacionesListas = 0;
-            for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.getIdUsuario())) {
+            for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.consultarIdUsuario())) {
                 if (evaluacion.estadoEvaluacion == EstadoEvaluacion.LISTA) {
                     evaluacionesListas++;
                 }
             }
             int iaPendientes = 0;
-            for (SolicitudGeneracion solicitud : solicitudDAO.listarPorDocente(docente.getIdUsuario())) {
+            for (SolicitudGeneracion solicitud : solicitudDAO.listarPorDocente(docente.consultarIdUsuario())) {
                 if (solicitud.estadoSolicitudGeneracion == EstadoSolicitud.EN_PROCESO
                         || solicitud.estadoSolicitudGeneracion == EstadoSolicitud.FALLIDA) {
                     iaPendientes++;
@@ -84,23 +85,28 @@ public class InicioServlet extends ServletBase {
         }
         Estudiante estudiante = (Estudiante) usuario;
         int disponibles = 0;
-        for (Inscripcion inscripcion : inscripcionDAO.listarActivasPorEstudiante(estudiante.getIdUsuario())) {
-            for (EvaluacionVirtual virtual : virtualDAO.listarPorGrupo(inscripcion.grupoInscripcion.getIdGrupo())) {
+        for (Inscripcion inscripcion : inscripcionDAO.listarActivasPorEstudiante(estudiante.consultarIdUsuario())) {
+            for (EvaluacionVirtual virtual : virtualDAO.listarPorGrupo(inscripcion.grupoInscripcion.consultarIdGrupo())) {
                 if (virtual.estadoEvaluacionVirtual == EstadoEvaluacionVirtual.CANCELADA) {
                     continue;
                 }
-                if (intentoDAO.buscarPorEvaluacionEInscripcion(virtual.getIdEvaluacionVirtual(),
-                        inscripcion.getIdInscripcion()).isPresent()) {
+                java.util.List<Intento> intentos = intentoDAO.listarPorEvaluacionEInscripcion(
+                        virtual.consultarIdEvaluacionVirtual(), inscripcion.consultarIdInscripcion());
+                boolean enCurso = intentos.stream()
+                        .anyMatch(intento -> intento.estadoIntento == logica.EstadoIntento.EN_CURSO);
+                if (enCurso) {
+                    disponibles++;
                     continue;
                 }
-                if (virtualDAO.disponibleAhora(virtual.getIdEvaluacionVirtual())) {
+                if (intentos.size() < virtual.consultarIntentosPermitidos()
+                        && virtualDAO.disponibleAhora(virtual.consultarIdEvaluacionVirtual())) {
                     disponibles++;
                 }
             }
         }
         NivelIngles nivel = Formulario.enumeracion(NivelIngles.class, estudiante.nivelInglesEstudiante);
-        int practicas = materialDAO.listarPublicadosDeEstudiante(estudiante.getIdUsuario(), nivel).size();
-        int realizadas = intentoPracticaDAO.contarPorEstudiante(estudiante.getIdUsuario());
+        int practicas = materialDAO.listarPublicadosDeEstudiante(estudiante.consultarIdUsuario(), nivel).size();
+        int realizadas = intentoPracticaDAO.contarPorEstudiante(estudiante.consultarIdUsuario());
         return dato(disponibles, "Evaluaciones disponibles ahora", ctx + "/app/estudiante/evaluaciones",
                     "Ver evaluaciones")
                 + dato(practicas, "Prácticas publicadas", ctx + "/app/estudiante/practicas", "Ver prácticas")

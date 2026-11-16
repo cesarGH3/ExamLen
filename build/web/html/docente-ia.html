@@ -99,10 +99,29 @@
                     <select id="modelo" name="modelo">{{{opcionesModelos}}}</select>
                 </div>
                 <div class="campo">
-                    <label for="idBanco">Banco destino (preguntas y variantes)</label>
+                    <label for="idBanco">Banco destino (opcional)</label>
                     <select id="idBanco" name="idBanco">{{{opcionesBancos}}}</select>
                 </div>
             </div>
+            <details class="clave-ia">
+                <summary>Configurar mi clave de IA</summary>
+                <p class="ayuda">Estado: <strong>{{estadoClaves}}</strong>. Selecciona arriba el proveedor,
+                    pega tu clave personal y pruébala antes de guardarla. La clave se almacena cifrada y no
+                    se vuelve a mostrar.</p>
+                <div class="campos-fila">
+                    <div class="campo">
+                        <label for="claveIA">Clave del proveedor seleccionado</label>
+                        <input id="claveIA" name="claveIA" type="password" maxlength="300"
+                               autocomplete="new-password" placeholder="Pega aquí tu API key">
+                    </div>
+                    <div class="acciones">
+                        <button type="submit" class="boton" name="accion" value="guardarClaveIA"
+                                formnovalidate>Probar y guardar</button>
+                        <button type="submit" class="boton boton-peligro" name="accion" value="eliminarClaveIA"
+                                formnovalidate>Eliminar</button>
+                    </div>
+                </div>
+            </details>
             <div class="campos-fila">
                 <div class="campo">
                     <label for="idDocumento">Documento fuente (opcional)</label>

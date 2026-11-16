@@ -58,11 +58,11 @@ public final class ValidadorPreguntasGeneradas {
      * @param competenciaFija    valor del docente/base (null = el del modelo)
      * @param temaFijo           valor del docente/base (null o vacío = el del modelo o "IA")
      */
-    public static Resultado normalizar(List<PreguntaGenerada> items, NivelIngles nivel,
+    public static Resultado normalizar(List<PreguntaGenerada> elementos, NivelIngles nivel,
                                        TipoPregunta tipoForzado, Dificultad dificultadForzada,
                                        Competencia competenciaFija, String temaFijo) {
         Resultado resultado = new Resultado();
-        for (PreguntaGenerada generada : items) {
+        for (PreguntaGenerada generada : elementos) {
             PreguntaNormalizada normalizada = normalizarUna(generada, nivel, tipoForzado, dificultadForzada,
                     competenciaFija, temaFijo);
             if (normalizada == null) {

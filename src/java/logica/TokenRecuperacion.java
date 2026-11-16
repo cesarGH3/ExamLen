@@ -13,7 +13,7 @@ import java.util.Date;
  */
 public class TokenRecuperacion {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final SecureRandom ALEATORIO = new SecureRandom();
     private static final int BYTES_TOKEN = 32;
     private static final long MILISEGUNDOS_VIGENCIA = 30 * 60_000L;
 
@@ -29,7 +29,7 @@ public class TokenRecuperacion {
 
     public static TokenRecuperacion generarTokenRecuperacion(Usuario usuario) {
         byte[] bytes = new byte[BYTES_TOKEN];
-        RANDOM.nextBytes(bytes);
+        ALEATORIO.nextBytes(bytes);
         TokenRecuperacion token = new TokenRecuperacion();
         token.usuarioTokenRecuperacion = usuario;
         token.tokenPlanoTokenRecuperacion = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -55,7 +55,7 @@ public class TokenRecuperacion {
         marcarUsadoTokenRecuperacion();
     }
 
-    public String getTokenPlanoTokenRecuperacion() {
+    public String consultarTokenPlanoTokenRecuperacion() {
         return tokenPlanoTokenRecuperacion;
     }
 
@@ -70,11 +70,11 @@ public class TokenRecuperacion {
         }
     }
 
-    public int getIdTokenRecuperacion() {
+    public int consultarIdTokenRecuperacion() {
         return idTokenRecuperacion;
     }
 
-    public void setIdTokenRecuperacion(int idTokenRecuperacion) {
+    public void establecerIdTokenRecuperacion(int idTokenRecuperacion) {
         this.idTokenRecuperacion = idTokenRecuperacion;
     }
 }

@@ -24,7 +24,7 @@ public class DocentePracticaPdfServlet extends ServletBase {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         Docente docente = docenteActual(req);
         int id = parametroId(req, "id");
-        MaterialPractica material = materialDAO.buscarPorIdDeDocente(id, docente.getIdUsuario()).orElse(null);
+        MaterialPractica material = materialDAO.buscarPorIdDeDocente(id, docente.consultarIdUsuario()).orElse(null);
         verificarPropiedad(material != null, materialDAO.buscarPorId(id).isPresent(), "Material no encontrado");
 
         String tipo = parametro(req, "tipo");
@@ -52,7 +52,7 @@ public class DocentePracticaPdfServlet extends ServletBase {
     private String componerWord(MaterialPractica material) {
         StringBuilder preguntas = new StringBuilder();
         int numero = 1;
-        for (Pregunta pregunta : materialDAO.listarPreguntas(material.getIdMaterialPractica())) {
+        for (Pregunta pregunta : materialDAO.listarPreguntas(material.consultarIdMaterialPractica())) {
             Map<String, String> datos = new HashMap<>();
             datos.put("numero", String.valueOf(numero));
             datos.put("enunciado", pregunta.enunciadoPregunta);

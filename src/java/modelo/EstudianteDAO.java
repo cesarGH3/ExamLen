@@ -50,7 +50,7 @@ public class EstudianteDAO extends DaoBase {
                 });
                 return idUsuario;
             });
-            estudiante.setIdUsuario(id);
+            estudiante.establecerIdUsuario(id);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("La identificación o el correo ya están registrados.");
         }
@@ -60,7 +60,7 @@ public class EstudianteDAO extends DaoBase {
     public void actualizarEstudiante(Estudiante estudiante, String nivelIngles) {
         actualizar("UPDATE estudiante SET nivel_ingles = ? WHERE id_usuario = ?", ps -> {
             ps.setString(1, nivelIngles);
-            ps.setInt(2, estudiante.getIdUsuario());
+            ps.setInt(2, estudiante.consultarIdUsuario());
         });
         estudiante.nivelInglesEstudiante = nivelIngles;
     }
@@ -96,6 +96,6 @@ public class EstudianteDAO extends DaoBase {
     public void eliminarEstudiante(Estudiante estudiante) {
         actualizar("DELETE FROM usuario WHERE id_usuario = ? AND EXISTS "
                 + "(SELECT 1 FROM estudiante es WHERE es.id_usuario = usuario.id_usuario)",
-                ps -> ps.setInt(1, estudiante.getIdUsuario()));
+                ps -> ps.setInt(1, estudiante.consultarIdUsuario()));
     }
 }

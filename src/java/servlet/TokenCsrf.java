@@ -11,7 +11,7 @@ public final class TokenCsrf {
 
     public static final String PARAMETRO = "_csrf";
     private static final String ATRIBUTO = "examlen.csrf";
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final SecureRandom ALEATORIO = new SecureRandom();
 
     private TokenCsrf() {
     }
@@ -20,7 +20,7 @@ public final class TokenCsrf {
         String token = (String) sesion.getAttribute(ATRIBUTO);
         if (token == null) {
             byte[] bytes = new byte[32];
-            RANDOM.nextBytes(bytes);
+            ALEATORIO.nextBytes(bytes);
             token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
             sesion.setAttribute(ATRIBUTO, token);
         }

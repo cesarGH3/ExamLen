@@ -21,15 +21,15 @@ public final class ConfiguracionIA {
     private static final Properties PROPIEDADES = cargar();
 
     /** Propiedad de Tomcat con el numero de hilos de generacion. */
-    public static final String PROPIEDAD_WORKERS = "examlen.ia.workers";
+    public static final String PROPIEDAD_TRABAJADORES = "examlen.ia.workers";
     /** Variable de entorno equivalente. */
-    public static final String VARIABLE_WORKERS = "EXAMENL_IA_WORKERS";
+    public static final String VARIABLE_TRABAJADORES = "EXAMENL_IA_WORKERS";
     /** Propiedad de Tomcat con la capacidad de la cola de trabajos. */
     public static final String PROPIEDAD_COLA = "examlen.ia.queueCapacity";
     /** Variable de entorno equivalente. */
     public static final String VARIABLE_COLA = "EXAMENL_IA_QUEUE_CAPACITY";
 
-    public static final int WORKERS_POR_DEFECTO = 2;
+    public static final int TRABAJADORES_POR_DEFECTO = 2;
     public static final int COLA_POR_DEFECTO = 50;
 
     private ConfiguracionIA() {
@@ -57,8 +57,8 @@ public final class ConfiguracionIA {
     }
 
     /** Hilos de generacion en segundo plano (minimo 1). */
-    public static int workers() {
-        return enteroPositivo(PROPIEDAD_WORKERS, VARIABLE_WORKERS, WORKERS_POR_DEFECTO);
+    public static int trabajadores() {
+        return enteroPositivo(PROPIEDAD_TRABAJADORES, VARIABLE_TRABAJADORES, TRABAJADORES_POR_DEFECTO);
     }
 
     /** Trabajos en espera antes de rechazar nuevas solicitudes (minimo 1). */

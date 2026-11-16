@@ -30,7 +30,7 @@ public class GrupoDAO extends DaoBase {
         if (!curso.activoCurso) {
             throw new ValidacionException("No puedes abrir grupos en un curso inactivo. Actívalo primero.");
         }
-        if (existeEnPeriodo(curso.getIdCurso(), periodo, nombre)) {
+        if (existeEnPeriodo(curso.consultarIdCurso(), periodo, nombre)) {
             throw new ValidacionException("Ya existe un grupo llamado " + nombre + " en el periodo " + periodo + ".");
         }
         for (int intento = 0; intento < INTENTOS_CODIGO; intento++) {
@@ -43,12 +43,12 @@ public class GrupoDAO extends DaoBase {
             try {
                 int id = insertar("INSERT INTO grupo (id_curso, nombre, periodo, codigo_acceso, "
                         + "estado) VALUES (?, ?, ?, ?, 'ABIERTO')", ps -> {
-                    ps.setInt(1, curso.getIdCurso());
+                    ps.setInt(1, curso.consultarIdCurso());
                     ps.setString(2, nombre);
                     ps.setString(3, periodo);
                     ps.setString(4, grupo.codigoAccesoGrupo);
                 });
-                grupo.setIdGrupo(id);
+                grupo.establecerIdGrupo(id);
                 curso.gruposCurso.add(grupo);
                 return grupo;
             } catch (RegistroDuplicadoException e) {
@@ -65,7 +65,7 @@ public class GrupoDAO extends DaoBase {
                 int filas = actualizar("UPDATE grupo SET codigo_acceso = ? "
                         + "WHERE id_grupo = ? AND estado = 'ABIERTO'", ps -> {
                     ps.setString(1, codigo);
-                    ps.setInt(2, grupo.getIdGrupo());
+                    ps.setInt(2, grupo.consultarIdGrupo());
                 });
                 if (filas == 0) {
                     throw new ValidacionException(
@@ -84,7 +84,7 @@ public class GrupoDAO extends DaoBase {
         if (grupo.estadoGrupo != EstadoGrupo.ABIERTO) {
             throw new ValidacionException("El grupo ya está cerrado.");
         }
-        actualizar("UPDATE grupo SET estado = 'CERRADO' WHERE id_grupo = ?", ps -> ps.setInt(1, grupo.getIdGrupo()));
+        actualizar("UPDATE grupo SET estado = 'CERRADO' WHERE id_grupo = ?", ps -> ps.setInt(1, grupo.consultarIdGrupo()));
         grupo.estadoGrupo = EstadoGrupo.CERRADO;
     }
 
@@ -95,7 +95,7 @@ public class GrupoDAO extends DaoBase {
         if (grupo.cursoGrupo != null && !grupo.cursoGrupo.activoCurso) {
             throw new ValidacionException("Activa el curso antes de reabrir este grupo.");
         }
-        actualizar("UPDATE grupo SET estado = 'ABIERTO' WHERE id_grupo = ?", ps -> ps.setInt(1, grupo.getIdGrupo()));
+        actualizar("UPDATE grupo SET estado = 'ABIERTO' WHERE id_grupo = ?", ps -> ps.setInt(1, grupo.consultarIdGrupo()));
         grupo.estadoGrupo = EstadoGrupo.ABIERTO;
     }
 

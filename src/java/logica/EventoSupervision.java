@@ -9,11 +9,11 @@ public class EventoSupervision {
     public String descripcionEventoSupervision;
     public Date fechaHoraEventoSupervision;
 
-    public int getIdEventoSupervision() {
+    public int consultarIdEventoSupervision() {
         return idEventoSupervision;
     }
 
-    public void setIdEventoSupervision(int idEventoSupervision) {
+    public void establecerIdEventoSupervision(int idEventoSupervision) {
         this.idEventoSupervision = idEventoSupervision;
     }
 }

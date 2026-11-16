@@ -49,11 +49,11 @@ public class VersionEvaluacionDAO extends DaoBase {
     public List<VersionEvaluacion> generarVersionEvaluacion(Evaluacion evaluacion) throws ValidacionException {
         try {
             return enTransaccion(c -> {
-                exigirLista(c, evaluacion.getIdEvaluacion());
-                List<Fuente> fuentes = cargarFuentes(c, evaluacion.getIdEvaluacion());
+                exigirLista(c, evaluacion.consultarIdEvaluacion());
+                List<Fuente> fuentes = cargarFuentes(c, evaluacion.consultarIdEvaluacion());
                 Perfil perfil = construirPerfil(fuentes, evaluacion.numeroPreguntasEvaluacion);
                 Map<String, Integer> desplazamientos = desplazamientosAleatorios(perfil.candidatos);
-                String ultimo = ultimoCodigo(c, evaluacion.getIdEvaluacion());
+                String ultimo = ultimoCodigo(c, evaluacion.consultarIdEvaluacion());
                 int totalVersiones = Math.max(1, evaluacion.numeroVersionesEvaluacion);
                 List<VersionEvaluacion> generadas = new ArrayList<>();
                 for (int v = 0; v < totalVersiones; v++) {
@@ -63,7 +63,7 @@ public class VersionEvaluacionDAO extends DaoBase {
                 return generadas;
             });
         } catch (GeneracionInvalidaException e) {
-            throw new ValidacionException(e.getErrores());
+            throw new ValidacionException(e.consultarErrores());
         }
     }
 
@@ -71,13 +71,13 @@ public class VersionEvaluacionDAO extends DaoBase {
     public VersionEvaluacion generarVersionOriginal(Evaluacion evaluacion) throws ValidacionException {
         try {
             return enTransaccion(c -> {
-                exigirLista(c, evaluacion.getIdEvaluacion());
-                List<Fuente> fuentes = cargarFuentes(c, evaluacion.getIdEvaluacion());
+                exigirLista(c, evaluacion.consultarIdEvaluacion());
+                List<Fuente> fuentes = cargarFuentes(c, evaluacion.consultarIdEvaluacion());
                 Perfil perfil = construirPerfil(fuentes, evaluacion.numeroPreguntasEvaluacion);
                 return crearVersion(c, evaluacion, "A", 0, perfil, desplazamientosAleatorios(perfil.candidatos));
             });
         } catch (GeneracionInvalidaException e) {
-            throw new ValidacionException(e.getErrores());
+            throw new ValidacionException(e.consultarErrores());
         }
     }
 
@@ -162,7 +162,7 @@ public class VersionEvaluacionDAO extends DaoBase {
             this.errores = errores;
         }
 
-        List<String> getErrores() {
+        List<String> consultarErrores() {
             return errores;
         }
     }
@@ -282,7 +282,7 @@ public class VersionEvaluacionDAO extends DaoBase {
                                            Perfil perfil, Map<String, Integer> desplazamientos) throws SQLException {
         int idVersion = insertarCon(c, "INSERT INTO version_evaluacion (id_evaluacion, codigo) "
                 + "VALUES (?, ?)", ps -> {
-            ps.setInt(1, evaluacion.getIdEvaluacion());
+            ps.setInt(1, evaluacion.consultarIdEvaluacion());
             ps.setString(2, codigo);
         });
 
@@ -339,7 +339,7 @@ public class VersionEvaluacionDAO extends DaoBase {
         }
 
         VersionEvaluacion version = new VersionEvaluacion();
-        version.setIdVersionEvaluacion(idVersion);
+        version.establecerIdVersionEvaluacion(idVersion);
         version.codigoVersionEvaluacion = codigo;
         version.fechaGeneracionVersionEvaluacion = Fechas.ahora();
         return version;
@@ -462,7 +462,7 @@ public class VersionEvaluacionDAO extends DaoBase {
         DatosVersion datos = consultarUno("SELECT v.codigo, e.titulo, "
                 + "u.nombre FROM version_evaluacion v JOIN evaluacion e ON e.id_evaluacion = v.id_evaluacion "
                 + "JOIN usuario u ON u.id_usuario = e.id_docente WHERE v.id_version_evaluacion = ?",
-                ps -> ps.setInt(1, version.getIdVersionEvaluacion()), rs -> {
+                ps -> ps.setInt(1, version.consultarIdVersionEvaluacion()), rs -> {
                     DatosVersion d = new DatosVersion();
                     d.codigo = rs.getString("codigo");
                     d.titulo = rs.getString("titulo");
@@ -473,7 +473,7 @@ public class VersionEvaluacionDAO extends DaoBase {
         List<PreguntaPDF> preguntas = consultarLista("SELECT id_version_pregunta, enunciado, "
                 + "respuesta_esperada, puntaje FROM version_pregunta "
                 + "WHERE id_version_evaluacion = ? ORDER BY orden",
-                ps -> ps.setInt(1, version.getIdVersionEvaluacion()), rs -> {
+                ps -> ps.setInt(1, version.consultarIdVersionEvaluacion()), rs -> {
                     PreguntaPDF p = new PreguntaPDF();
                     p.enunciado = rs.getString("enunciado");
                     p.respuestaEsperada = rs.getString("respuesta_esperada");
@@ -560,7 +560,7 @@ public class VersionEvaluacionDAO extends DaoBase {
 
     private VersionEvaluacion mapear(ResultSet rs) throws SQLException {
         VersionEvaluacion version = new VersionEvaluacion();
-        version.setIdVersionEvaluacion(rs.getInt("id_version_evaluacion"));
+        version.establecerIdVersionEvaluacion(rs.getInt("id_version_evaluacion"));
         version.codigoVersionEvaluacion = rs.getString("codigo");
         version.fechaGeneracionVersionEvaluacion = Mapeos.fecha(rs, "fecha_generacion");
         return version;

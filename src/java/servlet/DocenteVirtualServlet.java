@@ -49,9 +49,12 @@ public class DocenteVirtualServlet extends ServletBase {
         datos.put("fin", fechaHora(virtual.fechaFinEvaluacionVirtual));
         datos.put("duracion", String.valueOf(virtual.evaluacionEvaluacionVirtual.duracionMinutosEvaluacion));
         datos.put("intentos", String.valueOf(virtualDAO.contarIntentos(id)));
+        datos.put("intentosPermitidos", String.valueOf(virtual.consultarIntentosPermitidos()));
+        datos.put("exigirRespuestasCompletas", virtual.consultarExigirRespuestasCompletas()
+                ? "Sí, exige todas las respuestas" : "No, permite envío incompleto");
         datos.put("cursoNombre", grupo.cursoGrupo.nombreCurso);
         datos.put("grupoNombre", grupo.nombreGrupo);
-        datos.put("urlGrupo", ruta(req, "/app/docente/grupo?id=" + grupo.getIdGrupo()));
+        datos.put("urlGrupo", ruta(req, "/app/docente/grupo?id=" + grupo.consultarIdGrupo()));
         datos.put("accionesEstado", accionesEstado(req, virtual));
         datos.put("filasVersiones", construirFilasVersiones(req, virtual));
         datos.put("filasIntentos", construirFilasIntentos(req, virtual, grupo));
@@ -67,10 +70,10 @@ public class DocenteVirtualServlet extends ServletBase {
             switch (parametro(req, "accion")) {
                 case "programar": {
                     int idGrupo = parametroId(req, "idGrupo");
-                    Grupo grupo = grupoDAO.buscarPorIdDeDocente(idGrupo, docente.getIdUsuario())
+                    Grupo grupo = grupoDAO.buscarPorIdDeDocente(idGrupo, docente.consultarIdUsuario())
                             .orElseThrow(() -> new RecursoNoEncontradoException("Grupo no encontrado"));
                     int idEvaluacion = parametroId(req, "idEvaluacion");
-                    Evaluacion evaluacion = evaluacionDAO.buscarPorIdDeDocente(idEvaluacion, docente.getIdUsuario())
+                    Evaluacion evaluacion = evaluacionDAO.buscarPorIdDeDocente(idEvaluacion, docente.consultarIdUsuario())
                             .orElseThrow(() -> new RecursoNoEncontradoException("Evaluación no encontrada"));
                     if (grupo.estadoGrupo != logica.EstadoGrupo.ABIERTO) {
                         throw new ValidacionException("Solo se puede programar en un grupo abierto.");
@@ -102,52 +105,54 @@ public class DocenteVirtualServlet extends ServletBase {
                         }
                     }
                     boolean supervision = req.getParameter("supervision") != null;
+                    int intentosPermitidos = intentosPermitidosDe(req);
+                    boolean exigirRespuestasCompletas = exigirRespuestasCompletasDe(req);
                     EvaluacionVirtual virtual = virtualDAO.programarEvaluacionVirtual(grupo, evaluacion, inicio, fin,
-                            supervision);
+                            intentosPermitidos, supervision, exigirRespuestasCompletas);
                     for (Integer idVersion : seleccionadas) {
-                        virtualDAO.agregarVersion(virtual.getIdEvaluacionVirtual(), idVersion);
+                        virtualDAO.agregarVersion(virtual.consultarIdEvaluacionVirtual(), idVersion);
                     }
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO,
                             "Evaluación virtual programada con " + seleccionadas.size() + " versión(es). "
                             + "Revisa las versiones a aplicar y ábrela cuando quieras.");
-                    redirigir(req, resp, RUTA + "?id=" + virtual.getIdEvaluacionVirtual());
+                    redirigir(req, resp, RUTA + "?id=" + virtual.consultarIdEvaluacionVirtual());
                     return;
                 }
                 case "abrir": {
                     EvaluacionVirtual virtual = virtualDelDocente(docente, parametroId(req, "id"));
-                    if (!servicioVirtual.abrir(virtual.getIdEvaluacionVirtual())) {
+                    if (!servicioVirtual.abrir(virtual.consultarIdEvaluacionVirtual())) {
                         throw new ValidacionException("Solo se puede abrir una evaluación virtual programada.");
                     }
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Evaluación virtual abierta.");
-                    redirigir(req, resp, RUTA + "?id=" + virtual.getIdEvaluacionVirtual());
+                    redirigir(req, resp, RUTA + "?id=" + virtual.consultarIdEvaluacionVirtual());
                     return;
                 }
                 case "cerrar": {
                     EvaluacionVirtual virtual = virtualDelDocente(docente, parametroId(req, "id"));
-                    servicioVirtual.cerrar(virtual.getIdEvaluacionVirtual());
+                    servicioVirtual.cerrar(virtual.consultarIdEvaluacionVirtual());
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO,
                             "Evaluación virtual cerrada. Los intentos en curso quedaron finalizados.");
-                    redirigir(req, resp, RUTA + "?id=" + virtual.getIdEvaluacionVirtual());
+                    redirigir(req, resp, RUTA + "?id=" + virtual.consultarIdEvaluacionVirtual());
                     return;
                 }
                 case "cancelar": {
                     EvaluacionVirtual virtual = virtualDelDocente(docente, parametroId(req, "id"));
-                    int intentos = virtualDAO.contarIntentos(virtual.getIdEvaluacionVirtual());
+                    int intentos = virtualDAO.contarIntentos(virtual.consultarIdEvaluacionVirtual());
                     if (intentos > 0 && !"1".equals(req.getParameter("confirmado"))) {
                         // CU-26 3a: con intentos se advierte y se pide doble confirmación.
                         agregarErrores(req, List.of("Esta evaluación ya tiene " + intentos
                                 + " intento(s): si la cancelas, quedarán sin efecto. "
                                 + "Confirma la cancelación para continuar."));
-                        redirigir(req, resp, RUTA + "?id=" + virtual.getIdEvaluacionVirtual()
+                        redirigir(req, resp, RUTA + "?id=" + virtual.consultarIdEvaluacionVirtual()
                                 + "&accion=cancelar");
                         return;
                     }
-                    if (!servicioVirtual.cancelar(virtual.getIdEvaluacionVirtual())) {
+                    if (!servicioVirtual.cancelar(virtual.consultarIdEvaluacionVirtual())) {
                         throw new ValidacionException("La evaluación ya está cancelada o cerrada.");
                     }
                     agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Evaluación virtual cancelada. "
                             + (intentos > 0 ? "Los intentos existentes quedaron sin efecto (la historia se conserva)." : ""));
-                    redirigir(req, resp, RUTA + "?id=" + virtual.getIdEvaluacionVirtual());
+                    redirigir(req, resp, RUTA + "?id=" + virtual.consultarIdEvaluacionVirtual());
                     return;
                 }
                 case "agregarVersion":
@@ -157,20 +162,20 @@ public class DocenteVirtualServlet extends ServletBase {
                         throw new ValidacionException("Las versiones solo se pueden cambiar mientras está programada.");
                     }
                     int idVersion = parametroId(req, "idVersion");
-                    if (!versionDAO.perteneceAEvaluacion(idVersion, virtual.evaluacionEvaluacionVirtual.getIdEvaluacion())) {
+                    if (!versionDAO.perteneceAEvaluacion(idVersion, virtual.evaluacionEvaluacionVirtual.consultarIdEvaluacion())) {
                         throw new ValidacionException("La versión indicada no pertenece a esta evaluación.");
                     }
                     if ("agregarVersion".equals(parametro(req, "accion"))) {
-                        virtualDAO.agregarVersion(virtual.getIdEvaluacionVirtual(), idVersion);
+                        virtualDAO.agregarVersion(virtual.consultarIdEvaluacionVirtual(), idVersion);
                         agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Versión agregada a la aplicación.");
                     } else {
-                        if (virtualDAO.listarVersiones(virtual.getIdEvaluacionVirtual()).size() <= 1) {
+                        if (virtualDAO.listarVersiones(virtual.consultarIdEvaluacionVirtual()).size() <= 1) {
                             throw new ValidacionException("Debe quedar al menos una versión para aplicar.");
                         }
-                        virtualDAO.quitarVersion(virtual.getIdEvaluacionVirtual(), idVersion);
+                        virtualDAO.quitarVersion(virtual.consultarIdEvaluacionVirtual(), idVersion);
                         agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Versión quitada de la aplicación.");
                     }
-                    redirigir(req, resp, RUTA + "?id=" + virtual.getIdEvaluacionVirtual());
+                    redirigir(req, resp, RUTA + "?id=" + virtual.consultarIdEvaluacionVirtual());
                     return;
                 }
                 default:
@@ -178,7 +183,7 @@ public class DocenteVirtualServlet extends ServletBase {
                     return;
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             String destino = Validador.parsearId(req.getParameter("id")) > 0
                     ? RUTA + "?id=" + Validador.parsearId(req.getParameter("id"))
                     : "/app/docente/cursos";
@@ -189,7 +194,7 @@ public class DocenteVirtualServlet extends ServletBase {
     // ------------------------------------------------------------------ auxiliares
 
     private EvaluacionVirtual virtualDelDocente(Docente docente, int id) {
-        java.util.Optional<EvaluacionVirtual> propia = virtualDAO.buscarPorIdDeDocente(id, docente.getIdUsuario());
+        java.util.Optional<EvaluacionVirtual> propia = virtualDAO.buscarPorIdDeDocente(id, docente.consultarIdUsuario());
         verificarPropiedad(propia.isPresent(), virtualDAO.buscarPorId(id).isPresent(),
                 "Evaluación virtual no encontrada");
         return propia.get();
@@ -200,7 +205,7 @@ public class DocenteVirtualServlet extends ServletBase {
         if (!"cancelar".equals(parametro(req, "accion"))) {
             return "";
         }
-        int intentos = virtualDAO.contarIntentos(virtual.getIdEvaluacionVirtual());
+        int intentos = virtualDAO.contarIntentos(virtual.consultarIdEvaluacionVirtual());
         if (intentos == 0) {
             return "";
         }
@@ -209,7 +214,7 @@ public class DocenteVirtualServlet extends ServletBase {
                 + "efecto (la historia se conserva). Confirma para cancelarla definitivamente.");
         datos.put("destino", ruta(req, RUTA));
         datos.put("csrf", csrf(req));
-        datos.put("id", String.valueOf(virtual.getIdEvaluacionVirtual()));
+        datos.put("id", String.valueOf(virtual.consultarIdEvaluacionVirtual()));
         datos.put("confirmados", confirmacionesCancelacion(intentos));
         return vistas.componer("_confirmar-cancelar-virtual.html", datos);
     }
@@ -238,6 +243,26 @@ public class DocenteVirtualServlet extends ServletBase {
         return Fechas.parsear("yyyy-MM-dd'T'HH:mm", Validador.limpiar(req.getParameter(nombre)));
     }
 
+    private static int intentosPermitidosDe(HttpServletRequest req) throws ValidacionException {
+        String valor = Validador.limpiar(req.getParameter("intentosPermitidos"));
+        int intentos = valor.isEmpty() ? 1 : Validador.parsearId(valor);
+        if (intentos != 1 && intentos != 2) {
+            throw new ValidacionException("Los intentos permitidos deben ser 1 o 2.");
+        }
+        return intentos;
+    }
+
+    private static boolean exigirRespuestasCompletasDe(HttpServletRequest req) throws ValidacionException {
+        String valor = Validador.limpiar(req.getParameter("exigirRespuestasCompletas"));
+        if (valor.isEmpty() || "0".equals(valor) || "false".equalsIgnoreCase(valor)) {
+            return false;
+        }
+        if ("1".equals(valor) || "true".equalsIgnoreCase(valor) || "on".equalsIgnoreCase(valor)) {
+            return true;
+        }
+        throw new ValidacionException("El valor de la política de envío no es válido.");
+    }
+
     static String claseEstado(EstadoEvaluacionVirtual estado) {
         switch (estado) {
             case ABIERTA:
@@ -251,15 +276,15 @@ public class DocenteVirtualServlet extends ServletBase {
 
     private String construirFilasVersiones(HttpServletRequest req, EvaluacionVirtual virtual) {
         List<VersionEvaluacion> todas = versionDAO.listarPorEvaluacion(
-                virtual.evaluacionEvaluacionVirtual.getIdEvaluacion());
-        List<VersionEvaluacion> aplicadas = virtualDAO.listarVersiones(virtual.getIdEvaluacionVirtual());
+                virtual.evaluacionEvaluacionVirtual.consultarIdEvaluacion());
+        List<VersionEvaluacion> aplicadas = virtualDAO.listarVersiones(virtual.consultarIdEvaluacionVirtual());
         boolean editable = virtual.estadoEvaluacionVirtual == EstadoEvaluacionVirtual.PROGRAMADA;
 
         List<Map<String, String>> filas = new ArrayList<>();
         for (VersionEvaluacion version : todas) {
             boolean aplicada = false;
             for (VersionEvaluacion aplicadaVersion : aplicadas) {
-                if (aplicadaVersion.getIdVersionEvaluacion() == version.getIdVersionEvaluacion()) {
+                if (aplicadaVersion.consultarIdVersionEvaluacion() == version.consultarIdVersionEvaluacion()) {
                     aplicada = true;
                     break;
                 }
@@ -271,10 +296,10 @@ public class DocenteVirtualServlet extends ServletBase {
             String accion = "";
             if (editable) {
                 accion = aplicada
-                        ? boton(req, RUTA, virtual.getIdEvaluacionVirtual(), "quitarVersion", "Quitar",
-                                "boton-peligro boton-pequeno", "idVersion", String.valueOf(version.getIdVersionEvaluacion()))
-                        : boton(req, RUTA, virtual.getIdEvaluacionVirtual(), "agregarVersion", "Aplicar",
-                                "boton-contorno boton-pequeno", "idVersion", String.valueOf(version.getIdVersionEvaluacion()));
+                        ? boton(req, RUTA, virtual.consultarIdEvaluacionVirtual(), "quitarVersion", "Quitar",
+                                "boton-peligro boton-pequeno", "idVersion", String.valueOf(version.consultarIdVersionEvaluacion()))
+                        : boton(req, RUTA, virtual.consultarIdEvaluacionVirtual(), "agregarVersion", "Aplicar",
+                                "boton-contorno boton-pequeno", "idVersion", String.valueOf(version.consultarIdVersionEvaluacion()));
             }
             fila.put("accion", accion);
             filas.add(fila);
@@ -285,14 +310,12 @@ public class DocenteVirtualServlet extends ServletBase {
 
     private String construirFilasIntentos(HttpServletRequest req, EvaluacionVirtual virtual, Grupo grupo) {
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Inscripcion inscripcion : inscripcionDAO.listarPorGrupo(grupo.getIdGrupo())) {
-            Intento intento = intentoDAO
-                    .buscarPorEvaluacionEInscripcion(virtual.getIdEvaluacionVirtual(), inscripcion.getIdInscripcion())
-                    .orElse(null);
-            Map<String, String> fila = new HashMap<>();
-            fila.put("estudiante", inscripcion.estudianteInscripcion.nombreUsuario);
-            fila.put("identificacion", inscripcion.estudianteInscripcion.identificacionUsuario);
-            if (intento == null) {
+        for (Inscripcion inscripcion : inscripcionDAO.listarPorGrupo(grupo.consultarIdGrupo())) {
+            List<Intento> intentos = intentoDAO.listarPorEvaluacionEInscripcion(
+                    virtual.consultarIdEvaluacionVirtual(), inscripcion.consultarIdInscripcion());
+            if (intentos.isEmpty()) {
+                Map<String, String> fila = filaBaseIntento(inscripcion);
+                fila.put("numero", "—");
                 fila.put("version", "—");
                 fila.put("inicio", "—");
                 fila.put("fin", "—");
@@ -302,7 +325,12 @@ public class DocenteVirtualServlet extends ServletBase {
                 fila.put("nota", "—");
                 fila.put("eventos", "—");
                 fila.put("accion", "");
-            } else {
+                filas.add(fila);
+                continue;
+            }
+            for (Intento intento : intentos) {
+                Map<String, String> fila = filaBaseIntento(inscripcion);
+                fila.put("numero", String.valueOf(intento.consultarNumeroIntento()));
                 fila.put("version", intento.versionEvaluacionIntento.codigoVersionEvaluacion);
                 fila.put("inicio", fechaHora(intento.fechaInicioIntento));
                 fila.put("fin", fechaHora(intento.fechaFinIntento));
@@ -317,17 +345,24 @@ public class DocenteVirtualServlet extends ServletBase {
                 } else {
                     fila.put("nota", "Pendiente");
                 }
-                fila.put("eventos", String.valueOf(eventoDAO.contarPorIntento(intento.getIdIntento())));
+                fila.put("eventos", String.valueOf(eventoDAO.contarPorIntento(intento.consultarIdIntento())));
                 Map<String, String> enlace = new HashMap<>();
                 enlace.put("clase", "boton boton-contorno boton-pequeno");
-                enlace.put("url", ruta(req, "/app/docente/intento?id=" + intento.getIdIntento()));
+                enlace.put("url", ruta(req, "/app/docente/intento?id=" + intento.consultarIdIntento()));
                 enlace.put("texto", "Ver");
                 fila.put("accion", vistas.componer("_enlace-accion.html", enlace));
+                filas.add(fila);
             }
-            filas.add(fila);
         }
         return componerFilas("_fila-intento-docente.html", filas,
-                filaVacia("9", "El grupo no tiene estudiantes inscritos."));
+                filaVacia("10", "El grupo no tiene estudiantes inscritos."));
+    }
+
+    private static Map<String, String> filaBaseIntento(Inscripcion inscripcion) {
+        Map<String, String> fila = new HashMap<>();
+        fila.put("estudiante", inscripcion.estudianteInscripcion.nombreUsuario);
+        fila.put("identificacion", inscripcion.estudianteInscripcion.identificacionUsuario);
+        return fila;
     }
 
     /** Tiempo empleado en minutos (o «H h M min» si pasa de una hora); «—» si sigue en curso. */
@@ -354,7 +389,7 @@ public class DocenteVirtualServlet extends ServletBase {
     }
 
     private String accionesEstado(HttpServletRequest req, EvaluacionVirtual virtual) {
-        int id = virtual.getIdEvaluacionVirtual();
+        int id = virtual.consultarIdEvaluacionVirtual();
         StringBuilder sb = new StringBuilder();
         switch (virtual.estadoEvaluacionVirtual) {
             case PROGRAMADA:

@@ -12,7 +12,10 @@ import logica.TipoGeneracion;
 import logica.ValidacionException;
 import logica.Validador;
 import modelo.DocumentoFuenteDAO;
+import servicio.CifradoClaves;
 import servicio.ConfiguracionIA;
+import servicio.GeneracionFallidaException;
+import servicio.ProbadorClaveIA;
 import servicio.ProveedorIAFabrica;
 import servicio.RegistroProveedoresIA;
 import servicio.ServicioGeneracionIA;
@@ -34,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -67,20 +71,20 @@ public class DocenteIAServlet extends ServletBase {
         Map<String, String> formulario = recuperarFormulario(req);
 
         List<Map<String, String>> filasDocumentos = new ArrayList<>();
-        for (DocumentoFuente documento : documentoDAO.listarPorDocente(docente.getIdUsuario())) {
+        for (DocumentoFuente documento : documentoDAO.listarPorDocente(docente.consultarIdUsuario())) {
             Map<String, String> fila = new HashMap<>();
             fila.put("nombre", documento.nombreArchivoDocumentoFuente);
             fila.put("tipo", documento.tipoArchivoDocumentoFuente);
             fila.put("fecha", fechaHora(documento.fechaCargaDocumentoFuente));
-            fila.put("accion", boton(req, RUTA, documento.getIdDocumentoFuente(), "eliminarDocumento", "Eliminar",
+            fila.put("accion", boton(req, RUTA, documento.consultarIdDocumentoFuente(), "eliminarDocumento", "Eliminar",
                     "boton-peligro boton-pequeno"));
             filasDocumentos.add(fila);
         }
 
         List<Map<String, String>> filasSolicitudes = new ArrayList<>();
-        for (SolicitudGeneracion solicitud : solicitudDAO.listarPorDocente(docente.getIdUsuario())) {
+        for (SolicitudGeneracion solicitud : solicitudDAO.listarPorDocente(docente.consultarIdUsuario())) {
             Map<String, String> fila = new HashMap<>();
-            int generadas = preguntaDAO.contarPreguntasDeSolicitud(solicitud.getIdSolicitudGeneracion());
+            int generadas = preguntaDAO.contarPreguntasDeSolicitud(solicitud.consultarIdSolicitudGeneracion());
             fila.put("tipo", Etiquetas.de(solicitud.tipoSolicitudGeneracion));
             fila.put("estado", Etiquetas.de(solicitud.estadoSolicitudGeneracion));
             fila.put("claseEstado", claseEstadoSolicitud(solicitud));
@@ -91,7 +95,7 @@ public class DocenteIAServlet extends ServletBase {
             fila.put("mensaje", mensajeDeSolicitud(solicitud, generadas));
             fila.put("fecha", fechaHora(solicitud.fechaSolicitudGeneracion));
             if (solicitud.estadoSolicitudGeneracion == logica.EstadoSolicitud.FALLIDA) {
-                fila.put("accionReintentar", boton(req, RUTA, solicitud.getIdSolicitudGeneracion(),
+                fila.put("accionReintentar", boton(req, RUTA, solicitud.consultarIdSolicitudGeneracion(),
                         "prepararReintento", "Reintentar", "boton-contorno boton-pequeno"));
             } else {
                 fila.put("accionReintentar", "");
@@ -99,31 +103,44 @@ public class DocenteIAServlet extends ServletBase {
             filasSolicitudes.add(fila);
         }
 
+        String tipoSeleccionado = valorSiVacio(formulario, "tipo", TipoGeneracion.PREGUNTAS.name());
+        String nivelSeleccionado = valorSiVacio(formulario, "nivel", NivelIngles.B1.name());
+        String competenciaSeleccionada = valorSiVacio(formulario, "competencia", Competencia.GRAMMAR.name());
+        String proveedorSeleccionado = valorSiVacio(formulario, "proveedor", "GEMINI");
+        String modeloSeleccionado = valor(formulario, "modelo", "");
+
         Map<String, String> datos = new HashMap<>();
         datos.put("filasDocumentos", componerFilas("_fila-documento.html", filasDocumentos,
-                filaVacia("4", "Todavía no has cargado documentos.")));
+                filaVacia("4", "TodavA-a no has cargado documentos.")));
         datos.put("filasSolicitudes", componerFilas("_fila-solicitud.html", filasSolicitudes,
-                filaVacia("9", "Todavía no has hecho solicitudes de generación.")));
+                filaVacia("9", "TodavA-a no has hecho solicitudes de generaciA3n.")));
         datos.put("opcionesTipo", Formulario.opciones(vistas, TipoGeneracion.values(),
-                Formulario.enumeracion(TipoGeneracion.class, formulario.get("tipo")), "Selecciona el tipo"));
+                Formulario.enumeracion(TipoGeneracion.class, tipoSeleccionado), "Selecciona el tipo"));
         datos.put("opcionesNivel", Formulario.opciones(vistas, NivelIngles.values(),
-                Formulario.enumeracion(NivelIngles.class, formulario.get("nivel")), "Selecciona el nivel"));
+                Formulario.enumeracion(NivelIngles.class, nivelSeleccionado), "Selecciona el nivel"));
         datos.put("opcionesCompetencia", Formulario.opciones(vistas, Competencia.values(),
-                Formulario.enumeracion(Competencia.class, formulario.get("competencia")), "Selecciona la competencia"));
-        datos.put("opcionesProveedores", opcionesProveedores(formulario.get("proveedor")));
-        datos.put("opcionesModelos", opcionesModelos(formulario.get("modelo")));
+                Formulario.enumeracion(Competencia.class, competenciaSeleccionada), "Selecciona la competencia"));
+        datos.put("opcionesProveedores", opcionesProveedores(docente, proveedorSeleccionado));
+        datos.put("opcionesModelos", opcionesModelos(modeloSeleccionado));
         datos.put("opcionesBancos", opcionesBancos(docente, formulario.get("idBanco")));
         datos.put("opcionesDocumentos", opcionesDocumentos(docente, formulario.get("idDocumento")));
         datos.put("opcionesPreguntasBase", opcionesPreguntasBase(docente, formulario.get("idPreguntasBase")));
         datos.put("opcionesEvaluaciones", opcionesEvaluaciones(docente, formulario.get("idEvaluacionReferencia")));
-        datos.put("formCantidad", valor(formulario, "cantidad", "5"));
-        datos.put("formTema", valor(formulario, "tema", ""));
-        datos.put("formInstrucciones", valor(formulario, "instrucciones", ""));
-        boolean sinClaves = RegistroProveedoresIA.todas().stream().noneMatch(ProveedorIAFabrica::disponible);
-        datos.put("avisoClaves", sinClaves
-                ? Html.alerta(vistas, "alerta-info", ConfiguracionIA.mensajeFaltaClave())
-                : "");
-        datos.put("rutaConfiguracion", ConfiguracionIA.ubicacionArchivo());
+        datos.put("formCantidad", valorSiVacio(formulario, "cantidad", "1"));
+        datos.put("formTema", valorSiVacio(formulario, "tema", "Past Simple"));
+        datos.put("formInstrucciones", valorSiVacio(formulario, "instrucciones",
+                "Genera una pregunta de prueba sobre el pasado simple."));
+        Set<String> claves = claveIADAO.listarProveedores(docente.consultarIdUsuario());
+        datos.put("estadoClaves", estadoClaves(claves));
+        if (claves.isEmpty()) {
+            datos.put("avisoClaves", Html.alerta(vistas, "alerta-info",
+                    "Configura tu clave personal de Gemini o Groq en este formulario antes de generar contenido."));
+        } else if (!CifradoClaves.configurado()) {
+            datos.put("avisoClaves", Html.alerta(vistas, "alerta-info",
+                    "Falta EXAMENL_IA_CRYPTO_KEY en el servidor; las claves guardadas no se pueden usar."));
+        } else {
+            datos.put("avisoClaves", "");
+        }
         renderizar(req, resp, "docente-ia.html", datos, null);
     }
 
@@ -148,6 +165,12 @@ public class DocenteIAServlet extends ServletBase {
                 case "prepararReintento":
                     prepararReintento(req, docente);
                     break;
+                case "guardarClaveIA":
+                    guardarClaveIA(req, docente);
+                    break;
+                case "eliminarClaveIA":
+                    eliminarClaveIA(req, docente);
+                    break;
                 case "generar":
                     generar(req, docente);
                     break;
@@ -156,11 +179,83 @@ public class DocenteIAServlet extends ServletBase {
                     return;
             }
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
+            preservarFormularioGeneracion(req);
         } catch (IOException | ServletException e) {
             agregarErrores(req, List.of("No se pudo procesar el archivo."));
         }
         redirigir(req, resp, RUTA);
+    }
+
+    // ------------------------------------------------------------------ claves de IA personales
+
+    private void guardarClaveIA(HttpServletRequest req, Docente docente) throws ValidacionException {
+        String proveedor = parametro(req, "proveedor").toUpperCase(Locale.ROOT);
+        if (RegistroProveedoresIA.porCodigo(proveedor).isEmpty()) {
+            throw new ValidacionException("Selecciona un proveedor de IA.");
+        }
+        String clave = req.getParameter("claveIA");
+        clave = clave == null ? "" : clave.strip();
+        if (clave.length() < 5 || clave.length() > 300) {
+            throw new ValidacionException("La clave de IA debe tener entre 5 y 300 caracteres.");
+        }
+        if (!CifradoClaves.configurado()) {
+            throw new ValidacionException("Falta EXAMENL_IA_CRYPTO_KEY en el servidor para guardar claves.");
+        }
+        try {
+            ProbadorClaveIA.probar(proveedor, clave);
+            claveIADAO.guardar(docente.consultarIdUsuario(), proveedor, CifradoClaves.cifrar(clave));
+            preservarFormularioGeneracion(req);
+            agregarMensaje(req, MensajeFlash.Tipo.EXITO,
+                    "Clave de " + nombreProveedor(proveedor) + " probada y guardada.");
+        } catch (GeneracionFallidaException | RuntimeException e) {
+            throw new ValidacionException(e.getMessage());
+        }
+    }
+
+    private void eliminarClaveIA(HttpServletRequest req, Docente docente) throws ValidacionException {
+        String proveedor = parametro(req, "proveedor").toUpperCase(Locale.ROOT);
+        if (RegistroProveedoresIA.porCodigo(proveedor).isEmpty()) {
+            throw new ValidacionException("Selecciona un proveedor de IA.");
+        }
+        claveIADAO.eliminar(docente.consultarIdUsuario(), proveedor);
+        preservarFormularioGeneracion(req);
+        agregarMensaje(req, MensajeFlash.Tipo.EXITO,
+                "Clave de " + nombreProveedor(proveedor) + " eliminada.");
+    }
+
+    private static String nombreProveedor(String codigo) {
+        return RegistroProveedoresIA.porCodigo(codigo).map(ProveedorIAFabrica::nombreVisible).orElse(codigo);
+    }
+
+    private String estadoClaves(Set<String> claves) {
+        StringBuilder estado = new StringBuilder();
+        for (ProveedorIAFabrica fabrica : RegistroProveedoresIA.todas()) {
+            if (estado.length() > 0) {
+                estado.append(" · ");
+            }
+            estado.append(fabrica.nombreVisible()).append(": ")
+                    .append(claves.contains(fabrica.codigo()) ? "configurada" : "no configurada");
+        }
+        return estado.toString();
+    }
+
+    private void preservarFormularioGeneracion(HttpServletRequest req) {
+        Map<String, String> valores = new HashMap<>();
+        for (String campo : List.of("tipo", "cantidad", "nivel", "tema", "competencia", "proveedor",
+                "modelo", "idBanco", "idDocumento", "idEvaluacionReferencia", "instrucciones")) {
+            String valor = req.getParameter(campo);
+            if (valor != null && !valor.isBlank()) {
+                valores.put(campo, valor);
+            }
+        }
+        String[] bases = req.getParameterValues("idPreguntasBase");
+        if (bases != null) {
+            valores.put("idPreguntasBase", String.join(",", bases));
+        }
+        if (!valores.isEmpty()) {
+            guardarFormulario(req, valores);
+        }
     }
 
     // ------------------------------------------------------------------ documentos
@@ -216,10 +311,10 @@ public class DocenteIAServlet extends ServletBase {
     private void eliminarDocumento(HttpServletRequest req, Docente docente) throws ValidacionException {
         int id = parametroId(req, "id");
         DocumentoFuente documento = documentoDAO.buscarPorId(id).orElse(null);
-        verificarPropiedad(documento != null && documentoDAO.perteneceA(id, docente.getIdUsuario()),
+        verificarPropiedad(documento != null && documentoDAO.perteneceA(id, docente.consultarIdUsuario()),
                 documento != null, "Documento no encontrado");
         DocumentoFuenteDAO.ResultadoEliminacion resultado = documentoDAO.eliminarSiNoReferenciado(id,
-                docente.getIdUsuario());
+                docente.consultarIdUsuario());
         if (resultado == DocumentoFuenteDAO.ResultadoEliminacion.NO_ENCONTRADO) {
             throw new logica.RecursoNoEncontradoException("Documento no encontrado");
         }
@@ -240,7 +335,7 @@ public class DocenteIAServlet extends ServletBase {
 
     private void prepararReintento(HttpServletRequest req, Docente docente) throws ValidacionException {
         int id = parametroId(req, "id");
-        SolicitudGeneracion solicitud = solicitudDAO.buscarPorIdDeDocente(id, docente.getIdUsuario())
+        SolicitudGeneracion solicitud = solicitudDAO.buscarPorIdDeDocente(id, docente.consultarIdUsuario())
                 .orElse(null);
         verificarPropiedad(solicitud != null, solicitudDAO.buscarPorId(id).isPresent(),
                 "Solicitud no encontrada");
@@ -256,16 +351,18 @@ public class DocenteIAServlet extends ServletBase {
         if (solicitud.instruccionesSolicitudGeneracion != null) {
             valores.put("instrucciones", solicitud.instruccionesSolicitudGeneracion);
         }
-        if (solicitud.modeloSolicitudGeneracion != null) {
+        if (solicitud.modeloSolicitudGeneracion != null
+                && RegistroProveedoresIA.esModeloPermitido(solicitud.proveedorSolicitudGeneracion,
+                        solicitud.modeloSolicitudGeneracion)) {
             valores.put("modelo", solicitud.modeloSolicitudGeneracion);
         }
         if (solicitud.documentoFuenteSolicitudGeneracion != null) {
             valores.put("idDocumento", String.valueOf(
-                    solicitud.documentoFuenteSolicitudGeneracion.getIdDocumentoFuente()));
+                    solicitud.documentoFuenteSolicitudGeneracion.consultarIdDocumentoFuente()));
         }
         if (solicitud.bancoPreguntaSolicitudGeneracion != null) {
             valores.put("idBanco", String.valueOf(
-                    solicitud.bancoPreguntaSolicitudGeneracion.getIdBancoPreguntas()));
+                    solicitud.bancoPreguntaSolicitudGeneracion.consultarIdBancoPreguntas()));
         }
         if (solicitud.proveedorSolicitudGeneracion != null) {
             valores.put("proveedor", solicitud.proveedorSolicitudGeneracion);
@@ -325,10 +422,18 @@ public class DocenteIAServlet extends ServletBase {
         if (RegistroProveedoresIA.porCodigo(proveedorNombre).isEmpty()) {
             errores.add("Selecciona el proveedor de IA.");
         } else if (!RegistroProveedoresIA.esModeloPermitido(proveedorNombre, modelo)) {
-            errores.add("El modelo indicado no está permitido para el proveedor seleccionado.");
+            errores.add("El modelo indicado no estA� permitido para el proveedor seleccionado.");
         }
-        if ((tipo == TipoGeneracion.PREGUNTAS || tipo == TipoGeneracion.VARIANTES) && idBanco < 0) {
-            errores.add("Selecciona el banco destino.");
+        if (errores.isEmpty()) {
+            String claveIngresada = req.getParameter("claveIA");
+            if (claveIngresada != null && !claveIngresada.isBlank()) {
+                guardarClaveIA(req, docente);
+            }
+            if (claveIADAO.buscarCifrada(docente.consultarIdUsuario(),
+                    proveedorNombre.toUpperCase(Locale.ROOT)).isEmpty()) {
+                errores.add("Configura tu clave de " + nombreProveedor(proveedorNombre)
+                        + " antes de generar contenido.");
+            }
         }
         if (tipo == TipoGeneracion.VARIANTES) {
             if (idsBases.isEmpty()) {
@@ -347,12 +452,12 @@ public class DocenteIAServlet extends ServletBase {
 
         BancoPreguntas banco = null;
         if (idBanco > 0) {
-            banco = bancoDAO.buscarPorIdDeDocente(idBanco, docente.getIdUsuario())
+            banco = bancoDAO.buscarPorIdDeDocente(idBanco, docente.consultarIdUsuario())
                     .orElseThrow(() -> new ValidacionException("El banco indicado no existe."));
         }
         DocumentoFuente documento = null;
         if (idDocumento > 0) {
-            if (!documentoDAO.perteneceA(idDocumento, docente.getIdUsuario())) {
+            if (!documentoDAO.perteneceA(idDocumento, docente.consultarIdUsuario())) {
                 throw new ValidacionException("El documento indicado no existe.");
             }
             documento = documentoDAO.buscarPorId(idDocumento)
@@ -360,9 +465,9 @@ public class DocenteIAServlet extends ServletBase {
         }
         if (modoReferencia) {
             Evaluacion evaluacion = evaluacionDAO.buscarPorIdDeDocente(idEvaluacionReferencia,
-                            docente.getIdUsuario())
+                            docente.consultarIdUsuario())
                     .orElseThrow(() -> new ValidacionException("La evaluación de referencia indicada no existe."));
-            if (preguntaDAO.listarPorEvaluacion(evaluacion.getIdEvaluacion()).isEmpty()) {
+            if (preguntaDAO.listarPorEvaluacion(evaluacion.consultarIdEvaluacion()).isEmpty()) {
                 throw new ValidacionException("La evaluación de referencia no tiene preguntas.");
             }
         }
@@ -370,7 +475,7 @@ public class DocenteIAServlet extends ServletBase {
             for (Integer idBase : idsBases) {
                 Pregunta base = preguntaDAO.buscarPorId(idBase).orElse(null);
                 if (base == null || base.estadoPregunta == logica.EstadoPregunta.ARCHIVADA
-                        || !preguntaDAO.esDeDocente(idBase, docente.getIdUsuario())) {
+                        || !preguntaDAO.esDeDocente(idBase, docente.consultarIdUsuario())) {
                     throw new ValidacionException("Una de las preguntas base no está disponible.");
                 }
             }
@@ -379,20 +484,20 @@ public class DocenteIAServlet extends ServletBase {
         String instruccionesCompletas = instruccionesConTemaYCompetencia(instrucciones, tema, competencia);
         String modeloEfectivo = RegistroProveedoresIA.modeloEfectivo(proveedorNombre, modelo);
         SolicitudGeneracion solicitud = solicitudDAO.crearSolicitudGeneracion(docente, tipo, instruccionesCompletas,
-                cantidad, nivel, modeloEfectivo, documento == null ? null : documento.getIdDocumentoFuente(),
-                banco == null ? null : banco.getIdBancoPreguntas(), proveedorNombre,
+                cantidad, nivel, modeloEfectivo, documento == null ? null : documento.consultarIdDocumentoFuente(),
+                banco == null ? null : banco.consultarIdBancoPreguntas(), proveedorNombre,
                 exigeTemaYCompetencia && !tema.isEmpty() ? tema : null,
                 exigeTemaYCompetencia ? competencia : null,
                 modoReferencia ? idEvaluacionReferencia : null, idsBases);
-        TrabajoGeneracionIA trabajo = new TrabajoGeneracionIA(solicitud.getIdSolicitudGeneracion(),
-                docente.getIdUsuario(), tipo, instruccionesCompletas, cantidad, nivel, proveedorNombre,
-                modeloEfectivo, documento == null ? null : documento.getIdDocumentoFuente(),
-                banco == null ? null : banco.getIdBancoPreguntas(),
+        TrabajoGeneracionIA trabajo = new TrabajoGeneracionIA(solicitud.consultarIdSolicitudGeneracion(),
+                docente.consultarIdUsuario(), tipo, instruccionesCompletas, cantidad, nivel, proveedorNombre,
+                modeloEfectivo, documento == null ? null : documento.consultarIdDocumentoFuente(),
+                banco == null ? null : banco.consultarIdBancoPreguntas(),
                 exigeTemaYCompetencia && !tema.isEmpty() ? tema : null,
                 exigeTemaYCompetencia ? competencia : null,
                 idsBases, modoReferencia ? idEvaluacionReferencia : null);
         if (!servicio.encolar(trabajo)) {
-            solicitudDAO.marcarFallidaSolicitudGeneracion(solicitud.getIdSolicitudGeneracion(), MENSAJE_OCUPADO);
+            solicitudDAO.marcarFallidaSolicitudGeneracion(solicitud.consultarIdSolicitudGeneracion(), MENSAJE_OCUPADO);
             throw new ValidacionException(MENSAJE_OCUPADO);
         }
         agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Solicitud registrada. La generación continúa en segundo "
@@ -426,11 +531,12 @@ public class DocenteIAServlet extends ServletBase {
 
     // ------------------------------------------------------------------ opciones de la pantalla
 
-    private String opcionesProveedores(String seleccionado) {
+    private String opcionesProveedores(Docente docente, String seleccionado) {
+        Set<String> claves = claveIADAO.listarProveedores(docente.consultarIdUsuario());
         StringBuilder sb = new StringBuilder(Formulario.opcion(vistas, "", "Selecciona el proveedor",
                 seleccionado == null || seleccionado.isBlank()));
         for (ProveedorIAFabrica fabrica : RegistroProveedoresIA.todas()) {
-            String texto = fabrica.nombreVisible() + (fabrica.disponible() ? "" : " (sin configurar)");
+            String texto = fabrica.nombreVisible() + (claves.contains(fabrica.codigo()) ? "" : " (sin clave)");
             sb.append(Formulario.opcion(vistas, fabrica.codigo(), texto,
                     fabrica.codigo().equals(seleccionado)));
         }
@@ -453,9 +559,9 @@ public class DocenteIAServlet extends ServletBase {
     private String opcionesBancos(Docente docente, String seleccionado) {
         StringBuilder sb = new StringBuilder(Formulario.opcion(vistas, "", "Sin banco", seleccionado == null
                 || seleccionado.isBlank()));
-        for (BancoPreguntas banco : bancoDAO.listarPorDocente(docente.getIdUsuario())) {
-            sb.append(Formulario.opcion(vistas, String.valueOf(banco.getIdBancoPreguntas()),
-                    banco.nombreBancoPreguntas, String.valueOf(banco.getIdBancoPreguntas()).equals(seleccionado)));
+        for (BancoPreguntas banco : bancoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            sb.append(Formulario.opcion(vistas, String.valueOf(banco.consultarIdBancoPreguntas()),
+                    banco.nombreBancoPreguntas, String.valueOf(banco.consultarIdBancoPreguntas()).equals(seleccionado)));
         }
         return sb.toString();
     }
@@ -463,10 +569,10 @@ public class DocenteIAServlet extends ServletBase {
     private String opcionesDocumentos(Docente docente, String seleccionado) {
         StringBuilder sb = new StringBuilder(Formulario.opcion(vistas, "", "Sin documento", seleccionado == null
                 || seleccionado.isBlank()));
-        for (DocumentoFuente documento : documentoDAO.listarPorDocente(docente.getIdUsuario())) {
-            sb.append(Formulario.opcion(vistas, String.valueOf(documento.getIdDocumentoFuente()),
+        for (DocumentoFuente documento : documentoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            sb.append(Formulario.opcion(vistas, String.valueOf(documento.consultarIdDocumentoFuente()),
                     documento.nombreArchivoDocumentoFuente,
-                    String.valueOf(documento.getIdDocumentoFuente()).equals(seleccionado)));
+                    String.valueOf(documento.consultarIdDocumentoFuente()).equals(seleccionado)));
         }
         return sb.toString();
     }
@@ -479,10 +585,10 @@ public class DocenteIAServlet extends ServletBase {
             }
         }
         StringBuilder sb = new StringBuilder();
-        for (Pregunta pregunta : preguntaDAO.listarDeDocente(docente.getIdUsuario())) {
+        for (Pregunta pregunta : preguntaDAO.listarDeDocente(docente.consultarIdUsuario())) {
             String texto = Etiquetas.de(pregunta.estadoPregunta) + " · "
                     + Html.resumir(pregunta.enunciadoPregunta, 90);
-            String valor = String.valueOf(pregunta.getIdPregunta());
+            String valor = String.valueOf(pregunta.consultarIdPregunta());
             sb.append(Formulario.opcion(vistas, valor, texto, seleccionados.contains(valor)));
         }
         return sb.toString();
@@ -491,14 +597,14 @@ public class DocenteIAServlet extends ServletBase {
     private String opcionesEvaluaciones(Docente docente, String seleccionado) {
         StringBuilder sb = new StringBuilder(Formulario.opcion(vistas, "", "Sin evaluación de referencia",
                 seleccionado == null || seleccionado.isBlank()));
-        for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.getIdUsuario())) {
-            int preguntas = preguntaDAO.listarPorEvaluacion(evaluacion.getIdEvaluacion()).size();
+        for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            int preguntas = preguntaDAO.listarPorEvaluacion(evaluacion.consultarIdEvaluacion()).size();
             if (preguntas == 0) {
                 continue;
             }
             String texto = evaluacion.tituloEvaluacion + " (" + preguntas + " preguntas)";
-            sb.append(Formulario.opcion(vistas, String.valueOf(evaluacion.getIdEvaluacion()), texto,
-                    String.valueOf(evaluacion.getIdEvaluacion()).equals(seleccionado)));
+            sb.append(Formulario.opcion(vistas, String.valueOf(evaluacion.consultarIdEvaluacion()), texto,
+                    String.valueOf(evaluacion.consultarIdEvaluacion()).equals(seleccionado)));
         }
         return sb.toString();
     }
@@ -566,6 +672,11 @@ public class DocenteIAServlet extends ServletBase {
     private static String valor(Map<String, String> formulario, String clave, String porDefecto) {
         String valor = formulario.get(clave);
         return valor == null ? porDefecto : valor;
+    }
+
+    private static String valorSiVacio(Map<String, String> formulario, String clave, String porDefecto) {
+        String valor = formulario.get(clave);
+        return valor == null || valor.isBlank() ? porDefecto : valor;
     }
 
     private static String claseEstadoSolicitud(SolicitudGeneracion solicitud) {

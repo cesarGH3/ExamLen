@@ -42,14 +42,33 @@ public class DocentePreguntaServlet extends ServletBase {
         Docente docente = docenteActual(req);
         int id = parametroId(req, "id");
         Pregunta pregunta = preguntaDelDocente(docente, id);
-        BancoPreguntas banco = bancoDAO.buscarPorId(preguntaDAO.idBancoDePregunta(id))
-                .orElseThrow(() -> new RecursoNoEncontradoException("Banco no encontrado"));
+        Integer idBanco = pregunta.idBancoPreguntas;
+        BancoPreguntas banco = idBanco == null ? null : bancoDAO.buscarPorIdDeDocente(idBanco, docente.consultarIdUsuario()).orElse(null);
         Map<String, String> formulario = recuperarFormulario(req);
-        boolean editable = pregunta.estadoPregunta != EstadoPregunta.ARCHIVADA;
-
+        boolean protegida = preguntaDAO.estaProtegida(pregunta);
+        boolean editable = pregunta.estadoPregunta != EstadoPregunta.ARCHIVADA && !protegida;
         Map<String, String> datos = new HashMap<>();
-        datos.put("bancoNombre", banco.nombreBancoPreguntas);
-        datos.put("bancoUrl", ruta(req, "/app/docente/banco?id=" + banco.getIdBancoPreguntas()));
+        datos.put("bancoNombre", banco == null ? "Mis preguntas" : banco.nombreBancoPreguntas);
+        datos.put("bancoUrl", ruta(req, banco == null ? "/app/docente/preguntas" : "/app/docente/banco?id=" + idBanco));
+        StringBuilder regreso = new StringBuilder();
+        for (Integer identificador : preguntaDAO.consultarEvaluacionesPropias(pregunta)) {
+            regreso.append(vistas.componer("_enlace-accion.html", Map.of("clase", "boton boton-contorno",
+                    "url", ruta(req, "/app/docente/evaluacion?id=" + identificador), "texto", "Volver a evaluación " + identificador)));
+        }
+        for (Integer identificador : preguntaDAO.consultarMaterialesPropios(pregunta)) {
+            regreso.append(vistas.componer("_enlace-accion.html", Map.of("clase", "boton boton-contorno",
+                    "url", ruta(req, "/app/docente/practica?id=" + identificador), "texto", "Volver a material " + identificador)));
+        }
+        datos.put("volverEvaluaciones", regreso.toString());
+        datos.put("proteccion", protegida ? Html.alerta(vistas, "alerta-info",
+                "El contenido está protegido porque se comparte o tiene referencias históricas. Desde la evaluación o el material puedes crear una copia para editarla sin alterar el original.") : "");
+        StringBuilder bancos = new StringBuilder(Formulario.opcion(vistas, "", "Sin banco", idBanco == null));
+        for (BancoPreguntas propio : bancoDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            bancos.append(Formulario.opcion(vistas, String.valueOf(propio.consultarIdBancoPreguntas()), propio.nombreBancoPreguntas,
+                    java.util.Objects.equals(idBanco, propio.consultarIdBancoPreguntas())));
+        }
+        datos.put("opcionesBancos", bancos.toString());
+        datos.put("idPregunta", String.valueOf(id));
         datos.put("tipo", Etiquetas.de(pregunta.tipoPregunta));
         datos.put("origen", Etiquetas.de(pregunta.origenPregunta));
         datos.put("estado", Etiquetas.de(pregunta.estadoPregunta));
@@ -69,7 +88,17 @@ public class DocentePreguntaServlet extends ServletBase {
         int id = parametroId(req, "id");
         String destino = RUTA + "?id=" + id;
 
+        preguntaDelDocente(docente, id);
         switch (parametro(req, "accion")) {
+            case "organizarBanco": {
+                String valor = parametro(req, "idBanco");
+                Integer idBanco = valor.isBlank() ? null : parametroId(req, "idBanco");
+                if (idBanco != null) verificarPropiedad(bancoDAO.buscarPorIdDeDocente(idBanco, docente.consultarIdUsuario()).isPresent(), true, "Banco no encontrado");
+                preguntaDAO.organizarEnBanco(preguntaDelDocente(docente, id), idBanco);
+                agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Organización actualizada.");
+                redirigir(req, resp, destino);
+                break;
+            }
             case "actualizar": {
                 String enunciado = Validador.limpiarTexto(req.getParameter("enunciado") == null ? "" : req.getParameter("enunciado"));
                 String tema = parametro(req, "tema");
@@ -199,12 +228,12 @@ public class DocentePreguntaServlet extends ServletBase {
             case "restaurar":
                 ejecutar(req, resp, destino, null, () -> {
                     preguntaDAO.restaurarPregunta(preguntaDelDocente(docente, id));
-                    return "Pregunta restaurada como borrador.";
+                    return "Pregunta restaurada. Su disponibilidad depende de la validación y del origen.";
                 });
                 break;
             case "eliminar": {
                 Pregunta pregunta = preguntaDelDocente(docente, id);
-                int idBanco = preguntaDAO.idBancoDePregunta(id);
+                Integer idBanco = preguntaDAO.idBancoDePregunta(id);
                 PreguntaDAO.ResultadoEliminacionPregunta resultado = preguntaDAO.eliminarSiNoUsada(pregunta);
                 if (resultado == PreguntaDAO.ResultadoEliminacionPregunta.EN_USO) {
                     agregarErrores(req, List.of("La pregunta ya está en uso y no puede eliminarse. "
@@ -216,7 +245,7 @@ public class DocentePreguntaServlet extends ServletBase {
                     throw new RecursoNoEncontradoException("Pregunta no encontrada");
                 }
                 agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Pregunta eliminada.");
-                redirigir(req, resp, "/app/docente/banco?id=" + idBanco);
+                redirigir(req, resp, idBanco == null ? "/app/docente/preguntas" : "/app/docente/banco?id=" + idBanco);
                 break;
             }
             default:
@@ -229,8 +258,9 @@ public class DocentePreguntaServlet extends ServletBase {
         if (anterior != EstadoPregunta.APROBADA || pregunta.estadoPregunta != EstadoPregunta.BORRADOR) {
             return base;
         }
-        StringBuilder aviso = new StringBuilder(base).append(AVISO_BORRADOR);
-        if (materialDAO.estaEnMaterialPublicado(pregunta.getIdPregunta())) {
+        StringBuilder aviso = new StringBuilder(base).append(pregunta.origenPregunta == logica.OrigenContenido.MANUAL
+                ? " Completa los datos pendientes; se validará automáticamente." : AVISO_BORRADOR);
+        if (materialDAO.estaEnMaterialPublicado(pregunta.consultarIdPregunta())) {
             aviso.append(AVISO_BORRADOR_MATERIAL);
         }
         return aviso.toString();
@@ -240,7 +270,7 @@ public class DocentePreguntaServlet extends ServletBase {
         Map<String, String> d = new HashMap<>();
         d.put("ctx", req.getContextPath());
         d.put("csrf", csrf(req));
-        d.put("id", String.valueOf(p.getIdPregunta()));
+        d.put("id", String.valueOf(p.consultarIdPregunta()));
         if (!editable) {
             d.put("enunciado", p.enunciadoPregunta);
             d.put("nivel", Etiquetas.de(p.nivelPregunta));
@@ -257,13 +287,13 @@ public class DocentePreguntaServlet extends ServletBase {
                 formulario.containsKey("dificultad") ? Formulario.enumeracion(Dificultad.class, formulario.get("dificultad")) : p.dificultadPregunta, null));
         d.put("opcionesCompetencia", Formulario.opciones(vistas, Competencia.values(),
                 formulario.containsKey("competencia") ? Formulario.enumeracion(Competencia.class, formulario.get("competencia")) : p.competenciaPregunta, null));
-        d.put("avisoAprobada", p.estadoPregunta == EstadoPregunta.APROBADA
+        d.put("avisoAprobada", p.estadoPregunta == EstadoPregunta.APROBADA && p.origenPregunta == logica.OrigenContenido.GENERADO_IA
                 ? parrafoAyuda("Si guardas cambios, la pregunta vuelve a borrador para que la revises antes de usarla.") : "");
         return vistas.componer("_pregunta-datos.html", d);
     }
 
     private String seccionOpciones(HttpServletRequest req, Pregunta p, Map<String, String> formulario, boolean editable) {
-        int id = p.getIdPregunta();
+        int id = p.consultarIdPregunta();
         boolean esSeleccion = p.tipoPregunta == TipoPregunta.SELECCION_MULTIPLE;
         List<Map<String, String>> filas = new ArrayList<>();
         for (OpcionRespuesta o : p.opcionesPregunta) {
@@ -275,7 +305,7 @@ public class DocentePreguntaServlet extends ServletBase {
                     : "");
             StringBuilder acciones = new StringBuilder();
             if (editable) {
-                String idOpcion = String.valueOf(o.getIdOpcionRespuesta());
+                String idOpcion = String.valueOf(o.consultarIdOpcionRespuesta());
                 if (!o.esCorrectaOpcionRespuesta) {
                     acciones.append(boton(req, RUTA, id, "marcarCorrecta", "Marcar correcta", "boton-contorno boton-pequeno", "idOpcion", idOpcion));
                 }
@@ -315,7 +345,7 @@ public class DocentePreguntaServlet extends ServletBase {
         int idEdicion = Validador.parsearId(parametro(req, "opcion"));
         OpcionRespuesta enEdicion = null;
         for (OpcionRespuesta o : p.opcionesPregunta) {
-            if (o.getIdOpcionRespuesta() == idEdicion) {
+            if (o.consultarIdOpcionRespuesta() == idEdicion) {
                 enEdicion = o;
                 break;
             }
@@ -327,7 +357,7 @@ public class DocentePreguntaServlet extends ServletBase {
         edicion.put("destino", ruta(req, RUTA));
         edicion.put("csrf", csrf(req));
         edicion.put("id", String.valueOf(id));
-        edicion.put("idOpcion", String.valueOf(enEdicion.getIdOpcionRespuesta()));
+        edicion.put("idOpcion", String.valueOf(enEdicion.consultarIdOpcionRespuesta()));
         edicion.put("texto", enEdicion.textoOpcionRespuesta);
         edicion.put("marcada", enEdicion.esCorrectaOpcionRespuesta ? "checked" : "");
         edicion.put("volver", ruta(req, RUTA + "?id=" + id));
@@ -339,7 +369,7 @@ public class DocentePreguntaServlet extends ServletBase {
         Map<String, String> d = new HashMap<>();
         d.put("ctx", req.getContextPath());
         d.put("csrf", csrf(req));
-        d.put("id", String.valueOf(p.getIdPregunta()));
+        d.put("id", String.valueOf(p.consultarIdPregunta()));
         d.put("titulo", corta ? "Respuesta esperada" : "Guía de calificación");
         d.put("respuesta", formulario.getOrDefault("respuestaEsperada", p.respuestaEsperadaPregunta == null ? "" : p.respuestaEsperadaPregunta));
         if (!editable) {
@@ -361,17 +391,19 @@ public class DocentePreguntaServlet extends ServletBase {
         }
         List<String> faltantes = preguntaDAO.faltantesPregunta(p);
         if (faltantes.isEmpty()) {
-            return Html.alerta(vistas, "alerta-exito", "La pregunta está completa. Apruébala para poder usarla en evaluaciones.");
+            return Html.alerta(vistas, "alerta-info", p.origenPregunta == logica.OrigenContenido.GENERADO_IA
+                    ? "Revisa el contenido generado y apruébalo expresamente para utilizarlo."
+                    : "La pregunta está completa. Guarda sus datos para validar su disponibilidad.");
         }
         return Html.alertaConLista(vistas, "alerta-info", "Para aprobar esta pregunta falta:", faltantes);
     }
 
     private String accionesEstado(HttpServletRequest req, Pregunta p) {
-        int id = p.getIdPregunta();
+        int id = p.consultarIdPregunta();
         StringBuilder sb = new StringBuilder();
         switch (p.estadoPregunta) {
             case BORRADOR:
-                sb.append(boton(req, RUTA, id, "aprobar", "Aprobar", ""));
+                if (p.origenPregunta == logica.OrigenContenido.GENERADO_IA) sb.append(boton(req, RUTA, id, "aprobar", "Aprobar", ""));
                 sb.append(boton(req, RUTA, id, "archivar", "Archivar", "boton-contorno"));
                 break;
             case APROBADA:
@@ -387,14 +419,14 @@ public class DocentePreguntaServlet extends ServletBase {
     private Pregunta preguntaDelDocente(Docente docente, int idPregunta) {
         Pregunta pregunta = preguntaDAO.buscarPorId(idPregunta)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pregunta no encontrada"));
-        verificarPropiedad(preguntaDAO.esDeDocente(idPregunta, docente.getIdUsuario()), true,
+        verificarPropiedad(preguntaDAO.esDeDocente(idPregunta, docente.consultarIdUsuario()), true,
                 "Pregunta no encontrada");
         return pregunta;
     }
 
     private OpcionRespuesta opcionDe(Pregunta pregunta, int idOpcion) throws ValidacionException {
         for (OpcionRespuesta opcion : pregunta.opcionesPregunta) {
-            if (opcion.getIdOpcionRespuesta() == idOpcion) {
+            if (opcion.consultarIdOpcionRespuesta() == idOpcion) {
                 return opcion;
             }
         }

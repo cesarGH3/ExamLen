@@ -40,7 +40,7 @@ public class DocenteGrupoServlet extends ServletBase {
             fila.put("nombre", inscripcion.estudianteInscripcion.nombreUsuario);
             fila.put("correo", inscripcion.estudianteInscripcion.correoUsuario);
             fila.put("fecha", fecha(inscripcion.fechaInscripcion));
-            String idInscripcion = String.valueOf(inscripcion.getIdInscripcion());
+            String idInscripcion = String.valueOf(inscripcion.consultarIdInscripcion());
             if (inscripcion.estadoInscripcion == logica.EstadoInscripcion.ACTIVA) {
                 fila.put("accion", abierto ? boton(req, RUTA, idGrupo, "quitar", "Quitar",
                         "boton-peligro boton-pequeno", "idInscripcion", idInscripcion) : "");
@@ -54,7 +54,7 @@ public class DocenteGrupoServlet extends ServletBase {
 
         Map<String, String> datos = new HashMap<>();
         datos.put("cursoNombre", grupo.cursoGrupo.nombreCurso);
-        datos.put("cursoUrl", ruta(req, "/app/docente/curso?id=" + grupo.cursoGrupo.getIdCurso()));
+        datos.put("cursoUrl", ruta(req, "/app/docente/curso?id=" + grupo.cursoGrupo.consultarIdCurso()));
         datos.put("grupoNombre", grupo.nombreGrupo);
         datos.put("periodo", grupo.periodoGrupo);
         datos.put("estado", Etiquetas.de(grupo.estadoGrupo));
@@ -80,25 +80,26 @@ public class DocenteGrupoServlet extends ServletBase {
 
         // Evaluaciones virtuales del grupo
         List<Map<String, String>> filasVirtuales = new ArrayList<>();
-        for (EvaluacionVirtual virtual : virtualDAO.listarPorGrupoDeDocente(idGrupo, docente.getIdUsuario())) {
+        for (EvaluacionVirtual virtual : virtualDAO.listarPorGrupoDeDocente(idGrupo, docente.consultarIdUsuario())) {
             Map<String, String> fila = new HashMap<>();
-            fila.put("url", ruta(req, "/app/docente/virtual?id=" + virtual.getIdEvaluacionVirtual()));
+            fila.put("url", ruta(req, "/app/docente/virtual?id=" + virtual.consultarIdEvaluacionVirtual()));
             fila.put("titulo", virtual.evaluacionEvaluacionVirtual.tituloEvaluacion);
             fila.put("ventana", fechaHora(virtual.fechaInicioEvaluacionVirtual) + " — "
                     + fechaHora(virtual.fechaFinEvaluacionVirtual));
             fila.put("estado", Etiquetas.de(virtual.estadoEvaluacionVirtual));
             fila.put("claseEstado", DocenteVirtualServlet.claseEstado(virtual.estadoEvaluacionVirtual));
             fila.put("supervision", virtual.supervisionActivaEvaluacionVirtual ? "Activa" : "Inactiva");
-            fila.put("intentos", String.valueOf(virtualDAO.contarIntentos(virtual.getIdEvaluacionVirtual())));
+            fila.put("intentosPermitidos", String.valueOf(virtual.consultarIntentosPermitidos()));
+            fila.put("intentos", String.valueOf(virtualDAO.contarIntentos(virtual.consultarIdEvaluacionVirtual())));
             filasVirtuales.add(fila);
         }
         datos.put("filasVirtuales", componerFilas("_fila-virtual.html", filasVirtuales,
                 filaVacia("5", "Todavía no hay evaluaciones virtuales programadas.")));
 
         StringBuilder opciones = new StringBuilder(Formulario.opcion(vistas, "", "Selecciona la evaluación", false));
-        for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.getIdUsuario())) {
+        for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.consultarIdUsuario())) {
             if (evaluacion.estadoEvaluacion == EstadoEvaluacion.LISTA) {
-                opciones.append(Formulario.opcion(vistas, String.valueOf(evaluacion.getIdEvaluacion()),
+                opciones.append(Formulario.opcion(vistas, String.valueOf(evaluacion.consultarIdEvaluacion()),
                         evaluacion.tituloEvaluacion, false));
             }
         }
@@ -136,7 +137,7 @@ public class DocenteGrupoServlet extends ServletBase {
             case "quitar": {
                 int idInscripcion = parametroId(req, "idInscripcion");
                 try {
-                    Inscripcion inscripcion = inscripcionDAO.buscarPorIdDeDocente(idInscripcion, docente.getIdUsuario())
+                    Inscripcion inscripcion = inscripcionDAO.buscarPorIdDeDocente(idInscripcion, docente.consultarIdUsuario())
                             .orElseThrow(() -> new RecursoNoEncontradoException("Inscripción no encontrada"));
                     try {
                         inscripcionDAO.eliminarInscripcion(inscripcion);
@@ -147,7 +148,7 @@ public class DocenteGrupoServlet extends ServletBase {
                                 "El estudiante ya tenía actividad en el grupo: quedó como retirado y su historial se conserva.");
                     }
                 } catch (ValidacionException e) {
-                    agregarErrores(req, e.getErrores());
+                    agregarErrores(req, e.consultarErrores());
                 }
                 redirigir(req, resp, destino);
                 break;
@@ -155,7 +156,7 @@ public class DocenteGrupoServlet extends ServletBase {
             case "reincorporar": {
                 int idInscripcion = parametroId(req, "idInscripcion");
                 ejecutar(req, resp, destino, null, () -> {
-                    Inscripcion inscripcion = inscripcionDAO.buscarPorIdDeDocente(idInscripcion, docente.getIdUsuario())
+                    Inscripcion inscripcion = inscripcionDAO.buscarPorIdDeDocente(idInscripcion, docente.consultarIdUsuario())
                             .orElseThrow(() -> new RecursoNoEncontradoException("Inscripción no encontrada"));
                     inscripcionDAO.reincorporarInscripcion(inscripcion);
                     return "Estudiante reincorporado.";
@@ -168,7 +169,7 @@ public class DocenteGrupoServlet extends ServletBase {
     }
 
     private Grupo grupoDelDocente(Docente docente, int idGrupo) {
-        java.util.Optional<Grupo> propio = grupoDAO.buscarPorIdDeDocente(idGrupo, docente.getIdUsuario());
+        java.util.Optional<Grupo> propio = grupoDAO.buscarPorIdDeDocente(idGrupo, docente.consultarIdUsuario());
         verificarPropiedad(propio.isPresent(), grupoDAO.buscarPorId(idGrupo).isPresent(), "Grupo no encontrado");
         return propio.get();
     }
@@ -177,15 +178,15 @@ public class DocenteGrupoServlet extends ServletBase {
     private String opcionesVersiones(Docente docente) {
         StringBuilder sb = new StringBuilder(Formulario.opcion(vistas, "",
                 "Selecciona al menos una versión", false));
-        for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.getIdUsuario())) {
-            List<logica.VersionEvaluacion> versiones = versionDAO.listarPorEvaluacion(evaluacion.getIdEvaluacion());
+        for (Evaluacion evaluacion : evaluacionDAO.listarPorDocente(docente.consultarIdUsuario())) {
+            List<logica.VersionEvaluacion> versiones = versionDAO.listarPorEvaluacion(evaluacion.consultarIdEvaluacion());
             if (versiones.isEmpty()) {
                 continue;
             }
             sb.append(vistas.componer("_optgroup-abrir.html", Map.of("etiqueta",
                     evaluacion.tituloEvaluacion + " (" + Etiquetas.de(evaluacion.estadoEvaluacion) + ")")));
             for (logica.VersionEvaluacion version : versiones) {
-                sb.append(Formulario.opcion(vistas, String.valueOf(version.getIdVersionEvaluacion()),
+                sb.append(Formulario.opcion(vistas, String.valueOf(version.consultarIdVersionEvaluacion()),
                         "Versión " + version.codigoVersionEvaluacion, false));
             }
             sb.append(vistas.componer("_optgroup-cerrar.html", Map.of()));

@@ -1,5 +1,30 @@
 /* ============================================================
    Pantalla: generación con IA (docente)
-   Hoja reservada: sin reglas propias (usa base.css y los
-   componentes que carga la pantalla).
    ============================================================ */
+
+.clave-ia {
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-sm);
+    padding: .9rem 1rem;
+    margin: .75rem 0;
+    background: var(--panel-3);
+    color: var(--texto);
+}
+
+.clave-ia > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--texto);
+}
+
+.clave-ia > summary::marker {
+    color: var(--cian);
+}
+
+.clave-ia[open] > summary {
+    margin-bottom: .6rem;
+}
+
+.clave-ia .ayuda {
+    color: var(--texto-suave);
+}

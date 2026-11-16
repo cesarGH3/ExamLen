@@ -17,8 +17,8 @@ public class EvaluacionVirtualDAO extends DaoBase {
 
     private static final String COLUMNAS = "ev.id_evaluacion_virtual, ev.id_grupo, ev.id_evaluacion, "
             + "ev.fecha_inicio, ev.fecha_fin, "
-            + "ev.supervision_activa, ev.estado, "
-            + "e.titulo, e.duracion_minutos";
+            + "ev.supervision_activa, ev.intentos_permitidos, ev.exigir_respuestas_completas, ev.estado, "
+            + "e.titulo, e.descripcion, e.numero_preguntas, e.duracion_minutos";
     private static final String ORIGEN = "evaluacion_virtual ev "
             + "JOIN evaluacion e ON e.id_evaluacion = ev.id_evaluacion";
 
@@ -31,26 +31,51 @@ public class EvaluacionVirtualDAO extends DaoBase {
                                                        java.util.Date fechaInicio, java.util.Date fechaFin,
                                                        boolean supervision)
             throws ValidacionException {
+        return programarEvaluacionVirtual(grupo, evaluacion, fechaInicio, fechaFin, 1, supervision, false);
+    }
+
+    /** Compatibilidad con Fase 3: sin politica explicita se permite enviar incompleto. */
+    public EvaluacionVirtual programarEvaluacionVirtual(Grupo grupo, Evaluacion evaluacion,
+                                                       java.util.Date fechaInicio, java.util.Date fechaFin,
+                                                       int intentosPermitidos, boolean supervision)
+            throws ValidacionException {
+        return programarEvaluacionVirtual(grupo, evaluacion, fechaInicio, fechaFin, intentosPermitidos,
+                supervision, false);
+    }
+
+    /** RF-41/Fase 4: intentos, supervision y politica de respuestas completas. */
+    public EvaluacionVirtual programarEvaluacionVirtual(Grupo grupo, Evaluacion evaluacion,
+                                                       java.util.Date fechaInicio, java.util.Date fechaFin,
+                                                       int intentosPermitidos, boolean supervision,
+                                                       boolean exigirRespuestasCompletas)
+            throws ValidacionException {
         if (fechaInicio == null || fechaFin == null || !fechaInicio.before(fechaFin)) {
             throw new ValidacionException("La fecha de inicio debe ser anterior a la fecha de fin.");
+        }
+        if (intentosPermitidos != 1 && intentosPermitidos != 2) {
+            throw new ValidacionException("Los intentos permitidos deben ser 1 o 2.");
         }
         EvaluacionVirtual virtual = new EvaluacionVirtual();
         virtual.fechaInicioEvaluacionVirtual = fechaInicio;
         virtual.fechaFinEvaluacionVirtual = fechaFin;
         virtual.supervisionActivaEvaluacionVirtual = supervision;
+        virtual.establecerIntentosPermitidos(intentosPermitidos);
+        virtual.establecerExigirRespuestasCompletas(exigirRespuestasCompletas);
         virtual.estadoEvaluacionVirtual = EstadoEvaluacionVirtual.PROGRAMADA;
         virtual.evaluacionEvaluacionVirtual = evaluacion;
         int id = insertar("INSERT INTO evaluacion_virtual (id_grupo, id_evaluacion, "
                 + "fecha_inicio, fecha_fin, "
-                + "supervision_activa, estado) "
-                + "VALUES (?, ?, ?, ?, ?, 'PROGRAMADA')", ps -> {
-            ps.setInt(1, grupo.getIdGrupo());
-            ps.setInt(2, evaluacion.getIdEvaluacion());
+                + "supervision_activa, intentos_permitidos, exigir_respuestas_completas, estado) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, 'PROGRAMADA')", ps -> {
+            ps.setInt(1, grupo.consultarIdGrupo());
+            ps.setInt(2, evaluacion.consultarIdEvaluacion());
             ps.setTimestamp(3, new java.sql.Timestamp(fechaInicio.getTime()));
             ps.setTimestamp(4, new java.sql.Timestamp(fechaFin.getTime()));
             ps.setBoolean(5, supervision);
+            ps.setInt(6, intentosPermitidos);
+            ps.setBoolean(7, exigirRespuestasCompletas);
         });
-        virtual.setIdEvaluacionVirtual(id);
+        virtual.establecerIdEvaluacionVirtual(id);
         return virtual;
     }
 
@@ -129,7 +154,7 @@ public class EvaluacionVirtualDAO extends DaoBase {
                 + "WHERE evv.id_evaluacion_virtual = ? ORDER BY v.codigo",
                 ps -> ps.setInt(1, idEvaluacionVirtual), rs -> {
                     VersionEvaluacion version = new VersionEvaluacion();
-                    version.setIdVersionEvaluacion(rs.getInt("id_version_evaluacion"));
+                    version.establecerIdVersionEvaluacion(rs.getInt("id_version_evaluacion"));
                     version.codigoVersionEvaluacion = rs.getString("codigo");
                     version.fechaGeneracionVersionEvaluacion = Mapeos.fecha(rs, "fecha_generacion");
                     return version;
@@ -172,13 +197,13 @@ public class EvaluacionVirtualDAO extends DaoBase {
                 + "JOIN grupo g ON g.id_grupo = ev.id_grupo JOIN curso c ON c.id_curso = g.id_curso "
                 + "WHERE ev.id_evaluacion_virtual = ?", ps -> ps.setInt(1, idEvaluacionVirtual), rs -> {
                     Grupo grupo = new Grupo();
-                    grupo.setIdGrupo(rs.getInt("id_grupo"));
+                    grupo.establecerIdGrupo(rs.getInt("id_grupo"));
                     grupo.nombreGrupo = rs.getString("nombre");
                     grupo.periodoGrupo = rs.getString("periodo");
                     grupo.codigoAccesoGrupo = rs.getString("codigo_acceso");
                     grupo.estadoGrupo = logica.EstadoGrupo.valueOf(rs.getString("estado"));
                     Curso curso = new Curso();
-                    curso.setIdCurso(rs.getInt("id_curso"));
+                    curso.establecerIdCurso(rs.getInt("id_curso"));
                     curso.nombreCurso = rs.getString("nombre");
                     grupo.cursoGrupo = curso;
                     return grupo;
@@ -247,21 +272,25 @@ public class EvaluacionVirtualDAO extends DaoBase {
     private void cambiarEstado(EvaluacionVirtual virtual, String estadoBd, EstadoEvaluacionVirtual estado) {
         actualizar("UPDATE evaluacion_virtual SET estado = ? WHERE id_evaluacion_virtual = ?", ps -> {
             ps.setString(1, estadoBd);
-            ps.setInt(2, virtual.getIdEvaluacionVirtual());
+            ps.setInt(2, virtual.consultarIdEvaluacionVirtual());
         });
         virtual.estadoEvaluacionVirtual = estado;
     }
 
     private EvaluacionVirtual mapear(ResultSet rs) throws SQLException {
         EvaluacionVirtual virtual = new EvaluacionVirtual();
-        virtual.setIdEvaluacionVirtual(rs.getInt("id_evaluacion_virtual"));
+        virtual.establecerIdEvaluacionVirtual(rs.getInt("id_evaluacion_virtual"));
         virtual.fechaInicioEvaluacionVirtual = Mapeos.fecha(rs, "fecha_inicio");
         virtual.fechaFinEvaluacionVirtual = Mapeos.fecha(rs, "fecha_fin");
         virtual.supervisionActivaEvaluacionVirtual = rs.getBoolean("supervision_activa");
+        virtual.establecerIntentosPermitidos(rs.getInt("intentos_permitidos"));
+        virtual.establecerExigirRespuestasCompletas(rs.getBoolean("exigir_respuestas_completas"));
         virtual.estadoEvaluacionVirtual = enumeracion(rs, "estado", EstadoEvaluacionVirtual.class);
         Evaluacion evaluacion = new Evaluacion();
-        evaluacion.setIdEvaluacion(rs.getInt("id_evaluacion"));
+        evaluacion.establecerIdEvaluacion(rs.getInt("id_evaluacion"));
         evaluacion.tituloEvaluacion = rs.getString("titulo");
+        evaluacion.descripcionEvaluacion = rs.getString("descripcion");
+        evaluacion.numeroPreguntasEvaluacion = rs.getInt("numero_preguntas");
         evaluacion.duracionMinutosEvaluacion = rs.getInt("duracion_minutos");
         virtual.evaluacionEvaluacionVirtual = evaluacion;
         return virtual;

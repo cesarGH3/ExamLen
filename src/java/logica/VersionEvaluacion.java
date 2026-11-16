@@ -14,11 +14,11 @@ public class VersionEvaluacion {
         versionPreguntasVersionEvaluacion = new ArrayList<>();
     }
 
-    public int getIdVersionEvaluacion() {
+    public int consultarIdVersionEvaluacion() {
         return idVersionEvaluacion;
     }
 
-    public void setIdVersionEvaluacion(int idVersionEvaluacion) {
+    public void establecerIdVersionEvaluacion(int idVersionEvaluacion) {
         this.idVersionEvaluacion = idVersionEvaluacion;
     }
 }

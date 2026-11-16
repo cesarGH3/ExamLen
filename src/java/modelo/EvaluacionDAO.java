@@ -3,6 +3,7 @@ package modelo;
 import logica.Docente;
 import logica.EstadoEvaluacion;
 import logica.Evaluacion;
+import logica.Pregunta;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -25,16 +26,16 @@ public class EvaluacionDAO extends DaoBase {
         evaluacion.estadoEvaluacion = EstadoEvaluacion.BORRADOR;
         int id = insertar("INSERT INTO evaluacion (id_docente, titulo, descripcion, "
                 + "estado) VALUES (?, ?, ?, 'BORRADOR')", ps -> {
-            ps.setInt(1, docente.getIdUsuario());
+            ps.setInt(1, docente.consultarIdUsuario());
             ps.setString(2, titulo);
             ps.setString(3, descripcion);
         });
-        evaluacion.setIdEvaluacion(id);
+        evaluacion.establecerIdEvaluacion(id);
         return evaluacion;
     }
 
     /**
-     * RF-31: crea la evaluacion ya configurada y con su primera pregunta en una sola transaccion
+     * Compatibilidad interna: crea la evaluacion ya configurada y con su primera pregunta en una sola transaccion
      * (multiplicidad 1..*): o se guardan evaluacion + asociacion, o no se crea nada.
      */
     public Evaluacion crearEvaluacionConPregunta(Docente docente, String titulo, String descripcion,
@@ -48,10 +49,14 @@ public class EvaluacionDAO extends DaoBase {
         evaluacion.duracionMinutosEvaluacion = duracionMinutos;
         evaluacion.estadoEvaluacion = EstadoEvaluacion.BORRADOR;
         int id = enTransaccion(c -> {
+            Pregunta comprobada = PreguntaDAO.cargarPregunta(c, idPrimeraPregunta, true);
+            if (comprobada.idDocente != docente.consultarIdUsuario() || comprobada.estadoPregunta != logica.EstadoPregunta.APROBADA) {
+                throw new logica.OperacionNoPermitidaException("Selecciona una pregunta propia aprobada.");
+            }
             int idEvaluacion = insertarCon(c, "INSERT INTO evaluacion (id_docente, titulo, descripcion, "
                     + "numero_preguntas, numero_versiones, duracion_minutos, estado) "
                     + "VALUES (?, ?, ?, ?, ?, ?, 'BORRADOR')", ps -> {
-                ps.setInt(1, docente.getIdUsuario());
+                ps.setInt(1, docente.consultarIdUsuario());
                 ps.setString(2, titulo);
                 ps.setString(3, descripcion);
                 ps.setInt(4, numeroPreguntas);
@@ -65,7 +70,7 @@ public class EvaluacionDAO extends DaoBase {
             });
             return idEvaluacion;
         });
-        evaluacion.setIdEvaluacion(id);
+        evaluacion.establecerIdEvaluacion(id);
         return evaluacion;
     }
 
@@ -79,13 +84,32 @@ public class EvaluacionDAO extends DaoBase {
             ps.setInt(1, numeroPreguntas);
             ps.setInt(2, numeroVersiones);
             ps.setInt(3, duracionMinutos);
-            ps.setInt(4, evaluacion.getIdEvaluacion());
+            ps.setInt(4, evaluacion.consultarIdEvaluacion());
         });
     }
 
     public void marcarListaEvaluacion(Evaluacion evaluacion) {
-        actualizar("UPDATE evaluacion SET estado = 'LISTA' WHERE id_evaluacion = ?",
-                ps -> ps.setInt(1, evaluacion.getIdEvaluacion()));
+        enTransaccion(conexion -> {
+            List<Integer> configuracion = consultarUnoCon(conexion,
+                    "SELECT numero_preguntas, numero_versiones, duracion_minutos FROM evaluacion "
+                    + "WHERE id_evaluacion = ? AND estado <> 'ARCHIVADA' FOR UPDATE",
+                    sentencia -> sentencia.setInt(1, evaluacion.consultarIdEvaluacion()),
+                    resultado -> List.of(resultado.getInt(1), resultado.getInt(2), resultado.getInt(3)))
+                    .orElseThrow(() -> new logica.OperacionNoPermitidaException("Evaluación no editable."));
+            List<Boolean> preguntas = consultarListaCon(conexion,
+                    "SELECT (p.estado = 'APROBADA' AND p.id_docente = e.id_docente) FROM evaluacion_pregunta ep "
+                    + "JOIN pregunta p ON p.id_pregunta = ep.id_pregunta JOIN evaluacion e ON e.id_evaluacion = ep.id_evaluacion "
+                    + "WHERE ep.id_evaluacion = ? FOR UPDATE", sentencia -> sentencia.setInt(1, evaluacion.consultarIdEvaluacion()),
+                    resultado -> resultado.getBoolean(1));
+            if (configuracion.get(0) < 1 || configuracion.get(1) < 1 || configuracion.get(1) > 10
+                    || configuracion.get(2) < 1 || preguntas.size() < configuracion.get(0)
+                    || preguntas.contains(false)) {
+                throw new logica.OperacionNoPermitidaException("Completa la configuración y las preguntas antes de marcar lista.");
+            }
+            actualizarCon(conexion, "UPDATE evaluacion SET estado = 'LISTA' WHERE id_evaluacion = ?",
+                    sentencia -> sentencia.setInt(1, evaluacion.consultarIdEvaluacion()));
+            return null;
+        });
         evaluacion.estadoEvaluacion = EstadoEvaluacion.LISTA;
     }
 
@@ -93,14 +117,14 @@ public class EvaluacionDAO extends DaoBase {
     public void volverBorrador(Evaluacion evaluacion) {
         if (evaluacion.estadoEvaluacion == EstadoEvaluacion.LISTA) {
             actualizar("UPDATE evaluacion SET estado = 'BORRADOR' WHERE id_evaluacion = ?",
-                    ps -> ps.setInt(1, evaluacion.getIdEvaluacion()));
+                    ps -> ps.setInt(1, evaluacion.consultarIdEvaluacion()));
             evaluacion.estadoEvaluacion = EstadoEvaluacion.BORRADOR;
         }
     }
 
     public void archivarEvaluacion(Evaluacion evaluacion) {
         actualizar("UPDATE evaluacion SET estado = 'ARCHIVADA' WHERE id_evaluacion = ?",
-                ps -> ps.setInt(1, evaluacion.getIdEvaluacion()));
+                ps -> ps.setInt(1, evaluacion.consultarIdEvaluacion()));
         evaluacion.estadoEvaluacion = EstadoEvaluacion.ARCHIVADA;
     }
 
@@ -123,7 +147,7 @@ public class EvaluacionDAO extends DaoBase {
 
     private Evaluacion mapear(ResultSet rs) throws SQLException {
         Evaluacion evaluacion = new Evaluacion();
-        evaluacion.setIdEvaluacion(rs.getInt("id_evaluacion"));
+        evaluacion.establecerIdEvaluacion(rs.getInt("id_evaluacion"));
         evaluacion.tituloEvaluacion = rs.getString("titulo");
         evaluacion.descripcionEvaluacion = rs.getString("descripcion");
         evaluacion.numeroPreguntasEvaluacion = rs.getInt("numero_preguntas");

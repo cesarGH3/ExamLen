@@ -19,9 +19,9 @@ public class ClienteGroq implements ProveedorIA {
     private final String modelo;
     private final String clave;
 
-    public ClienteGroq(String modelo) {
+    public ClienteGroq(String modelo, String clave) {
         this.modelo = modelo == null || modelo.isBlank() ? MODELO_PREDETERMINADO : modelo.strip();
-        this.clave = ConfiguracionIA.claveGroq();
+        this.clave = clave == null || clave.isBlank() ? null : clave.strip();
     }
 
     @Override
@@ -38,7 +38,8 @@ public class ClienteGroq implements ProveedorIA {
     public ResultadoGeneracion generarPreguntas(String contexto, String instrucciones, int cantidad, String nivel)
             throws GeneracionFallidaException {
         if (clave == null) {
-            throw new GeneracionFallidaException(ConfiguracionIA.mensajeFaltaClave(), TipoErrorIA.CONFIGURACION);
+            throw new GeneracionFallidaException("El docente no tiene configurada una clave de Groq.",
+                    TipoErrorIA.CONFIGURACION);
         }
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("role", "user");
@@ -52,7 +53,7 @@ public class ClienteGroq implements ProveedorIA {
 
         Map<String, String> cabeceras = new HashMap<>();
         cabeceras.put("Authorization", "Bearer " + clave);
-        String respuesta = HttpJson.postJson(URL, cabeceras, cuerpo.toString(), "Groq");
+        String respuesta = HttpJson.enviarJson(URL, cabeceras, cuerpo.toString(), "Groq");
         try {
             JsonObject objeto = JsonParser.parseString(respuesta).getAsJsonObject();
             String texto = objeto.getAsJsonArray("choices").get(0).getAsJsonObject()

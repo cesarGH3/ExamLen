@@ -13,11 +13,11 @@ public abstract class Usuario {
     /** Marcador generico (cualquier rol): debe cambiar la contrasena en el siguiente ingreso (RF-10). */
     public boolean debeCambiarContrasena;
 
-    public int getIdUsuario() {
+    public int consultarIdUsuario() {
         return idUsuario;
     }
 
-    public void setIdUsuario(int idUsuario) {
+    public void establecerIdUsuario(int idUsuario) {
         this.idUsuario = idUsuario;
     }
 }

@@ -35,31 +35,31 @@ public class IntentoPracticaDAO extends DaoBase {
         enTransaccion(c -> {
             int idIntento = insertarCon(c, "INSERT INTO intento_practica (id_material_practica, "
                     + "id_estudiante, fecha_fin, calificacion) VALUES (?, ?, NOW(), ?)", ps -> {
-                ps.setInt(1, material.getIdMaterialPractica());
-                ps.setInt(2, estudiante.getIdUsuario());
+                ps.setInt(1, material.consultarIdMaterialPractica());
+                ps.setInt(2, estudiante.consultarIdUsuario());
                 if (calificacion == null) {
                     ps.setNull(3, Types.DOUBLE);
                 } else {
                     ps.setDouble(3, calificacion);
                 }
             });
-            intento.setIdIntentoPractica(idIntento);
+            intento.establecerIdIntentoPractica(idIntento);
             for (RespuestaPractica respuesta : respuestas) {
                 int idRespuesta = insertarCon(c, "INSERT INTO respuesta_practica (id_intento_practica, "
                         + "id_pregunta, id_opcion_respuesta, contenido, es_correcta, retroalimentacion) "
                         + "VALUES (?, ?, ?, ?, ?, ?)", ps -> {
                     ps.setInt(1, idIntento);
-                    ps.setInt(2, respuesta.preguntaRespuestaPractica.getIdPregunta());
+                    ps.setInt(2, respuesta.preguntaRespuestaPractica.consultarIdPregunta());
                     if (respuesta.opcionRespuestaRespuestaPractica == null) {
                         ps.setNull(3, Types.INTEGER);
                     } else {
-                        ps.setInt(3, respuesta.opcionRespuestaRespuestaPractica.getIdOpcionRespuesta());
+                        ps.setInt(3, respuesta.opcionRespuestaRespuestaPractica.consultarIdOpcionRespuesta());
                     }
                     ps.setString(4, respuesta.contenidoRespuestaPractica);
                     ps.setObject(5, respuesta.esCorrectaRespuestaPractica, Types.BOOLEAN);
                     ps.setString(6, respuesta.retroalimentacionRespuestaPractica);
                 });
-                respuesta.setIdRespuestaPractica(idRespuesta);
+                respuesta.establecerIdRespuestaPractica(idRespuesta);
             }
             return null;
         });
@@ -98,11 +98,11 @@ public class IntentoPracticaDAO extends DaoBase {
         Date ahora = Fechas.ahora();
         int id = insertar("INSERT INTO intento_practica (id_material_practica, id_estudiante, fecha_inicio) "
                 + "VALUES (?, ?, ?)", ps -> {
-            ps.setInt(1, material.getIdMaterialPractica());
-            ps.setInt(2, estudiante.getIdUsuario());
+            ps.setInt(1, material.consultarIdMaterialPractica());
+            ps.setInt(2, estudiante.consultarIdUsuario());
             ps.setTimestamp(3, new java.sql.Timestamp(ahora.getTime()));
         });
-        intento.setIdIntentoPractica(id);
+        intento.establecerIdIntentoPractica(id);
         intento.fechaInicioIntentoPractica = ahora;
         intento.tituloMaterialPractica = material.tituloMaterialPractica;
         return intento;
@@ -114,23 +114,23 @@ public class IntentoPracticaDAO extends DaoBase {
             actualizarCon(c, "DELETE FROM respuesta_practica WHERE id_intento_practica = ? AND id_pregunta = ?",
                     ps -> {
                         ps.setInt(1, idIntentoPractica);
-                        ps.setInt(2, respuesta.preguntaRespuestaPractica.getIdPregunta());
+                        ps.setInt(2, respuesta.preguntaRespuestaPractica.consultarIdPregunta());
                     });
             int id = insertarCon(c, "INSERT INTO respuesta_practica (id_intento_practica, "
                     + "id_pregunta, id_opcion_respuesta, contenido, es_correcta, retroalimentacion) "
                     + "VALUES (?, ?, ?, ?, ?, ?)", ps -> {
                 ps.setInt(1, idIntentoPractica);
-                ps.setInt(2, respuesta.preguntaRespuestaPractica.getIdPregunta());
+                ps.setInt(2, respuesta.preguntaRespuestaPractica.consultarIdPregunta());
                 if (respuesta.opcionRespuestaRespuestaPractica == null) {
                     ps.setNull(3, Types.INTEGER);
                 } else {
-                    ps.setInt(3, respuesta.opcionRespuestaRespuestaPractica.getIdOpcionRespuesta());
+                    ps.setInt(3, respuesta.opcionRespuestaRespuestaPractica.consultarIdOpcionRespuesta());
                 }
                 ps.setString(4, respuesta.contenidoRespuestaPractica);
                 ps.setObject(5, respuesta.esCorrectaRespuestaPractica, Types.BOOLEAN);
                 ps.setString(6, respuesta.retroalimentacionRespuestaPractica);
             });
-            respuesta.setIdRespuestaPractica(id);
+            respuesta.establecerIdRespuestaPractica(id);
             return null;
         });
     }
@@ -219,7 +219,7 @@ public class IntentoPracticaDAO extends DaoBase {
 
     private IntentoPractica mapear(ResultSet rs) throws SQLException {
         IntentoPractica intento = new IntentoPractica();
-        intento.setIdIntentoPractica(rs.getInt("id_intento_practica"));
+        intento.establecerIdIntentoPractica(rs.getInt("id_intento_practica"));
         intento.fechaInicioIntentoPractica = Mapeos.fecha(rs, "fecha_inicio");
         intento.fechaFinIntentoPractica = Mapeos.fecha(rs, "fecha_fin");
         intento.calificacionIntentoPractica = rs.getObject("calificacion") == null

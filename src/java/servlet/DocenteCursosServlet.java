@@ -27,9 +27,9 @@ public class DocenteCursosServlet extends ServletBase {
         Map<String, String> formulario = recuperarFormulario(req);
 
         List<Map<String, String>> filas = new ArrayList<>();
-        for (Curso curso : cursoDAO.listarPorDocente(docente.getIdUsuario())) {
+        for (Curso curso : cursoDAO.listarPorDocente(docente.consultarIdUsuario())) {
             Map<String, String> fila = new HashMap<>();
-            fila.put("url", ruta(req, "/app/docente/curso?id=" + curso.getIdCurso()));
+            fila.put("url", ruta(req, "/app/docente/curso?id=" + curso.consultarIdCurso()));
             fila.put("nombre", curso.nombreCurso);
             fila.put("nivel", Etiquetas.de(curso.nivelCurso));
             fila.put("estado", curso.activoCurso ? "Activo" : "Inactivo");
@@ -68,9 +68,9 @@ public class DocenteCursosServlet extends ServletBase {
         try {
             Curso curso = cursoDAO.crearCurso(docente, nombre, descripcion, nivelEnum);
             agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Curso creado. Ahora abre su primer grupo.");
-            redirigir(req, resp, "/app/docente/curso?id=" + curso.getIdCurso());
+            redirigir(req, resp, "/app/docente/curso?id=" + curso.consultarIdCurso());
         } catch (ValidacionException e) {
-            agregarErrores(req, e.getErrores());
+            agregarErrores(req, e.consultarErrores());
             guardarFormulario(req, Map.of("nombre", nombre, "descripcion", descripcion, "nivel", nivel));
             redirigir(req, resp, "/app/docente/cursos");
         }

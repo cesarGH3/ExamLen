@@ -24,6 +24,6 @@ public interface ProveedorIAFabrica {
     /** true si la configuración/clave del proveedor está presente. */
     boolean disponible();
 
-    /** Crea el cliente; lanza error de configuración si falta la clave. */
-    ProveedorIA crear(String modelo) throws GeneracionFallidaException;
+    /** Crea el cliente con la clave personal del docente. */
+    ProveedorIA crear(String modelo, String clave) throws GeneracionFallidaException;
 }

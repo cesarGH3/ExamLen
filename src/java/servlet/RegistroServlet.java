@@ -76,7 +76,7 @@ public class RegistroServlet extends ServletBase {
         } catch (ValidacionException e) {
             renderizar(req, resp, "registrarse.html",
                     formulario(identificacion, nombre, correo, nivel, institucion,
-                            "true".equals(req.getParameter("acepta"))), e.getErrores());
+                            "true".equals(req.getParameter("acepta"))), e.consultarErrores());
         }
     }
 

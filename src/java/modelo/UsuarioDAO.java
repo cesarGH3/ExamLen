@@ -52,14 +52,14 @@ public class UsuarioDAO extends DaoBase {
      * RNF-01: si el hash almacenado es legacy (PBKDF2), tras un login correcto lo reemplaza
      * inmediatamente por BCrypt de forma atomica. Devuelve true si migro el hash.
      */
-    public boolean rehashSiLegacy(Usuario usuario, String contrasenaPlano) {
-        if (usuario == null || !hashContrasena.necesitaRehash(usuario.contrasenaHashUsuario)) {
+    public boolean recalcularHashSiEsAnterior(Usuario usuario, String contrasenaPlano) {
+        if (usuario == null || !hashContrasena.necesitaRecalcularHash(usuario.contrasenaHashUsuario)) {
             return false;
         }
         String nuevo = hashContrasena.generarHash(contrasenaPlano);
         actualizar("UPDATE usuario SET contrasena_hash = ? WHERE id_usuario = ? AND contrasena_hash = ?", ps -> {
             ps.setString(1, nuevo);
-            ps.setInt(2, usuario.getIdUsuario());
+            ps.setInt(2, usuario.consultarIdUsuario());
             ps.setString(3, usuario.contrasenaHashUsuario);
         });
         usuario.contrasenaHashUsuario = nuevo;
@@ -67,7 +67,7 @@ public class UsuarioDAO extends DaoBase {
     }
 
     /** Cuenta hashes no conformes con RNF-01 (auditoria de la migracion legacy). */
-    public int contarHashesNoBcrypt() {
+    public int contarHashesSinBcrypt() {
         return contar("SELECT COUNT(*) FROM usuario WHERE contrasena_hash NOT LIKE '$2a$%' "
                 + "AND contrasena_hash NOT LIKE '$2b$%' AND contrasena_hash NOT LIKE '$2y$%'", SIN_PARAMETROS);
     }
@@ -154,11 +154,11 @@ public class UsuarioDAO extends DaoBase {
             actualizarCon(c, "UPDATE usuario SET contrasena_hash = ?, debe_cambiar_contrasena = FALSE "
                     + "WHERE id_usuario = ?", ps -> {
                 ps.setString(1, hash);
-                ps.setInt(2, usuario.getIdUsuario());
+                ps.setInt(2, usuario.consultarIdUsuario());
             });
             if (esDocente) {
                 actualizarCon(c, "UPDATE docente SET debe_cambiar_contrasena = FALSE WHERE id_usuario = ?",
-                        ps -> ps.setInt(1, usuario.getIdUsuario()));
+                        ps -> ps.setInt(1, usuario.consultarIdUsuario()));
             }
             return null;
         });
@@ -178,7 +178,7 @@ public class UsuarioDAO extends DaoBase {
             actualizar("UPDATE usuario SET nombre = ?, correo = ? WHERE id_usuario = ?", ps -> {
                 ps.setString(1, nombre);
                 ps.setString(2, correo);
-                ps.setInt(3, usuario.getIdUsuario());
+                ps.setInt(3, usuario.consultarIdUsuario());
             });
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("Ese correo ya está registrado en otra cuenta.");
@@ -189,13 +189,13 @@ public class UsuarioDAO extends DaoBase {
 
     public void activarUsuario(Usuario usuario) {
         actualizar("UPDATE usuario SET activo = TRUE WHERE id_usuario = ?",
-                ps -> ps.setInt(1, usuario.getIdUsuario()));
+                ps -> ps.setInt(1, usuario.consultarIdUsuario()));
         usuario.activoUsuario = true;
     }
 
     public void desactivarUsuario(Usuario usuario) {
         actualizar("UPDATE usuario SET activo = FALSE WHERE id_usuario = ?",
-                ps -> ps.setInt(1, usuario.getIdUsuario()));
+                ps -> ps.setInt(1, usuario.consultarIdUsuario()));
         usuario.activoUsuario = false;
     }
 
@@ -211,11 +211,11 @@ public class UsuarioDAO extends DaoBase {
             actualizarCon(c, "UPDATE usuario SET contrasena_hash = ?, debe_cambiar_contrasena = TRUE, "
                     + "intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_usuario = ?", ps -> {
                 ps.setString(1, hash);
-                ps.setInt(2, usuario.getIdUsuario());
+                ps.setInt(2, usuario.consultarIdUsuario());
             });
             if (esDocente) {
                 actualizarCon(c, "UPDATE docente SET debe_cambiar_contrasena = TRUE WHERE id_usuario = ?",
-                        ps -> ps.setInt(1, usuario.getIdUsuario()));
+                        ps -> ps.setInt(1, usuario.consultarIdUsuario()));
             }
             return null;
         });
