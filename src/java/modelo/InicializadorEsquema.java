@@ -40,6 +40,7 @@ public final class InicializadorEsquema {
     private static final String MIGRACION_INTENTOS = "019_intentos_evaluacion_virtual.sql";
     private static final String MIGRACION_RESPUESTAS = "020_politica_respuestas_completas.sql";
     private static final String MIGRACION_CLAVES_IA = "021_clave_ia_docente.sql";
+    private static final String MIGRACION_SEGURIDAD = "022_integridad_respuestas_tokens.sql";
     private static volatile boolean esquemaDisponible;
 
     public static boolean consultarDisponibilidadEsquema() {
@@ -118,7 +119,8 @@ public final class InicializadorEsquema {
                     || !indice.contains(MIGRACION_PROPIETARIO)
                     || !indice.contains(MIGRACION_INTENTOS)
                     || !indice.contains(MIGRACION_RESPUESTAS)
-                    || !indice.contains(MIGRACION_CLAVES_IA)) {
+                    || !indice.contains(MIGRACION_CLAVES_IA)
+                    || !indice.contains(MIGRACION_SEGURIDAD)) {
                 throw new SQLException("A?ndice de migraciones invA?lido.");
             }
             for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
@@ -161,6 +163,7 @@ public final class InicializadorEsquema {
             if (listarAplicadas(c).contains(MIGRACION_CLAVES_IA)) {
                 verificarEsquemaClavesIA(c);
             }
+            verificarEsquemaSeguridad(c);
             esquemaDisponible = true;
             LOG.info("Esquema verificado y disponible.");
         }
@@ -290,6 +293,30 @@ public final class InicializadorEsquema {
         }
     }
 
+    private static void verificarEsquemaSeguridad(Connection c) throws SQLException {
+        if (contarFilas(c, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = 'token_api'") != 1
+                || contarFilas(c, "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS "
+                + "WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_TYPE = 'CHECK' AND ENFORCED = 'YES' "
+                + "AND CONSTRAINT_NAME IN ('ck_intento_calificacion_rango','ck_ip_calificacion_rango',"
+                + "'ck_vp_puntaje_no_negativo','ck_token_api_expira','ck_token_api_revocado')") != 5
+                || contarFilas(c, "SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS "
+                + "WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME IN ("
+                + "'fk_respuesta_intento_version','fk_respuesta_pregunta_version','fk_respuesta_opcion_pregunta',"
+                + "'fk_rp_intento_material','fk_rp_material_pregunta','fk_rp_opcion_pregunta',"
+                + "'fk_curso_rol_docente','fk_banco_rol_docente','fk_evaluacion_rol_docente','fk_material_rol_docente',"
+                + "'fk_solicitud_rol_docente','fk_inscripcion_rol_estudiante','fk_practica_rol_estudiante',"
+                + "'fk_token_api_usuario')") != 14) {
+            throw new SQLException("Migracion de seguridad 022 incompleta.");
+        }
+        String indice = cadena(c, "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) "
+                + "FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = 'respuesta_practica' AND INDEX_NAME = 'uk_rp_intento_pregunta' AND NON_UNIQUE = 0");
+        if (!"id_intento_practica,id_pregunta".equals(indice)) {
+            throw new SQLException("Falta unicidad de respuestas de practica (022).");
+        }
+    }
+
     private static boolean columnaTipo(Connection conexion, String tabla, String columna,
                                        String tipo, String permiteNulo) throws SQLException {
         try (PreparedStatement sentencia = conexion.prepareStatement(
@@ -352,6 +379,9 @@ public final class InicializadorEsquema {
     }
 
     private static void asegurarTablaControl(Connection c) throws SQLException {
+        if (contarFilas(c, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = '" + TABLA_CONTROL + "'") == 1) return;
+
         try (Statement st = c.createStatement()) {
             st.execute("CREATE TABLE IF NOT EXISTS " + TABLA_CONTROL + " ("
                     + "nombre VARCHAR(100) NOT NULL PRIMARY KEY, "
@@ -396,6 +426,11 @@ public final class InicializadorEsquema {
             if (MIGRACION_RESPUESTAS.equals(nombre)) {
                 verificarEsquemaIntentos(c);
             }
+            if (MIGRACION_SEGURIDAD.equals(nombre) && contarFilas(c,
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                    + "AND TABLE_NAME = 'respuesta' AND COLUMN_NAME = 'id_version_evaluacion'") != 0) {
+                throw new SQLException("Migracion 022 parcial: restaurar o reparar antes de continuar.");
+            }
             String sql = leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
             sql = USE_HARDCODEADO.matcher(sql).replaceAll("");
             try (Statement st = c.createStatement()) {
@@ -406,6 +441,7 @@ public final class InicializadorEsquema {
                     resultado = st.getMoreResults();
                 }
             }
+            if (MIGRACION_SEGURIDAD.equals(nombre)) verificarEsquemaSeguridad(c);
             if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
             if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
             if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);

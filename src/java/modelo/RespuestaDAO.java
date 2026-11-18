@@ -161,7 +161,7 @@ public class RespuestaDAO extends DaoBase {
                         });
             } else {
                 idRespuesta = existentes.get(0);
-                actualizarCon(c, "UPDATE respuesta SET contenido = ? WHERE id_respuesta = ?", ps -> {
+                actualizarCon(c, "UPDATE respuesta SET contenido = ?, id_version_opcion = NULL WHERE id_respuesta = ?", ps -> {
                     ps.setString(1, contenido);
                     ps.setInt(2, idRespuesta);
                 });

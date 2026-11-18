@@ -27,11 +27,13 @@ public class ApiTokenServlet extends HttpServlet {
     private static final int MAX_CUERPO = 8192;
 
     private UsuarioDAO usuarioDAO;
+    private modelo.TokenApiDAO tokenDAO;
 
     @Override
     public void init() throws ServletException {
         usuarioDAO = (UsuarioDAO) getServletContext().getAttribute(InicializadorAplicacion.USUARIO_DAO);
-        if (usuarioDAO == null) {
+        tokenDAO = (modelo.TokenApiDAO) getServletContext().getAttribute(InicializadorAplicacion.TOKEN_API_DAO);
+        if (usuarioDAO == null || tokenDAO == null) {
             throw new ServletException("La aplicacion no se inicializo correctamente.");
         }
     }
@@ -47,7 +49,7 @@ public class ApiTokenServlet extends HttpServlet {
             }
             AutenticacionApi.Resultado resultado = AutenticacionApi.autenticar(
                     usuarioDAO, credenciales.usuario, credenciales.contrasena);
-            ApiTokens.Token token = ApiTokens.emitir(resultado.usuario.consultarIdUsuario());
+            ApiTokens.Token token = ApiTokens.emitir(resultado.usuario.consultarIdUsuario(), tokenDAO);
 
             JsonObject usuario = new JsonObject();
             usuario.addProperty("id", resultado.usuario.consultarIdUsuario());
@@ -67,9 +69,13 @@ public class ApiTokenServlet extends HttpServlet {
         } catch (CuerpoDemasiadoGrande e) {
             ApioJson.error(resp, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "SOLICITUD_INVALIDA",
                     "La solicitud es demasiado grande.");
-        } catch (RuntimeException e) {
+        } catch (SolicitudInvalida e) {
             ApioJson.error(resp, HttpServletResponse.SC_BAD_REQUEST, "SOLICITUD_INVALIDA",
                     "No fue posible interpretar la solicitud.");
+        } catch (RuntimeException e) {
+            getServletContext().log("Fallo interno al emitir token API (" + e.getClass().getSimpleName() + ").");
+            ApioJson.error(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "ERROR_INTERNO",
+                    "No fue posible emitir el token.");
         }
     }
 
@@ -109,7 +115,14 @@ public class ApiTokenServlet extends HttpServlet {
         if (cuerpo.toString().isBlank()) {
             return null;
         }
-        JsonObject objeto = JsonParser.parseString(cuerpo.toString()).getAsJsonObject();
+        JsonObject objeto;
+        try {
+            JsonElement raiz = JsonParser.parseString(cuerpo.toString());
+            if (!raiz.isJsonObject()) throw new SolicitudInvalida();
+            objeto = raiz.getAsJsonObject();
+        } catch (com.google.gson.JsonParseException e) {
+            throw new SolicitudInvalida();
+        }
         String usuario = texto(objeto, "usuario");
         if (usuario == null) {
             usuario = texto(objeto, "correo");
@@ -123,7 +136,9 @@ public class ApiTokenServlet extends HttpServlet {
 
     private static String texto(JsonObject objeto, String campo) {
         JsonElement valor = objeto.get(campo);
-        return valor != null && valor.isJsonPrimitive() ? valor.getAsString() : null;
+        if (valor == null || valor.isJsonNull()) return null;
+        if (!valor.isJsonPrimitive() || !valor.getAsJsonPrimitive().isString()) throw new SolicitudInvalida();
+        return valor.getAsString();
     }
 
     private static String primero(String... valores) {
@@ -137,6 +152,10 @@ public class ApiTokenServlet extends HttpServlet {
 
     private static boolean vacias(String usuario, String contrasena) {
         return usuario == null || usuario.isBlank() || contrasena == null || contrasena.isEmpty();
+    }
+
+    private static final class SolicitudInvalida extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
 
     private static final class Credenciales {

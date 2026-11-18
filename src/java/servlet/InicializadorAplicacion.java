@@ -63,6 +63,7 @@ public class InicializadorAplicacion implements ServletContextListener {
     public static final String RESPUESTA_PRACTICA_DAO = "examlen.respuestaPracticaDAO";
     public static final String DOCUMENTO_DAO = "examlen.documentoFuenteDAO";
     public static final String SOLICITUD_DAO = "examlen.solicitudGeneracionDAO";
+    public static final String TOKEN_API_DAO = "examlen.tokenApiDAO";
     public static final String TOKEN_DAO = "examlen.tokenRecuperacionDAO";
     public static final String CLAVE_IA_DAO = "examlen.claveIADocenteDAO";
 
@@ -81,6 +82,7 @@ public class InicializadorAplicacion implements ServletContextListener {
 
         contexto.setAttribute(VERIFICADOR_BD, verificador);
         contexto.setAttribute(VISTAS, new Vistas(contexto));
+        contexto.setAttribute(TOKEN_API_DAO, new modelo.TokenApiDAO(dataSource));
         contexto.setAttribute(USUARIO_DAO, new UsuarioDAO(dataSource));
         contexto.setAttribute(ADMINISTRADOR_DAO, new AdministradorDAO(dataSource));
         contexto.setAttribute(DOCENTE_DAO, new DocenteDAO(dataSource));

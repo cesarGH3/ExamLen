@@ -19,3 +19,4 @@
 019_intentos_evaluacion_virtual.sql
 020_politica_respuestas_completas.sql
 021_clave_ia_docente.sql
+022_integridad_respuestas_tokens.sql

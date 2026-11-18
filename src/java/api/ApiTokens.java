@@ -1,6 +1,8 @@
 package api;
 
 import servicio.Secretos;
+import modelo.TokenApiDAO;
+import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -12,13 +14,14 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * Tokens Bearer opacos de vida corta para /api/v1.
  *
- * Formato: v1.<payload_base64url>.<firma_base64url>, donde el payload contiene el id de usuario
- * y la expiracion en segundos. La firma es HMAC-SHA256 con un secreto externo al WAR. No se
- * guardan credenciales dentro del token ni en la sesion del servidor.
+ * Formato: v2.<payload_base64url>.<firma_base64url>, donde el payload contiene el id de usuario,
+ * la expiracion en segundos y un identificador aleatorio revocable. La firma es HMAC-SHA256
+ * con un secreto externo al WAR. No se guardan credenciales dentro del token. El filtro
+ * exige ademas un registro vigente en token_api para autenticar la peticion.
  */
 public final class ApiTokens {
 
-    private static final String VERSION = "v1";
+    private static final String VERSION = "v2";
     private static final String ALGORITMO = "HmacSHA256";
     private static final int MINUTOS_POR_DEFECTO = 15;
     private static final Base64.Encoder BASE64_URL = Base64.getUrlEncoder().withoutPadding();
@@ -38,25 +41,30 @@ public final class ApiTokens {
     }
 
     public static final class TokenValido {
+        public final String idToken;
         public final int idUsuario;
         public final long expiraEnSegundos;
 
-        private TokenValido(int idUsuario, long expiraEnSegundos) {
+        private TokenValido(String idToken, int idUsuario, long expiraEnSegundos) {
+            this.idToken = idToken;
             this.idUsuario = idUsuario;
             this.expiraEnSegundos = expiraEnSegundos;
         }
     }
 
-    public static Token emitir(int idUsuario) {
+    public static Token emitir(int idUsuario, TokenApiDAO registro) {
         long expiracion = ahoraEnSegundos() + segundosDeVida();
-        return emitir(idUsuario, expiracion);
+        String idToken = UUID.randomUUID().toString();
+        Token token = emitir(idUsuario, expiracion, idToken);
+        registro.registrar(idToken, idUsuario, expiracion);
+        return token;
     }
 
-    static Token emitir(int idUsuario, long expiracionSegundos) {
+    static Token emitir(int idUsuario, long expiracionSegundos, String idToken) {
         if (idUsuario <= 0) {
             throw new IllegalArgumentException("Usuario invalido para emitir token.");
         }
-        String payload = idUsuario + ":" + expiracionSegundos;
+        String payload = idUsuario + ":" + expiracionSegundos + ":" + UUID.fromString(idToken);
         String payloadCodificado = BASE64_URL.encodeToString(payload.getBytes(StandardCharsets.US_ASCII));
         String firmado = VERSION + "." + payloadCodificado;
         String firma = BASE64_URL.encodeToString(firmar(firmado));
@@ -68,7 +76,7 @@ public final class ApiTokens {
     }
 
     static Optional<TokenValido> validar(String token, long ahoraSegundos) {
-        if (token == null || token.isBlank()) {
+        if (token == null || token.length() > 512 || token.isBlank()) {
             return Optional.empty();
         }
         String[] partes = token.trim().split("\\.", -1);
@@ -82,16 +90,15 @@ public final class ApiTokens {
                 return Optional.empty();
             }
             String payload = new String(BASE64_URL_DECODER.decode(partes[1]), StandardCharsets.US_ASCII);
-            int separador = payload.indexOf(':');
-            if (separador <= 0 || separador == payload.length() - 1) {
+            String[] campos = payload.split(":", -1);
+            if (campos.length != 3) return Optional.empty();
+            int idUsuario = Integer.parseInt(campos[0]);
+            long expiracion = Long.parseLong(campos[1]);
+            String idToken = UUID.fromString(campos[2]).toString();
+            if (idUsuario <= 0 || expiracion <= ahoraSegundos || !idToken.equals(campos[2])) {
                 return Optional.empty();
             }
-            int idUsuario = Integer.parseInt(payload.substring(0, separador));
-            long expiracion = Long.parseLong(payload.substring(separador + 1));
-            if (idUsuario <= 0 || expiracion <= ahoraSegundos) {
-                return Optional.empty();
-            }
-            return Optional.of(new TokenValido(idUsuario, expiracion));
+            return Optional.of(new TokenValido(idToken, idUsuario, expiracion));
         } catch (IllegalArgumentException e) {
             return Optional.empty();
         }

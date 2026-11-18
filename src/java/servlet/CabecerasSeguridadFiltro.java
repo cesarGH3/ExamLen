@@ -68,7 +68,9 @@ public class CabecerasSeguridadFiltro implements Filter {
         if (valor == null || valor.isBlank()) {
             return porDefecto;
         }
-        return "true".equalsIgnoreCase(valor.trim()) || "1".equals(valor.trim());
+        if ("true".equalsIgnoreCase(valor.trim()) || "1".equals(valor.trim())) return true;
+        if ("false".equalsIgnoreCase(valor.trim()) || "0".equals(valor.trim())) return false;
+        throw new IllegalArgumentException("Configuracion booleana invalida: " + propiedad);
     }
 
     private static List<RangoIp> leerProxies(String variable, String propiedad) {

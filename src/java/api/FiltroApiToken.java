@@ -25,11 +25,13 @@ public class FiltroApiToken implements Filter {
     private static final String RUTA_TOKEN = "/api/v1/auth/token";
 
     private UsuarioDAO usuarioDAO;
+    private modelo.TokenApiDAO tokenDAO;
 
     @Override
     public void init(FilterConfig config) throws ServletException {
         usuarioDAO = (UsuarioDAO) config.getServletContext().getAttribute(InicializadorAplicacion.USUARIO_DAO);
-        if (usuarioDAO == null) {
+        tokenDAO = (modelo.TokenApiDAO) config.getServletContext().getAttribute(InicializadorAplicacion.TOKEN_API_DAO);
+        if (usuarioDAO == null || tokenDAO == null) {
             throw new ServletException("La aplicacion no se inicializo correctamente.");
         }
     }
@@ -56,6 +58,20 @@ public class FiltroApiToken implements Filter {
             noAutenticado(resp, "invalid_token", "El token no es valido o expiro.");
             return;
         }
+
+        try {
+            ApiTokens.TokenValido valido = token.get();
+            if (!tokenDAO.vigente(valido.idToken, valido.idUsuario, valido.expiraEnSegundos)) {
+                noAutenticado(resp, "invalid_token", "El token no esta disponible.");
+                return;
+            }
+        } catch (RuntimeException e) {
+            resp.setHeader("Cache-Control", "no-store");
+            ApioJson.error(resp, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "SERVICIO_NO_DISPONIBLE",
+                    "No fue posible verificar el token.");
+            return;
+        }
+        req.setAttribute("examlen.api.token", token.get());
 
         Optional<Usuario> hallado = usuarioDAO.buscarPorId(token.get().idUsuario);
         if (hallado.isEmpty() || !hallado.get().activoUsuario) {
