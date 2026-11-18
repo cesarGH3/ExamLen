@@ -7,7 +7,7 @@
 # La URL DEBE conservar connectionTimeZone=America/Bogota y
 # sessionVariables=time_zone='-05:00' (RNF-15). Comprueba con:
 #   SELECT @@session.time_zone;   -- debe devolver -05:00
-examlen.db.url=jdbc:mysql://gitua.site:3306/examlen?sslMode=PREFERRED&allowPublicKeyRetrieval=true&connectionTimeZone=America/Bogota&sessionVariables=time_zone='-05:00'&connectTimeout=3000&socketTimeout=10000&characterEncoding=UTF-8
+examlen.db.url=jdbc:mysql://db.ejemplo.com:3306/examlen?sslMode=PREFERRED&allowPublicKeyRetrieval=true&connectionTimeZone=America/Bogota&sessionVariables=time_zone='-05:00'&connectTimeout=3000&socketTimeout=10000&characterEncoding=UTF-8
 examlen.db.user=USUARIO_MYSQL
 examlen.db.password=CAMBIAR_EN_SERVIDOR
 
@@ -26,3 +26,23 @@ examlen.db.password=CAMBIAR_EN_SERVIDOR
 # Tambien sirven EXAMENL_IA_MODELOS_GEMINI y EXAMENL_IA_MODELOS_GROQ.
 #gemini.modelos=gemini-3.5-flash-lite,gemini-flash-lite-latest
 #groq.modelos=llama-3.3-70b-versatile
+
+# ---------------------------------------------------------------------------
+# HTTPS (RNF-03)
+# Por defecto HTTPS es obligatorio. Con un proxy inverso que termina TLS,
+# declara su IP (o CIDR) para que X-Forwarded-Proto solo se acepte desde el.
+#examlen.https.required=true
+#examlen.behind.proxy=true
+#examlen.trusted.proxies=127.0.0.1,10.0.0.0/8
+#
+# Solo para desarrollo local sin TLS. Nunca en produccion:
+#examlen.https.required=false
+
+# ---------------------------------------------------------------------------
+# Tokens Bearer de la API /api/v1 (vida corta) y orden de practicas.
+# Configura secretos largos y aleatorios. Si no se configuran, se usa una
+# clave aleatoria por proceso (los tokens dejan de valer al reiniciar).
+# Tambien sirven las variables EXAMENL_API_TOKEN_SECRET y EXAMENL_ORDER_SECRET.
+#examlen.api.token.secret=CAMBIA_ESTE_SECRETO_LARGO
+#examlen.api.token.minutes=15
+#examlen.order.secret=CAMBIA_ESTE_SECRETO_LARGO

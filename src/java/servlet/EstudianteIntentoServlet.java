@@ -100,7 +100,6 @@ public class EstudianteIntentoServlet extends ServletBase {
 
     private void mostrarExamen(HttpServletRequest req, HttpServletResponse resp, Intento intento, int segundos)
             throws IOException {
-        EstudianteInicioIntentoServlet.sesionDeExamen(req, segundos);
         int idVersion = intento.versionEvaluacionIntento.consultarIdVersionEvaluacion();
         List<VersionPregunta> preguntas = versionPreguntaDAO.listarPorVersionEvaluacion(idVersion);
         Map<Integer, Respuesta> previas = new HashMap<>();
@@ -169,7 +168,6 @@ public class EstudianteIntentoServlet extends ServletBase {
 
     private void mostrarResultado(HttpServletRequest req, HttpServletResponse resp, Intento intento)
             throws IOException {
-        EstudianteInicioIntentoServlet.sesionNormal(req);
         int pendientes = respuestaDAO.contarPendientes(intento.consultarIdIntento());
         EstadoEvaluacionVirtual estadoVirtual = virtualDAO.buscarPorId(intentoDAO.idVirtualDeIntento(intento.consultarIdIntento()))
                 .map(v -> v.estadoEvaluacionVirtual).orElse(null);
@@ -240,7 +238,6 @@ public class EstudianteIntentoServlet extends ServletBase {
         if (intento.estadoIntento != EstadoIntento.EN_CURSO
                 || intentoDAO.segundosRestantes(intento.consultarIdIntento()) <= 0) {
             servicioVirtual.finalizarIntentoVencido(intento.consultarIdIntento());
-            EstudianteInicioIntentoServlet.sesionNormal(req);
             json(resp, HttpServletResponse.SC_CONFLICT, "{\"ok\":false,\"motivo\":\"El tiempo del intento terminó.\"}");
             return;
         }
@@ -262,7 +259,6 @@ public class EstudianteIntentoServlet extends ServletBase {
         if (!guardarRespuesta(intento, pregunta, contenido, idOpcion)) {
             // El limite efectivo paso entre la comprobacion rapida y la escritura: nada se guarda.
             servicioVirtual.finalizarIntentoVencido(intento.consultarIdIntento());
-            EstudianteInicioIntentoServlet.sesionNormal(req);
             json(resp, HttpServletResponse.SC_CONFLICT, "{\"ok\":false,\"motivo\":\"El tiempo del intento terminó.\"}");
             return;
         }

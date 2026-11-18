@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * GET /api/v1/auth/validar: el filtro Basic ya autentico al usuario; aqui solo se confirma
+ * GET /api/v1/auth/validar: el filtro Bearer ya autentico al usuario; aqui solo se confirma
  * la identidad con los datos minimos (sin hash, sin contrasena, sin tokens).
  */
 @WebServlet(name = "ApiAutenticacionServlet", urlPatterns = "/api/v1/auth/validar")

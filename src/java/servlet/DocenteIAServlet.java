@@ -12,6 +12,7 @@ import logica.TipoGeneracion;
 import logica.ValidacionException;
 import logica.Validador;
 import modelo.DocumentoFuenteDAO;
+import servicio.AlmacenDocumentoFuente;
 import servicio.CifradoClaves;
 import servicio.ConfiguracionIA;
 import servicio.GeneracionFallidaException;
@@ -298,9 +299,14 @@ public class DocenteIAServlet extends ServletBase {
         }
         Path directorio = ConfiguracionIA.directorioDocumentos();
         Path destino = directorio.resolve(UUID.randomUUID().toString() + extension);
-        Files.write(destino, contenido);
-        documentoDAO.cargarDocumentoFuente(docente, nombreOriginal,
-                extension.substring(1).toUpperCase(Locale.ROOT), destino.toString());
+        try {
+            AlmacenDocumentoFuente.registrar(destino, contenido, documentoDAO, docente, nombreOriginal,
+                    extension.substring(1).toUpperCase(Locale.ROOT));
+        } catch (RuntimeException e) {
+            LOG.log(java.util.logging.Level.WARNING,
+                    "No se pudo registrar el documento; el archivo se limpio si no quedo referenciado.", e);
+            throw new ValidacionException("No se pudo guardar el documento. Intentalo de nuevo.");
+        }
     }
 
     /**

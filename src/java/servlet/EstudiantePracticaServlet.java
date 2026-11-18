@@ -10,6 +10,7 @@ import logica.TipoPregunta;
 import logica.Validador;
 import modelo.PreguntaDAO;
 import modelo.RespuestaPracticaDAO;
+import servicio.OrdenPractica;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -147,8 +148,10 @@ public class EstudiantePracticaServlet extends ServletBase {
             return;
         }
         List<Pregunta> preguntas = materialDAO.listarPreguntas(idMaterial);
-        // Orden barajado y estable por intento: dos intentos distintos ven órdenes distintos.
-        Collections.shuffle(preguntas, new Random(idIntento));
+        // Orden barajado, estable e impredecible por intento: la semilla deriva del intento
+        // persistido y de la configuracion del servidor, no del id predecible.
+        Collections.shuffle(preguntas, new Random(OrdenPractica.semilla(
+                idIntento, intento.fechaInicioIntentoPractica, estudiante.consultarIdUsuario())));
         Map<Integer, RespuestaPractica> respondidas = new HashMap<>();
         for (RespuestaPractica respuesta : respuestaPracticaDAO.listarConPregunta(idIntento)) {
             respondidas.put(respuesta.preguntaRespuestaPractica.consultarIdPregunta(), respuesta);

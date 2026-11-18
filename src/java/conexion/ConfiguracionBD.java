@@ -30,7 +30,7 @@ public final class ConfiguracionBD {
     private static final String ARCHIVO_APP = "examlen.properties";
     private static final Properties PROPIEDADES_APP = leerPropiedadesApp();
 
-    private static final String HOST_POR_DEFECTO = "gitua.site";
+    private static final String HOST_POR_DEFECTO = "localhost";
     private static final int PUERTO_POR_DEFECTO = 3306;
     private static final String BASE_POR_DEFECTO = "examlen";
 

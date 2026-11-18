@@ -56,6 +56,18 @@ public class DocumentoFuenteDAO extends DaoBase {
                 ps -> ps.setInt(1, documento.consultarIdDocumentoFuente()));
     }
 
+    /**
+     * Comprueba si una ruta concreta quedo registrada para el docente. Se usa tras un fallo
+     * de registro para decidir con datos si el archivo puede borrarse sin dejar una fila rota.
+     */
+    public boolean estaRegistradaRuta(int idDocente, String rutaAlmacenamiento) {
+        return existe("SELECT 1 FROM documento_fuente WHERE id_docente = ? AND ruta_almacenamiento = ? LIMIT 1",
+                ps -> {
+                    ps.setInt(1, idDocente);
+                    ps.setString(2, rutaAlmacenamiento);
+                });
+    }
+
     /** Resultado de intentar eliminar un documento fuente. */
     public enum ResultadoEliminacion {
         ELIMINADO, REFERENCIADO, NO_ENCONTRADO

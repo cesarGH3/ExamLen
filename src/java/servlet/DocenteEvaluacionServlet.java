@@ -199,7 +199,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
                 }
                 case "puntajeGrupo": {
                     double puntaje = decimal(req, "puntaje");
-                    if (puntaje < 0 || puntaje > MAX_PUNTAJE_GRUPO) {
+                    if (!Double.isFinite(puntaje) || puntaje < 0 || puntaje > MAX_PUNTAJE_GRUPO) {
                         throw new ValidacionException("El puntaje debe estar entre 0 y 1000.");
                     }
                     NivelIngles nivel = Formulario.enumeracion(NivelIngles.class, parametro(req, "nivel"));

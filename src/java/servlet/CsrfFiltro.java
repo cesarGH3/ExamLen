@@ -19,6 +19,12 @@ public class CsrfFiltro implements Filter {
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
         HttpServletRequest req = (HttpServletRequest) request;
+        // La API /api/v1 se autentica con Bearer, nunca con cookies de sesion: CSRF no aplica.
+        String ruta = req.getServletPath() + (req.getPathInfo() == null ? "" : req.getPathInfo());
+        if (ruta.startsWith("/api/v1/")) {
+            chain.doFilter(request, response);
+            return;
+        }
         if (METODOS_PROTEGIDOS.contains(req.getMethod())) {
             String token;
             try {

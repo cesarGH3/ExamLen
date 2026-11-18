@@ -119,26 +119,14 @@ public class EstudianteInicioIntentoServlet extends ServletBase {
             }
             List<VersionEvaluacion> versiones = virtualDAO.listarVersiones(idVirtual);
             Intento intento = intentoDAO.iniciarIntento(virtual, inscripcion, versiones);
-            sesionDeExamen(req, intentoDAO.segundosRestantes(intento.consultarIdIntento()));
+            // La sesion conserva el plazo normal de web.xml. El plazo del examen lo impone el
+            // servidor con intento.fecha_inicio y evaluacion.duracion_minutos; si la sesion
+            // expira, el estudiante vuelve a entrar y retoma el mismo intento.
             redirigir(req, resp, RUTA_INTENTO + "?id=" + intento.consultarIdIntento());
         } catch (ValidacionException e) {
             agregarErrores(req, e.consultarErrores());
             redirigir(req, resp, RUTA_EVALUACIONES);
         }
-    }
-
-    /**
-     * RNF-03: durante un intento EN_CURSO la sesión no debe expirar por la regla de 30 minutos;
-     * se ajusta a tiempo restante + margen de 15 min (mínimo 30 min, tope 24 h).
-     */
-    static void sesionDeExamen(HttpServletRequest req, int segundosRestantes) {
-        int segundos = Math.max(1800, Math.min(segundosRestantes + 900, 24 * 3600));
-        req.getSession(true).setMaxInactiveInterval(segundos);
-    }
-
-    /** RNF-03: al salir del contexto del examen la sesión vuelve a los 30 minutos. */
-    static void sesionNormal(HttpServletRequest req) {
-        req.getSession(true).setMaxInactiveInterval(1800);
     }
 
     private Inscripcion inscripcionDe(Estudiante estudiante, EvaluacionVirtual virtual) {

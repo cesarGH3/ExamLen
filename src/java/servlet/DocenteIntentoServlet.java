@@ -76,7 +76,7 @@ public class DocenteIntentoServlet extends ServletBase {
                     .orElseThrow(() -> new RecursoNoEncontradoException("Respuesta no encontrada"));
             double maximo = respuesta.versionPreguntaRespuesta.puntajeVersionPregunta;
             double puntaje = decimal(req, "puntaje");
-            if (puntaje < 0 || puntaje > maximo) {
+            if (!Double.isFinite(puntaje) || puntaje < 0 || puntaje > maximo) {
                 throw new ValidacionException("El puntaje debe estar entre 0 y " + formatoNota(maximo)
                         + ": es el máximo de la pregunta en esta versión.");
             }

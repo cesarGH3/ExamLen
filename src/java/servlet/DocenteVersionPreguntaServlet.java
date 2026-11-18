@@ -101,7 +101,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
                 "El enunciado debe tener entre 5 y 4000 caracteres.", errores);
         Validador.validarLongitud(respuesta, 0, MAX_RESPUESTA,
                 "La respuesta esperada admite máximo 500 caracteres.", errores);
-        if (puntaje < 0 || puntaje > MAX_PUNTAJE) {
+        if (!Double.isFinite(puntaje) || puntaje < 0 || puntaje > MAX_PUNTAJE) {
             errores.add("El puntaje debe estar entre 0 y 1000.");
         }
         if (!errores.isEmpty()) {
