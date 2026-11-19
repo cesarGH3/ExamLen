@@ -124,7 +124,7 @@ public final class InicializadorEsquema {
         if (!config.hayCredenciales()) {
             LOG.warning("Inicializacion de esquema omitida: configura examlen.db.user y examlen.db.password en "
                     + "{catalina.base}/conf/catalina.properties (ver config/catalina.properties.ejemplo) "
-                    + "o las variables DB_USER / DB_PASSWORD (README-ENTREGA.md en la raiz del proyecto, seccion \"Base de datos\").");
+                    + "o las variables DB_USER / DB_PASSWORD.");
             return;
         }
 

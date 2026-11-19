@@ -1,7 +1,7 @@
 -- =====================================================================
 -- ExamLen - Migración 006: nombres de BD según el diccionario del ERS
 -- Revierte el patrón <atributo>_<clase> de la migración 003.
--- Lista definitiva: docs/TRAZABILIDAD.md secciones 4.2 y 4.3.
+-- Lista definitiva de nombres alineados con el modelo entidad-relacion (ERS).
 -- Ejecutar como root DESPUÉS de 005. No pierde datos (RENAME conserva todo).
 -- =====================================================================
 
