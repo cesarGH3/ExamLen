@@ -8,6 +8,9 @@ import java.lang.reflect.*;
 import java.nio.file.*;
 import java.sql.*;
 import java.util.*;
+import logica.Administrador;
+import logica.Docente;
+import logica.Estudiante;
 import logica.Intento;
 import logica.VersionPregunta;
 import modelo.*;
@@ -20,6 +23,8 @@ public final class SeguridadRegression {
     private static final Path MIGRACIONES = Path.of("web/WEB-INF/sql/migraciones");
 
     public static void main(String[] args) throws Exception {
+        System.setProperty("examlen.env", "desarrollo");
+        System.setProperty("examlen.api.token.secret", "s".repeat(64));
         pruebasHttp();
         pruebasFirma();
         String servidor = System.getenv("EXAMLEN_TEST_SERVER");
@@ -49,19 +54,25 @@ public final class SeguridadRegression {
                     preflight();
                     sql(Files.readString(MIGRACIONES.resolve("022_integridad_respuestas_tokens.sql")));
                     sql("INSERT INTO esquema_migracion (nombre) VALUES ('022_integridad_respuestas_tokens.sql')");
+                    preflightRoles();
+                    sql(Files.readString(MIGRACIONES.resolve("023_roles_sin_columna_tipo.sql")));
+                    sql("INSERT INTO esquema_migracion (nombre) VALUES ('023_roles_sin_columna_tipo.sql')");
                     System.setProperty("examlen.db.url", servidor + base);
                     System.setProperty("examlen.db.user", usuarioMigracion);
                     System.setProperty("examlen.db.password", claveMigracion);
+                    System.setProperty("examlen.db.sslMode", "REQUIRED");
+                    System.setProperty("examlen.db.devMode", "true");
                     ServletContext contexto = proxy(ServletContext.class, (m, a) -> {
                         if (m.equals("getResourceAsStream")) return Files.newInputStream(Path.of("web" + a[0]));
                         return null;
                     });
                     InicializadorEsquema.inicializar(contexto);
-                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Arranque verifica 022 aplicada por DBA");
+                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Arranque verifica 022 y 023 aplicadas por DBA");
                     InicializadorEsquema.inicializar(contexto);
-                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Reinicio sin reejecutar 022");
+                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Reinicio sin reejecutar 022 ni 023");
                     MysqlDataSource fuente = new MysqlDataSource();
                     fuente.setURL(url); fuente.setUser(usuarioMigracion); fuente.setPassword(claveMigracion);
+                    pruebasRoles(fuente);
                     pruebasDatos(fuente);
                     pruebasTokens(fuente);
                     pruebasErrores(fuente);
@@ -125,6 +136,68 @@ public final class SeguridadRegression {
         comprobar(numero("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='respuesta' AND COLUMN_NAME='id_version_evaluacion'") == 0, "Preflight sin DDL persistente");
         sql("DROP TEMPORARY TABLE IF EXISTS auditoria_022_preflight");
         sql("DELETE FROM respuesta_practica");
+    }
+
+    private static void preflightRoles() throws Exception {
+        sql("INSERT INTO usuario (tipo, identificacion, nombre, correo, contrasena_hash) "
+                + "VALUES ('ADMINISTRADOR','999999','Sin rol','sinrol@test.invalid','x')");
+        rechazar(Files.readString(MIGRACIONES.resolve("023_roles_sin_columna_tipo.sql")),
+                "Preflight 023 rechaza usuario sin rol");
+        comprobar(numero("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
+                + "AND TABLE_NAME='usuario' AND COLUMN_NAME='tipo'") == 1,
+                "023 no aplico DDL persistente con datos invalidos");
+        sql("DROP TEMPORARY TABLE IF EXISTS auditoria_023_preflight");
+        sql("DELETE FROM usuario WHERE identificacion='999999'");
+    }
+
+    private static void pruebasRoles(MysqlDataSource fuente) throws Exception {
+        AdministradorDAO administradorDAO = new AdministradorDAO(fuente);
+        DocenteDAO docenteDAO = new DocenteDAO(fuente);
+        EstudianteDAO estudianteDAO = new EstudianteDAO(fuente);
+        UsuarioDAO usuarioDAO = new UsuarioDAO(fuente);
+
+        Administrador administrador = administradorDAO.crearAdministrador(
+                "900001", "Admin Nuevo", "admin.nuevo@test.invalid", "Clave123", "", null);
+        comprobar("ADMINISTRADOR".equals(usuarioDAO.rolDeUsuario(administrador.consultarIdUsuario()).orElse("")),
+                "AdministradorDAO crea el rol efectivo");
+
+        Docente docente = docenteDAO.registrarDocente(administrador, "900002", "Docente Nuevo",
+                "docente.nuevo@test.invalid", "", "Clave123");
+        comprobar("DOCENTE".equals(usuarioDAO.rolDeUsuario(docente.consultarIdUsuario()).orElse("")),
+                "DocenteDAO crea el rol efectivo");
+        comprobar(usuarioDAO.buscarPorId(docente.consultarIdUsuario()).orElseThrow() instanceof Docente,
+                "Docente mapeado como Docente");
+
+        Estudiante estudiante = estudianteDAO.crearEstudiante("900003", "Estudiante Nuevo",
+                "estudiante.nuevo@test.invalid", "B1", "", "Clave123");
+        comprobar("ESTUDIANTE".equals(usuarioDAO.rolDeUsuario(estudiante.consultarIdUsuario()).orElse("")),
+                "EstudianteDAO crea el rol efectivo");
+        comprobar(usuarioDAO.buscarPorId(estudiante.consultarIdUsuario()).orElseThrow() instanceof Estudiante,
+                "Estudiante mapeado como Estudiante");
+
+        boolean falloEstudiante = false;
+        try {
+            estudianteDAO.crearEstudiante("900004", "Nivel Invalido", "nivel.invalido@test.invalid",
+                    "ZZ", "", "Clave123");
+        } catch (RuntimeException e) {
+            falloEstudiante = true;
+        }
+        comprobar(falloEstudiante, "EstudianteDAO propaga el fallo de nivel");
+        comprobar(numero("SELECT COUNT(*) FROM usuario WHERE identificacion='900004'") == 0,
+                "Rollback de estudiante sin fila usuario");
+
+        Administrador fantasma = new Administrador();
+        fantasma.establecerIdUsuario(999999);
+        boolean falloDocente = false;
+        try {
+            docenteDAO.registrarDocente(fantasma, "900005", "Admin Inexistente",
+                    "admin.inexistente@test.invalid", "", "Clave123");
+        } catch (RuntimeException e) {
+            falloDocente = true;
+        }
+        comprobar(falloDocente, "DocenteDAO propaga el fallo de administrador");
+        comprobar(numero("SELECT COUNT(*) FROM usuario WHERE identificacion='900005'") == 0,
+                "Rollback de docente sin fila usuario");
     }
 
     private static void pruebasDatos(MysqlDataSource fuente) throws Exception {

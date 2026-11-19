@@ -31,3 +31,4 @@ with tempfile.TemporaryDirectory(prefix="examlen-seguridad-") as temporal:
         compilador = [javac, "--release", "17"]
     subprocess.run(compilador + ["-encoding", "UTF-8", "-cp", classpath, "-d", temporal] + fuentes, check=True)
     subprocess.run([java, "-cp", temporal + os.pathsep + classpath, "api.SeguridadRegression"], check=True)
+    subprocess.run([java, "-cp", temporal + os.pathsep + classpath, "api.Auditoria20261119"], check=True)

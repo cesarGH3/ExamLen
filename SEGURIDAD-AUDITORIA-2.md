@@ -1,5 +1,9 @@
 # Correcciones de la auditoría académica 2
 
+> **Documento historico.** El estado vigente, las correcciones del 19/11/2026 y las
+> operaciones pendientes estan en `AUDITORIA-2026-11-19.md` y `README-ENTREGA.md`.
+> Este informe se conserva como evidencia de la ronda anterior.
+
 Base de trabajo: `a26d093` (Evalaucion 2). Alcance: código y migraciones del repositorio. El dump `ExamLen-estructura(1).sql` citado por el auditor no fue entregado; los cambios SQL parten del esquema reconstruido con las migraciones 001–021. No se han aplicado sobre la BD real ni sobre el equipo del usuario.
 
 | Hallazgo | Cambio y evidencia |
