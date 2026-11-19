@@ -1,9 +1,0 @@
-<a class="pregunta-resumen" href="{{ctx}}/app/docente/pregunta?id={{idPregunta}}">{{texto}}</a>
-{{{copia}}}
-<form method="post" action="{{ctx}}/app/docente/evaluacion" class="form-en-linea">
-    <input type="hidden" name="_csrf" value="{{csrf}}">
-    <input type="hidden" name="id" value="{{id}}">
-    <input type="hidden" name="accion" value="quitarPregunta">
-    <input type="hidden" name="idPregunta" value="{{idPregunta}}">
-    <button type="submit" class="boton boton-contorno boton-pequeno" {{deshabilitar}}>Quitar</button>
-</form>

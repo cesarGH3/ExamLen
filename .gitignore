@@ -2,3 +2,18 @@
 docs/auditoria/respaldo-bd-*.sql
 docs/revision/backup-bd-pre-fase3.sql
 docs/revision/backup-bd-pre-fase4.sql
+
+# Artefactos de build y despliegue
+/build/
+/dist/
+*.war
+*.zip
+
+# Configuracion local y credenciales
+/nbproject/private/
+/web/WEB-INF/classes/examlen.properties
+.env
+examlen-secrets.properties
+
+# Parches descargados para revision
+ExamLen_seguridad_auditoria_2.patch

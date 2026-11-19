@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  La conexion de ExamLen se configura en WEB-INF/classes/examlen.properties,
-  que se empaqueta dentro del WAR. Este descriptor solo mantiene la politica
-  de cookies del contexto.
--->
-<Context path="/ExamLen">
-  <CookieProcessor className="org.apache.tomcat.util.http.Rfc6265CookieProcessor" sameSiteCookies="strict"/>
-</Context>
