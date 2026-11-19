@@ -33,6 +33,44 @@ public class VersionPreguntaDAO extends DaoBase {
         return false;
     }
 
+    /**
+     * Intercambia la posicion de dos preguntas de la misma version en una transaccion. Con
+     * uk_version_pregunta_orden (migracion 026) dos UPDATE directos chocarian; por eso la primera
+     * pasa por una posicion libre (MAX + 1) con ambas filas bloqueadas.
+     */
+    public void intercambiarOrden(VersionPregunta a, VersionPregunta b) {
+        int[] ordenes = enTransaccion(c -> {
+            List<int[]> filas = consultarListaCon(c, "SELECT id_version_pregunta, id_version_evaluacion, orden "
+                    + "FROM version_pregunta WHERE id_version_pregunta IN (?, ?) FOR UPDATE", ps -> {
+                        ps.setInt(1, a.consultarIdVersionPregunta());
+                        ps.setInt(2, b.consultarIdVersionPregunta());
+                    }, rs -> new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
+            if (filas.size() != 2 || filas.get(0)[1] != filas.get(1)[1]) {
+                throw new SQLException("Las preguntas no pertenecen a la misma version.");
+            }
+            int ordenA = filas.get(0)[0] == a.consultarIdVersionPregunta() ? filas.get(0)[2] : filas.get(1)[2];
+            int ordenB = filas.get(0)[0] == a.consultarIdVersionPregunta() ? filas.get(1)[2] : filas.get(0)[2];
+            int libre = consultarUnoCon(c, "SELECT COALESCE(MAX(orden), 0) + 1 FROM version_pregunta "
+                    + "WHERE id_version_evaluacion = ? FOR UPDATE", ps -> ps.setInt(1, filas.get(0)[1]),
+                    rs -> rs.getInt(1)).orElse(1);
+            actualizarCon(c, "UPDATE version_pregunta SET orden = ? WHERE id_version_pregunta = ?", ps -> {
+                ps.setInt(1, libre);
+                ps.setInt(2, a.consultarIdVersionPregunta());
+            });
+            actualizarCon(c, "UPDATE version_pregunta SET orden = ? WHERE id_version_pregunta = ?", ps -> {
+                ps.setInt(1, ordenA);
+                ps.setInt(2, b.consultarIdVersionPregunta());
+            });
+            actualizarCon(c, "UPDATE version_pregunta SET orden = ? WHERE id_version_pregunta = ?", ps -> {
+                ps.setInt(1, ordenB);
+                ps.setInt(2, a.consultarIdVersionPregunta());
+            });
+            return new int[]{ordenB, ordenA};
+        });
+        a.ordenVersionPregunta = ordenes[0];
+        b.ordenVersionPregunta = ordenes[1];
+    }
+
     /** Cambia el orden de impresión de una pregunta dentro de su versión. */
     public void actualizarOrden(VersionPregunta versionPregunta, int orden) {
         actualizar("UPDATE version_pregunta SET orden = ? WHERE id_version_pregunta = ?", ps -> {

@@ -18,15 +18,26 @@ public class VersionOpcionDAO extends DaoBase {
         VersionOpcion opcion = new VersionOpcion();
         opcion.textoVersionOpcion = texto;
         opcion.esCorrectaVersionOpcion = esCorrecta;
-        opcion.ordenVersionOpcion = orden;
-        int id = insertar("INSERT INTO version_opcion (id_version_pregunta, texto, "
-                + "es_correcta, orden) VALUES (?, ?, ?, ?)", ps -> {
-            ps.setInt(1, versionPregunta.consultarIdVersionPregunta());
-            ps.setString(2, texto);
-            ps.setBoolean(3, esCorrecta);
-            ps.setInt(4, orden);
+        // La posicion se calcula en la base (MAX + 1, con la pregunta bloqueada): el valor pedido
+        // puede chocar con uk_version_opcion_orden si antes se elimino una opcion intermedia.
+        int[] creada = enTransaccion(c -> {
+            consultarListaCon(c, "SELECT id_version_pregunta FROM version_pregunta WHERE id_version_pregunta = ? FOR UPDATE",
+                    ps -> ps.setInt(1, versionPregunta.consultarIdVersionPregunta()), rs -> rs.getInt(1));
+            int siguiente = consultarUnoCon(c, "SELECT COALESCE(MAX(orden), 0) + 1 FROM version_opcion "
+                    + "WHERE id_version_pregunta = ?", ps -> ps.setInt(1, versionPregunta.consultarIdVersionPregunta()),
+                    rs -> rs.getInt(1)).orElse(1);
+            int posicion = Math.max(orden, siguiente);
+            int id = insertarCon(c, "INSERT INTO version_opcion (id_version_pregunta, texto, "
+                    + "es_correcta, orden) VALUES (?, ?, ?, ?)", ps -> {
+                ps.setInt(1, versionPregunta.consultarIdVersionPregunta());
+                ps.setString(2, texto);
+                ps.setBoolean(3, esCorrecta);
+                ps.setInt(4, posicion);
+            });
+            return new int[]{id, posicion};
         });
-        opcion.establecerIdVersionOpcion(id);
+        opcion.ordenVersionOpcion = creada[1];
+        opcion.establecerIdVersionOpcion(creada[0]);
         versionPregunta.versionOpcionesVersionPregunta.add(opcion);
         return opcion;
     }

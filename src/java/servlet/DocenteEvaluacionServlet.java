@@ -358,9 +358,7 @@ public class DocenteEvaluacionServlet extends ServletBase {
         }
         VersionPregunta actual = preguntas.get(indice);
         VersionPregunta vecina = preguntas.get(destinoIndice);
-        int ordenActual = actual.ordenVersionPregunta;
-        versionPreguntaDAO.actualizarOrden(actual, vecina.ordenVersionPregunta);
-        versionPreguntaDAO.actualizarOrden(vecina, ordenActual);
+        versionPreguntaDAO.intercambiarOrden(actual, vecina);
     }
 
     /** Cursos del docente para elegir el contexto de impresión del PDF (RF-39). */

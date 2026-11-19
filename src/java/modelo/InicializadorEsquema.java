@@ -47,8 +47,9 @@ public final class InicializadorEsquema {
     private static volatile boolean esquemaDisponible;
 
     private static final String MIGRACION_DOMINIOS = "025_historial_roles_dominios.sql";
-    /** Disparadores tras aplicar 001-025; protege contra un WAR con scripts truncados. */
-    private static final int DISPARADORES_ESPERADOS = 23;
+    private static final String MIGRACION_REFERENCIAS = "026_referencias_orden_alta_usuarios.sql";
+    /** Disparadores tras aplicar 001-026; protege contra un WAR con scripts truncados. */
+    private static final int DISPARADORES_ESPERADOS = 27;
 
     /** Restricciones de 024: {nombre, tabla, tipo, columnas en orden}. */
     private static final List<String[]> RESTRICCIONES_INTEGRIDAD = List.of(
@@ -59,17 +60,22 @@ public final class InicializadorEsquema {
             new String[]{"ck_evaluacion_virtual_fechas", "evaluacion_virtual", "CHECK", null},
             new String[]{"ck_evaluacion_pregunta_puntaje", "evaluacion_pregunta", "CHECK", null});
 
-    /** Restricciones de dominio de 025. */
+    /** Restricciones de dominio de 025 (ck_solicitud_evaluacion_referencia la sustituye la FK de 026). */
     private static final List<String[]> RESTRICCIONES_DOMINIO = List.of(
             new String[]{"ck_evaluacion_numero_preguntas", "evaluacion", "CHECK", null},
             new String[]{"ck_evaluacion_numero_versiones", "evaluacion", "CHECK", null},
             new String[]{"ck_evaluacion_duracion", "evaluacion", "CHECK", null},
             new String[]{"ck_solicitud_cantidad", "solicitud_generacion", "CHECK", null},
             new String[]{"ck_solicitud_cantidades_resultado", "solicitud_generacion", "CHECK", null},
-            new String[]{"ck_solicitud_evaluacion_referencia", "solicitud_generacion", "CHECK", null},
             new String[]{"ck_evaluacion_pregunta_orden", "evaluacion_pregunta", "CHECK", null},
             new String[]{"ck_version_pregunta_orden", "version_pregunta", "CHECK", null},
             new String[]{"ck_version_opcion_orden", "version_opcion", "CHECK", null});
+
+    /** Restricciones de 026: referencia real a evaluacion y posiciones unicas. */
+    private static final List<String[]> RESTRICCIONES_REFERENCIAS = List.of(
+            new String[]{"fk_solicitud_evaluacion_referencia", "solicitud_generacion", "FOREIGN KEY", "id_evaluacion_referencia"},
+            new String[]{"uk_version_pregunta_orden", "version_pregunta", "UNIQUE", "id_version_evaluacion,orden"},
+            new String[]{"uk_version_opcion_orden", "version_opcion", "UNIQUE", "id_version_pregunta,orden"});
 
     public static boolean consultarDisponibilidadEsquema() {
         return esquemaDisponible;
@@ -152,7 +158,8 @@ public final class InicializadorEsquema {
                     || !indice.contains(MIGRACION_SEGURIDAD)
                     || !indice.contains(MIGRACION_ROLES)
                     || !indice.contains(MIGRACION_INTEGRIDAD)
-                    || !indice.contains(MIGRACION_DOMINIOS)) {
+                    || !indice.contains(MIGRACION_DOMINIOS)
+                    || !indice.contains(MIGRACION_REFERENCIAS)) {
                 throw new SQLException("Índice de migraciones inválido.");
             }
             for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
@@ -489,6 +496,7 @@ public final class InicializadorEsquema {
         verificarDisparadores(conexion, EjecutorMigraciones.disparadoresEsperados(scripts));
         verificarRestricciones(conexion, RESTRICCIONES_INTEGRIDAD);
         verificarRestricciones(conexion, RESTRICCIONES_DOMINIO);
+        verificarRestricciones(conexion, RESTRICCIONES_REFERENCIAS);
     }
 
     private static void verificarDisparadores(Connection conexion, Map<String, EjecutorMigraciones.Disparador> esperados)
@@ -691,6 +699,7 @@ public final class InicializadorEsquema {
             if (MIGRACION_ROLES.equals(nombre)) verificarEsquemaRoles(c);
             if (MIGRACION_INTEGRIDAD.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_INTEGRIDAD);
             if (MIGRACION_DOMINIOS.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_DOMINIO);
+            if (MIGRACION_REFERENCIAS.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_REFERENCIAS);
             if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
             if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
             if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);

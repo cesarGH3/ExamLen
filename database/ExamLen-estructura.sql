@@ -1,6 +1,6 @@
 -- =====================================================================
 -- ExamLen - Estructura de la base de datos (solo esquema, sin datos)
--- Generado desde una BD de pruebas con las migraciones 001 a 025.
+-- Generado desde una BD de pruebas con las migraciones 001 a 026.
 --
 -- Importacion segura:
 --   * No contiene sentencias destructivas de tablas, bases ni registros.
@@ -229,19 +229,20 @@ CREATE TABLE `solicitud_generacion` (
   `proveedor` varchar(30) DEFAULT NULL,
   `tema` varchar(120) DEFAULT NULL,
   `competencia` varchar(40) DEFAULT NULL,
-  `id_evaluacion_referencia` int DEFAULT NULL,
+  `id_evaluacion_referencia` int unsigned DEFAULT NULL,
   `id_preguntas_base` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id_solicitud_generacion`),
   KEY `idx_solicitud_docente` (`id_docente`),
   KEY `idx_solicitud_documento` (`id_documento_fuente`),
   KEY `idx_solicitud_banco` (`id_banco_destino`),
+  KEY `idx_solicitud_evaluacion_referencia` (`id_evaluacion_referencia`),
   CONSTRAINT `fk_solicitud_banco` FOREIGN KEY (`id_banco_destino`) REFERENCES `banco_preguntas` (`id_banco_preguntas`),
   CONSTRAINT `fk_solicitud_docente` FOREIGN KEY (`id_docente`) REFERENCES `usuario` (`id_usuario`),
   CONSTRAINT `fk_solicitud_documento` FOREIGN KEY (`id_documento_fuente`) REFERENCES `documento_fuente` (`id_documento_fuente`),
+  CONSTRAINT `fk_solicitud_evaluacion_referencia` FOREIGN KEY (`id_evaluacion_referencia`) REFERENCES `evaluacion` (`id_evaluacion`) ON DELETE SET NULL ON UPDATE RESTRICT,
   CONSTRAINT `fk_solicitud_rol_docente` FOREIGN KEY (`id_docente`) REFERENCES `docente` (`id_usuario`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `ck_solicitud_cantidad` CHECK ((`cantidad` >= 0)),
-  CONSTRAINT `ck_solicitud_cantidades_resultado` CHECK ((((`cantidad_recibida` is null) or (`cantidad_recibida` >= 0)) and ((`cantidad_valida` is null) or (`cantidad_valida` >= 0)) and ((`cantidad_invalida` is null) or (`cantidad_invalida` >= 0)) and ((`cantidad_no_devuelta` is null) or (`cantidad_no_devuelta` >= 0)))),
-  CONSTRAINT `ck_solicitud_evaluacion_referencia` CHECK (((`id_evaluacion_referencia` is null) or (`id_evaluacion_referencia` > 0)))
+  CONSTRAINT `ck_solicitud_cantidades_resultado` CHECK ((((`cantidad_recibida` is null) or (`cantidad_recibida` >= 0)) and ((`cantidad_valida` is null) or (`cantidad_valida` >= 0)) and ((`cantidad_invalida` is null) or (`cantidad_invalida` >= 0)) and ((`cantidad_no_devuelta` is null) or (`cantidad_no_devuelta` >= 0))))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla version_evaluacion
@@ -429,6 +430,7 @@ CREATE TABLE `version_pregunta` (
   `puntaje` double NOT NULL DEFAULT '0',
   PRIMARY KEY (`id_version_pregunta`),
   UNIQUE KEY `uk_vp_id_version` (`id_version_pregunta`,`id_version_evaluacion`),
+  UNIQUE KEY `uk_version_pregunta_orden` (`id_version_evaluacion`,`orden`),
   KEY `idx_version_pregunta_version` (`id_version_evaluacion`),
   KEY `idx_version_pregunta_origen` (`id_pregunta`),
   CONSTRAINT `fk_version_pregunta_origen` FOREIGN KEY (`id_pregunta`) REFERENCES `pregunta` (`id_pregunta`),
@@ -500,6 +502,7 @@ CREATE TABLE `version_opcion` (
   `orden` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`id_version_opcion`),
   UNIQUE KEY `uk_vo_id_pregunta` (`id_version_opcion`,`id_version_pregunta`),
+  UNIQUE KEY `uk_version_opcion_orden` (`id_version_pregunta`,`orden`),
   KEY `idx_version_opcion_pregunta` (`id_version_pregunta`),
   CONSTRAINT `fk_version_opcion_pregunta` FOREIGN KEY (`id_version_pregunta`) REFERENCES `version_pregunta` (`id_version_pregunta`) ON DELETE RESTRICT,
   CONSTRAINT `ck_version_opcion_orden` CHECK ((`orden` >= 0))
@@ -547,6 +550,8 @@ CREATE TABLE `respuesta` (
 
 -- Triggers (sin DEFINER para importacion reproducible)
 DELIMITER $$
+CREATE TRIGGER `trg_administrador_rol_ai` AFTER INSERT ON `administrador` FOR EACH ROW
+UPDATE usuario SET activo = TRUE WHERE id_usuario = NEW.id_usuario$$
 CREATE TRIGGER `trg_administrador_rol_bd` BEFORE DELETE ON `administrador` FOR EACH ROW
 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol no se borra por separado: elimine el usuario.'$$
 CREATE TRIGGER `trg_administrador_rol_bi` BEFORE INSERT ON `administrador` FOR EACH ROW
@@ -556,6 +561,8 @@ SET NEW.id_usuario = IF(
   NULL, NEW.id_usuario)$$
 CREATE TRIGGER `trg_administrador_rol_bu` BEFORE UPDATE ON `administrador` FOR EACH ROW
 SET NEW.id_usuario = IF(NEW.id_usuario = OLD.id_usuario, NEW.id_usuario, NULL)$$
+CREATE TRIGGER `trg_docente_rol_ai` AFTER INSERT ON `docente` FOR EACH ROW
+UPDATE usuario SET activo = TRUE WHERE id_usuario = NEW.id_usuario$$
 CREATE TRIGGER `trg_docente_rol_bd` BEFORE DELETE ON `docente` FOR EACH ROW
 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol no se borra por separado: elimine el usuario.'$$
 CREATE TRIGGER `trg_docente_rol_bi` BEFORE INSERT ON `docente` FOR EACH ROW
@@ -565,6 +572,8 @@ SET NEW.id_usuario = IF(
   NULL, NEW.id_usuario)$$
 CREATE TRIGGER `trg_docente_rol_bu` BEFORE UPDATE ON `docente` FOR EACH ROW
 SET NEW.id_usuario = IF(NEW.id_usuario = OLD.id_usuario, NEW.id_usuario, NULL)$$
+CREATE TRIGGER `trg_estudiante_rol_ai` AFTER INSERT ON `estudiante` FOR EACH ROW
+UPDATE usuario SET activo = TRUE WHERE id_usuario = NEW.id_usuario$$
 CREATE TRIGGER `trg_estudiante_rol_bd` BEFORE DELETE ON `estudiante` FOR EACH ROW
 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol no se borra por separado: elimine el usuario.'$$
 CREATE TRIGGER `trg_estudiante_rol_bi` BEFORE INSERT ON `estudiante` FOR EACH ROW
@@ -648,6 +657,8 @@ CREATE TRIGGER `trg_rp_contexto_bi` BEFORE INSERT ON `respuesta_practica` FOR EA
 SET NEW.id_material_practica = (SELECT id_material_practica FROM intento_practica WHERE id_intento_practica = NEW.id_intento_practica FOR SHARE)$$
 CREATE TRIGGER `trg_rp_contexto_bu` BEFORE UPDATE ON `respuesta_practica` FOR EACH ROW
 SET NEW.id_material_practica = (SELECT id_material_practica FROM intento_practica WHERE id_intento_practica = NEW.id_intento_practica FOR SHARE)$$
+CREATE TRIGGER `trg_usuario_alta_bi` BEFORE INSERT ON `usuario` FOR EACH ROW
+SET NEW.activo = FALSE$$
 CREATE TRIGGER `trg_usuario_rol_bu` BEFORE UPDATE ON `usuario` FOR EACH ROW
 SET NEW.id_usuario = IF(
   EXISTS (SELECT id_usuario FROM administrador WHERE id_usuario = OLD.id_usuario)
@@ -693,4 +704,5 @@ INSERT INTO `esquema_migracion` (nombre) VALUES ('022_integridad_respuestas_toke
 INSERT INTO `esquema_migracion` (nombre) VALUES ('023_roles_sin_columna_tipo.sql');
 INSERT INTO `esquema_migracion` (nombre) VALUES ('024_restricciones_integridad.sql');
 INSERT INTO `esquema_migracion` (nombre) VALUES ('025_historial_roles_dominios.sql');
+INSERT INTO `esquema_migracion` (nombre) VALUES ('026_referencias_orden_alta_usuarios.sql');
 

@@ -77,6 +77,14 @@ public class InscripcionDAO extends DaoBase {
     /** Elimina la inscripción. Si ya tiene historial, la base de datos lo impide (RegistroEnUsoException). */
     public void eliminarInscripcion(Inscripcion inscripcion) throws ValidacionException {
         cambiarEnGrupoAbierto(inscripcion, null, "DELETE FROM inscripcion WHERE id_inscripcion = ?");
+        // Mantiene coherentes los objetos ya cargados que se reutilicen tras la eliminacion.
+        int id = inscripcion.consultarIdInscripcion();
+        if (inscripcion.grupoInscripcion != null) {
+            inscripcion.grupoInscripcion.inscripcionesGrupo.removeIf(i -> i.consultarIdInscripcion() == id);
+        }
+        if (inscripcion.estudianteInscripcion != null) {
+            inscripcion.estudianteInscripcion.inscripcionesEstudiante.removeIf(i -> i.consultarIdInscripcion() == id);
+        }
     }
 
     public void retirarInscripcion(Inscripcion inscripcion) throws ValidacionException {

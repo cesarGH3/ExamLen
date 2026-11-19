@@ -25,7 +25,9 @@ import java.util.regex.Pattern;
  * <p>MySQL 8 hace atomica cada sentencia DDL, pero no una migracion completa (cada DDL hace
  * commit implicito). Por eso cada script se ejecuta sentencia a sentencia y, tras cada paso
  * persistente, se anota el avance en {@code esquema_migracion_paso} junto con la huella SHA-256
- * del script. Si el proceso se interrumpe, el siguiente arranque continua en el paso siguiente
+ * del script; ademas, justo antes de cada paso persistente se anota que ese paso esta en curso,
+ * de modo que nunca hay un cambio aplicado sin registro. Si el proceso se interrumpe, el
+ * siguiente arranque continua en el paso pendiente
  * en lugar de dejar el esquema a medias o reejecutar DDL ya aplicado. Una huella distinta
  * (script cambiado tras una ejecucion parcial) detiene la migracion.
  */
@@ -35,7 +37,7 @@ final class EjecutorMigraciones {
     static final String TABLA_BITACORA = "esquema_migracion_paso";
 
     /** Errores "ya existe / ya no existe": solo se toleran en el primer paso reanudado. */
-    private static final Set<Integer> YA_APLICADO = Set.of(1050, 1060, 1061, 1091, 1359, 1360, 1826, 3822);
+    private static final Set<Integer> YA_APLICADO = Set.of(1050, 1060, 1061, 1091, 1359, 1360, 1826, 3821, 3822);
 
     private static final Pattern TEMPORAL_CREAR =
             Pattern.compile("(?is)^\\s*(?:CREATE|DROP)\\s+TEMPORARY\\s+TABLE\\s+(?:IF\\s+(?:NOT\\s+)?EXISTS\\s+)?`?(\\w+)`?");
@@ -107,6 +109,7 @@ final class EjecutorMigraciones {
         List<String> pasos = dividir(sql);
         String huella = huella(sql);
         int hechos = 0;
+        boolean iniciada = false;
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT huella, pasos_completados FROM " + TABLA_BITACORA + " WHERE nombre = ?")) {
             ps.setString(1, nombre);
@@ -117,13 +120,14 @@ final class EjecutorMigraciones {
                                 + "script. Restaurar el respaldo o reparar manualmente antes de continuar.");
                     }
                     hechos = rs.getInt(2);
+                    iniciada = true;
                 }
             }
         }
         if (hechos > pasos.size()) {
             throw new SQLException("Bitacora de " + nombre + " incoherente con el script.");
         }
-        if (hechos == 0) {
+        if (!iniciada) {
             precondicion.comprobar();
         } else {
             LOG.warning("Reanudando la migracion " + nombre + " en el paso " + (hechos + 1) + " de " + pasos.size()
@@ -132,10 +136,18 @@ final class EjecutorMigraciones {
         Set<String> temporales = tablasTemporales(pasos);
         for (int i = hechos; i < pasos.size(); i++) {
             String paso = pasos.get(i);
+            boolean persistente = !esTemporal(paso, temporales);
+            if (persistente) {
+                // Se anota ANTES de ejecutar: "paso i en curso". Asi no existe ventana en la que un
+                // cambio persistente quede sin rastro en la bitacora. Si el proceso cae entre esta
+                // anotacion y la siguiente, el reinicio retoma en el paso i y, si ya se habia
+                // aplicado, reconoce el error "ya existe / ya no existe" (DDL atomico en MySQL 8).
+                anotar(c, nombre, huella, i);
+            }
             try {
                 ejecutar(c, paso);
             } catch (SQLException e) {
-                if (i == hechos && hechos > 0 && YA_APLICADO.contains(e.getErrorCode())) {
+                if (i == hechos && iniciada && YA_APLICADO.contains(e.getErrorCode())) {
                     LOG.warning("Paso " + (i + 1) + " de " + nombre + " ya estaba aplicado antes de la interrupcion: "
                             + e.getMessage());
                 } else {
@@ -143,7 +155,7 @@ final class EjecutorMigraciones {
                             + ": " + e.getMessage(), e.getSQLState(), e.getErrorCode(), e);
                 }
             }
-            if (!esTemporal(paso, temporales)) {
+            if (persistente) {
                 anotar(c, nombre, huella, i + 1);
             }
         }
