@@ -41,7 +41,38 @@ public final class InicializadorEsquema {
     private static final String MIGRACION_CLAVES_IA = "021_clave_ia_docente.sql";
     private static final String MIGRACION_SEGURIDAD = "022_integridad_respuestas_tokens.sql";
     private static final String MIGRACION_ROLES = "023_roles_sin_columna_tipo.sql";
+    private static final String MIGRACION_INTEGRIDAD = "024_restricciones_integridad.sql";
     private static volatile boolean esquemaDisponible;
+
+    /** Disparadores esperados: {nombre, tabla, momento, evento}. 022 (5) + 024 (13). */
+    private static final List<String[]> TRIGGERS_ESPERADOS = List.of(
+            new String[]{"trg_respuesta_contexto_bi", "respuesta", "BEFORE", "INSERT"},
+            new String[]{"trg_respuesta_contexto_bu", "respuesta", "BEFORE", "UPDATE"},
+            new String[]{"trg_rp_contexto_bi", "respuesta_practica", "BEFORE", "INSERT"},
+            new String[]{"trg_rp_contexto_bu", "respuesta_practica", "BEFORE", "UPDATE"},
+            new String[]{"trg_vp_puntaje_bu", "version_pregunta", "BEFORE", "UPDATE"},
+            new String[]{"trg_intento_bi", "intento", "BEFORE", "INSERT"},
+            new String[]{"trg_intento_bu", "intento", "BEFORE", "UPDATE"},
+            new String[]{"trg_inscripcion_bu", "inscripcion", "BEFORE", "UPDATE"},
+            new String[]{"trg_evaluacion_virtual_bu", "evaluacion_virtual", "BEFORE", "UPDATE"},
+            new String[]{"trg_version_evaluacion_bu", "version_evaluacion", "BEFORE", "UPDATE"},
+            new String[]{"trg_evaluacion_virtual_version_bi", "evaluacion_virtual_version", "BEFORE", "INSERT"},
+            new String[]{"trg_evaluacion_virtual_version_bu", "evaluacion_virtual_version", "BEFORE", "UPDATE"},
+            new String[]{"trg_administrador_rol_bi", "administrador", "BEFORE", "INSERT"},
+            new String[]{"trg_administrador_rol_bu", "administrador", "BEFORE", "UPDATE"},
+            new String[]{"trg_docente_rol_bi", "docente", "BEFORE", "INSERT"},
+            new String[]{"trg_docente_rol_bu", "docente", "BEFORE", "UPDATE"},
+            new String[]{"trg_estudiante_rol_bi", "estudiante", "BEFORE", "INSERT"},
+            new String[]{"trg_estudiante_rol_bu", "estudiante", "BEFORE", "UPDATE"});
+
+    /** Restricciones de 024: {nombre, tabla, tipo, columnas en orden}. */
+    private static final List<String[]> RESTRICCIONES_INTEGRIDAD = List.of(
+            new String[]{"fk_intento_virtual_version", "intento", "FOREIGN KEY", "id_evaluacion_virtual,id_version_evaluacion"},
+            new String[]{"uk_respuesta_intento_pregunta", "respuesta", "UNIQUE", "id_intento,id_version_pregunta"},
+            new String[]{"fk_clave_ia_docente", "clave_ia_docente", "FOREIGN KEY", "id_docente"},
+            new String[]{"ck_respuesta_puntaje", "respuesta", "CHECK", null},
+            new String[]{"ck_evaluacion_virtual_fechas", "evaluacion_virtual", "CHECK", null},
+            new String[]{"ck_evaluacion_pregunta_puntaje", "evaluacion_pregunta", "CHECK", null});
 
     public static boolean consultarDisponibilidadEsquema() {
         return esquemaDisponible;
@@ -93,7 +124,7 @@ public final class InicializadorEsquema {
         if (!config.hayCredenciales()) {
             LOG.warning("Inicializacion de esquema omitida: configura examlen.db.user y examlen.db.password en "
                     + "{catalina.base}/conf/catalina.properties (ver config/catalina.properties.ejemplo) "
-                    + "o las variables DB_USER / DB_PASSWORD. Detalle en README-ENTREGA.md.");
+                    + "o las variables DB_USER / DB_PASSWORD (README-ENTREGA.md en la raiz del proyecto, seccion \"Base de datos\").");
             return;
         }
 
@@ -122,8 +153,9 @@ public final class InicializadorEsquema {
                     || !indice.contains(MIGRACION_RESPUESTAS)
                     || !indice.contains(MIGRACION_CLAVES_IA)
                     || !indice.contains(MIGRACION_SEGURIDAD)
-                    || !indice.contains(MIGRACION_ROLES)) {
-                throw new SQLException("A?ndice de migraciones invA?lido.");
+                    || !indice.contains(MIGRACION_ROLES)
+                    || !indice.contains(MIGRACION_INTEGRIDAD)) {
+                throw new SQLException("Índice de migraciones inválido.");
             }
             for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
             asegurarTablaControl(c);
@@ -172,6 +204,10 @@ public final class InicializadorEsquema {
             if (listarAplicadas(c).contains(MIGRACION_ROLES)) {
                 verificarEsquemaRoles(c);
             }
+            if (!listarAplicadas(c).equals(indice)) {
+                throw new SQLException("Quedaron migraciones sin aplicar; el esquema no se marca disponible.");
+            }
+            verificarEsquemaIntegridad(c);
             esquemaDisponible = true;
             LOG.info("Esquema verificado y disponible.");
         }
@@ -372,6 +408,107 @@ public final class InicializadorEsquema {
         }
     }
 
+    /**
+     * Datos previos a 024: misma comprobacion que el preflight SQL, con un mensaje por causa
+     * para que el administrador sepa que reparar. No corrige ni borra.
+     */
+    private static void verificarDatosIntegridad(Connection conexion) throws SQLException {
+        exigirSinFilas(conexion, "SELECT i.id_intento FROM intento i "
+                + "JOIN inscripcion n ON n.id_inscripcion = i.id_inscripcion "
+                + "JOIN evaluacion_virtual ev ON ev.id_evaluacion_virtual = i.id_evaluacion_virtual "
+                + "JOIN version_evaluacion v ON v.id_version_evaluacion = i.id_version_evaluacion "
+                + "LEFT JOIN evaluacion_virtual_version evv ON evv.id_evaluacion_virtual = i.id_evaluacion_virtual "
+                + "AND evv.id_version_evaluacion = i.id_version_evaluacion "
+                + "WHERE n.id_grupo <> ev.id_grupo OR v.id_evaluacion <> ev.id_evaluacion "
+                + "OR evv.id_evaluacion_virtual IS NULL LIMIT 1",
+                "Hay intentos incoherentes con su inscripcion, grupo o version. No se aplica 024.");
+        exigirSinFilas(conexion, "SELECT evv.id_evaluacion_virtual FROM evaluacion_virtual_version evv "
+                + "JOIN evaluacion_virtual ev ON ev.id_evaluacion_virtual = evv.id_evaluacion_virtual "
+                + "JOIN version_evaluacion v ON v.id_version_evaluacion = evv.id_version_evaluacion "
+                + "WHERE v.id_evaluacion <> ev.id_evaluacion LIMIT 1",
+                "Hay versiones asociadas a una evaluacion virtual de otra evaluacion. No se aplica 024.");
+        exigirSinFilas(conexion, "SELECT id_intento FROM respuesta GROUP BY id_intento, id_version_pregunta "
+                + "HAVING COUNT(*) > 1 LIMIT 1",
+                "Hay respuestas duplicadas para el mismo intento y pregunta. No se aplica 024.");
+        exigirSinFilas(conexion, "SELECT id_evaluacion_virtual FROM evaluacion_virtual "
+                + "WHERE fecha_fin <= fecha_inicio LIMIT 1",
+                "Hay evaluaciones virtuales con fecha de fin no posterior al inicio. No se aplica 024.");
+        exigirSinFilas(conexion, "SELECT id_evaluacion FROM evaluacion_pregunta "
+                + "WHERE puntaje_evaluacion_pregunta < 0 UNION ALL "
+                + "SELECT id_respuesta FROM respuesta WHERE puntaje < 0 LIMIT 1",
+                "Hay puntajes negativos en evaluacion_pregunta o respuesta. No se aplica 024.");
+        exigirSinFilas(conexion, "SELECT k.id_docente FROM clave_ia_docente k "
+                + "LEFT JOIN docente d ON d.id_usuario = k.id_docente WHERE d.id_usuario IS NULL LIMIT 1",
+                "Hay claves de IA sin docente. No se aplica 024.");
+        exigirSinFilas(conexion, "SELECT u.id_usuario FROM usuario u "
+                + "LEFT JOIN administrador a ON a.id_usuario = u.id_usuario "
+                + "LEFT JOIN docente d ON d.id_usuario = u.id_usuario "
+                + "LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario "
+                + "WHERE (a.id_usuario IS NOT NULL) + (d.id_usuario IS NOT NULL) "
+                + "+ (e.id_usuario IS NOT NULL) > 1 LIMIT 1",
+                "Hay usuarios con mas de un rol. No se aplica 024.");
+    }
+
+    /**
+     * Verificacion final completa: todos los disparadores de 022 y 024 (nombre, tabla, momento y
+     * evento) y las restricciones de 024 (tipo, tabla, columnas, CHECK aplicado). El esquema no se
+     * marca disponible si falta cualquiera, aunque el historial diga que la migracion se aplico.
+     */
+    private static void verificarEsquemaIntegridad(Connection conexion) throws SQLException {
+        // information_schema.TRIGGERS solo muestra disparadores a cuentas con privilegio TRIGGER.
+        // Sin el, no se puede demostrar que existen: se exige en lugar de suponerlos presentes.
+        if (contarFilas(conexion, "SELECT COUNT(*) FROM information_schema.TRIGGERS "
+                + "WHERE TRIGGER_SCHEMA = DATABASE()") == 0) {
+            throw new SQLException("No se ven disparadores en la base: faltan o la cuenta carece del privilegio "
+                    + "TRIGGER necesario para verificarlos. Concede TRIGGER sobre la base y reinicia.");
+        }
+        try (PreparedStatement sentencia = conexion.prepareStatement(
+                "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() "
+                + "AND TRIGGER_NAME = ? AND EVENT_OBJECT_TABLE = ? AND ACTION_TIMING = ? "
+                + "AND EVENT_MANIPULATION = ?")) {
+            for (String[] trigger : TRIGGERS_ESPERADOS) {
+                for (int i = 0; i < trigger.length; i++) sentencia.setString(i + 1, trigger[i]);
+                try (ResultSet resultado = sentencia.executeQuery()) {
+                    if (!resultado.next() || resultado.getInt(1) != 1) {
+                        throw new SQLException("Falta o no coincide el disparador " + trigger[0] + ".");
+                    }
+                }
+            }
+        }
+        for (String[] restriccion : RESTRICCIONES_INTEGRIDAD) {
+            String nombre = restriccion[0];
+            String tabla = restriccion[1];
+            String tipo = restriccion[2];
+            String sql = "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS "
+                    + "WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? "
+                    + "AND CONSTRAINT_TYPE = ?" + ("CHECK".equals(tipo) ? " AND ENFORCED = 'YES'" : "");
+            try (PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+                sentencia.setString(1, tabla);
+                sentencia.setString(2, nombre);
+                sentencia.setString(3, tipo);
+                try (ResultSet resultado = sentencia.executeQuery()) {
+                    if (!resultado.next() || resultado.getInt(1) != 1) {
+                        throw new SQLException("Falta la restriccion " + nombre + " en " + tabla + ".");
+                    }
+                }
+            }
+            if (restriccion[3] != null) {
+                try (PreparedStatement sentencia = conexion.prepareStatement(
+                        "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) "
+                        + "FROM information_schema.KEY_COLUMN_USAGE WHERE CONSTRAINT_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?")) {
+                    sentencia.setString(1, tabla);
+                    sentencia.setString(2, nombre);
+                    try (ResultSet resultado = sentencia.executeQuery()) {
+                        if (!resultado.next() || !restriccion[3].equals(resultado.getString(1))) {
+                            throw new SQLException("La restriccion " + nombre + " no cubre las columnas esperadas.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static boolean columnaTipo(Connection conexion, String tabla, String columna,
                                        String tipo, String permiteNulo) throws SQLException {
         try (PreparedStatement sentencia = conexion.prepareStatement(
@@ -481,6 +618,9 @@ public final class InicializadorEsquema {
             if (MIGRACION_ROLES.equals(nombre)) {
                 verificarDatosRoles(c);
             }
+            if (MIGRACION_INTEGRIDAD.equals(nombre)) {
+                verificarDatosIntegridad(c);
+            }
             String sql = leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
             sql = USE_HARDCODEADO.matcher(sql).replaceAll("");
             sql = CREAR_BASE_HARDCODEADA.matcher(sql).replaceAll("");
@@ -499,6 +639,7 @@ public final class InicializadorEsquema {
             }
             if (MIGRACION_SEGURIDAD.equals(nombre)) verificarEsquemaSeguridad(c);
             if (MIGRACION_ROLES.equals(nombre)) verificarEsquemaRoles(c);
+            if (MIGRACION_INTEGRIDAD.equals(nombre)) verificarEsquemaIntegridad(c);
             if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
             if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
             if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);
@@ -614,7 +755,7 @@ public final class InicializadorEsquema {
         return "(" + e.getErrorCode() + ") El usuario MySQL '" + config.usuario()
                 + "' no tiene permisos para crear o migrar la base '" + config.base()
                 + "'. Ejecuta UNA VEZ como administrador de MySQL un grant equivalente a: "
-                + "GRANT CREATE, ALTER, INDEX, REFERENCES, SELECT, INSERT, UPDATE, DELETE ON `" + config.base()
+                + "GRANT CREATE, ALTER, INDEX, REFERENCES, TRIGGER, SELECT, INSERT, UPDATE, DELETE ON `" + config.base()
                 + "`.* TO '" + config.usuario() + "'@'localhost'; (ajusta el host del usuario). "
                 + "La aplicacion continuara en modo 503.";
     }

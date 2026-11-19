@@ -16,7 +16,13 @@ La compilación se hizo desde cero con JDK 17; no se reutilizaron clases de `bui
 
 ### Regresión de seguridad (`api.SeguridadRegression`)
 
-**73 verificaciones correctas**, entre ellas:
+**94 verificaciones correctas**, entre ellas:
+
+- preflight de 024 sin DDL persistente; rechazo de intentos con inscripción de otro grupo o
+  versión de otra evaluación, cambios de grupo/evaluación con intentos, respuestas duplicadas,
+  fechas invertidas, puntajes negativos, claves de IA sin docente y usuarios con dos roles;
+- el inicializador deja el esquema no disponible si falta un CHECK o un trigger de 024 y lo
+  vuelve a aceptar tras repararlo;
 
 - preflight de 022 y 023, sin DDL persistente cuando hay datos inválidos;
 - roles reales creados por `AdministradorDAO`, `DocenteDAO` y `EstudianteDAO`;
@@ -35,8 +41,8 @@ La compilación se hizo desde cero con JDK 17; no se reutilizaron clases de `bui
   aplicación;
 - ocho peticiones concurrentes al primer administrador: exactamente una creada;
 - bootstrap deshabilitado sin credencial y segundo intento rechazado;
-- instalación limpia 001-023 y segundo arranque sin repetir migraciones;
-- actualización desde 021 con aplicación automática de 022 y 023;
+- instalación limpia 001-024 y segundo arranque sin repetir migraciones;
+- actualización desde 021 con aplicación automática de 022, 023 y 024;
 - continuidad de tokens entre procesos con el mismo secreto y rechazo con otro;
 - Gemini con `x-goog-api-key`, sin `?key=` y sin fuga en errores;
 - conexión TLS real con `REQUIRED` y con `VERIFY_IDENTITY`; CA no confiable rechazada.
@@ -55,16 +61,16 @@ La compilación se hizo desde cero con JDK 17; no se reutilizaron clases de `bui
 ### Exportación e importación SQL
 
 `pruebas/exportar_estructura.py` generó `database/ExamLen-estructura.sql` desde una base
-con 001-023 y sin datos. `pruebas/verificar_estructura.py` lo importó en otra base vacía y
+con 001-024 y sin datos. `pruebas/verificar_estructura.py` lo importó en otra base vacía y
 comparó:
 
 - 31 tablas;
 - 215 columnas;
-- 130 índices;
-- 69 claves foráneas;
-- 8 CHECK;
-- 5 triggers;
-- 23 migraciones registradas;
+- 134 índices;
+- 72 claves foráneas;
+- 11 CHECK;
+- 18 triggers;
+- 24 migraciones registradas;
 - cero filas de negocio.
 
 El SQL no contiene `DEFINER`, usuarios, `GRANT`, contraseñas ni `INSERT` de datos de

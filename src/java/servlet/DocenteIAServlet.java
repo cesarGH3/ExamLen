@@ -112,9 +112,9 @@ public class DocenteIAServlet extends ServletBase {
 
         Map<String, String> datos = new HashMap<>();
         datos.put("filasDocumentos", componerFilas("_fila-documento.html", filasDocumentos,
-                filaVacia("4", "TodavA-a no has cargado documentos.")));
+                filaVacia("4", "Todavía no has cargado documentos.")));
         datos.put("filasSolicitudes", componerFilas("_fila-solicitud.html", filasSolicitudes,
-                filaVacia("9", "TodavA-a no has hecho solicitudes de generaciA3n.")));
+                filaVacia("9", "Todavía no has hecho solicitudes de generación.")));
         datos.put("opcionesTipo", Formulario.opciones(vistas, TipoGeneracion.values(),
                 Formulario.enumeracion(TipoGeneracion.class, tipoSeleccionado), "Selecciona el tipo"));
         datos.put("opcionesNivel", Formulario.opciones(vistas, NivelIngles.values(),

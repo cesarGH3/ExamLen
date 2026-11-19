@@ -45,7 +45,7 @@ public final class SeguridadRegression {
             try {
                 servidorC.createStatement().execute("CREATE DATABASE " + base + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
                 servidorC.createStatement().execute("CREATE USER '" + usuarioMigracion + "'@'localhost' IDENTIFIED BY '" + claveMigracion + "'");
-                servidorC.createStatement().execute("GRANT SELECT, INSERT, UPDATE, DELETE ON " + base + ".* TO '" + usuarioMigracion + "'@'localhost'");
+                servidorC.createStatement().execute("GRANT SELECT, INSERT, UPDATE, DELETE, TRIGGER ON " + base + ".* TO '" + usuarioMigracion + "'@'localhost'");
                 try (Connection conexion = DriverManager.getConnection(url, usuario, clave)) {
                     c = conexion;
                     System.out.println("Motor de prueba: " + c.getMetaData().getDatabaseProductVersion());
@@ -57,6 +57,10 @@ public final class SeguridadRegression {
                     preflightRoles();
                     sql(Files.readString(MIGRACIONES.resolve("023_roles_sin_columna_tipo.sql")));
                     sql("INSERT INTO esquema_migracion (nombre) VALUES ('023_roles_sin_columna_tipo.sql')");
+                    preflightIntegridad();
+                    sql(Files.readString(MIGRACIONES.resolve("024_restricciones_integridad.sql")));
+                    sql("INSERT INTO esquema_migracion (nombre) VALUES ('024_restricciones_integridad.sql')");
+                    pruebasIntegridad024();
                     System.setProperty("examlen.db.url", servidor + base);
                     System.setProperty("examlen.db.user", usuarioMigracion);
                     System.setProperty("examlen.db.password", claveMigracion);
@@ -67,9 +71,21 @@ public final class SeguridadRegression {
                         return null;
                     });
                     InicializadorEsquema.inicializar(contexto);
-                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Arranque verifica 022 y 023 aplicadas por DBA");
+                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Arranque verifica 022, 023 y 024 aplicadas por DBA");
                     InicializadorEsquema.inicializar(contexto);
-                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Reinicio sin reejecutar 022 ni 023");
+                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Reinicio sin reejecutar 022, 023 ni 024");
+                    sql("ALTER TABLE evaluacion_virtual DROP CHECK ck_evaluacion_virtual_fechas");
+                    InicializadorEsquema.inicializar(contexto);
+                    comprobar(!InicializadorEsquema.consultarDisponibilidadEsquema(), "Falta un CHECK de 024: esquema no disponible");
+                    sql("ALTER TABLE evaluacion_virtual ADD CONSTRAINT ck_evaluacion_virtual_fechas CHECK (fecha_fin > fecha_inicio)");
+                    sql("DROP TRIGGER trg_intento_bi");
+                    InicializadorEsquema.inicializar(contexto);
+                    comprobar(!InicializadorEsquema.consultarDisponibilidadEsquema(), "Falta un trigger de 024: esquema no disponible");
+                    String script024 = Files.readString(MIGRACIONES.resolve("024_restricciones_integridad.sql"));
+                    int inicio = script024.indexOf("CREATE TRIGGER trg_intento_bi");
+                    sql(script024.substring(inicio, script024.indexOf(";", inicio) + 1));
+                    InicializadorEsquema.inicializar(contexto);
+                    comprobar(InicializadorEsquema.consultarDisponibilidadEsquema(), "Esquema reparado vuelve a estar disponible");
                     MysqlDataSource fuente = new MysqlDataSource();
                     fuente.setURL(url); fuente.setUser(usuarioMigracion); fuente.setPassword(claveMigracion);
                     pruebasRoles(fuente);
@@ -148,6 +164,58 @@ public final class SeguridadRegression {
                 "023 no aplico DDL persistente con datos invalidos");
         sql("DROP TEMPORARY TABLE IF EXISTS auditoria_023_preflight");
         sql("DELETE FROM usuario WHERE identificacion='999999'");
+    }
+
+    /** 024: el preflight aborta sin DDL persistente si hay respuestas duplicadas. */
+    private static void preflightIntegridad() throws Exception {
+        sql("INSERT INTO respuesta(id_intento,id_version_pregunta) VALUES (1,1),(1,1)");
+        rechazar(Files.readString(MIGRACIONES.resolve("024_restricciones_integridad.sql")),
+                "Preflight 024 rechaza respuestas duplicadas");
+        comprobar(numero("SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() "
+                + "AND CONSTRAINT_NAME='fk_intento_virtual_version'") == 0, "024 no aplico DDL persistente con datos invalidos");
+        sql("DROP TEMPORARY TABLE IF EXISTS auditoria_024_preflight");
+        sql("DELETE FROM respuesta");
+    }
+
+    /** 024: restricciones y disparadores restaurados (SQL-001..SQL-007). */
+    private static void pruebasIntegridad024() throws Exception {
+        sql("INSERT INTO evaluacion(id_docente,titulo,descripcion,duracion_minutos) VALUES (2,'Otra','Prueba',60)");
+        sql("INSERT INTO version_evaluacion(id_evaluacion,codigo) VALUES (2,'X')");
+        sql("INSERT INTO grupo(id_curso,nombre,periodo,codigo_acceso) VALUES (1,'Grupo 2','2026','TEST0002')");
+        sql("INSERT INTO usuario(identificacion,nombre,correo,contrasena_hash) VALUES ('4','Est2','e2@test.invalid','test')");
+        sql("INSERT INTO estudiante(id_usuario,nivel_ingles) SELECT id_usuario,'A1' FROM usuario WHERE identificacion='4'");
+        sql("INSERT INTO inscripcion(id_grupo,id_estudiante) SELECT 2,id_usuario FROM usuario WHERE identificacion='4'");
+        int otraInscripcion = numero("SELECT id_inscripcion FROM inscripcion WHERE id_grupo=2");
+        rechazar("INSERT INTO evaluacion_virtual_version VALUES (1,3)", "024 rechaza version de otra evaluacion en la virtual");
+        rechazar("INSERT INTO intento(id_evaluacion_virtual,id_inscripcion,id_version_evaluacion,numero_intento) VALUES (1," + otraInscripcion + ",1,1)",
+                "024 rechaza intento de una inscripcion de otro grupo");
+        rechazar("INSERT INTO intento(id_evaluacion_virtual,id_inscripcion,id_version_evaluacion,numero_intento) VALUES (1,1,3,2)",
+                "024 rechaza intento con version de otra evaluacion");
+        rechazar("UPDATE inscripcion SET id_grupo=2 WHERE id_inscripcion=1", "024 impide mover una inscripcion con intentos");
+        rechazar("UPDATE evaluacion_virtual SET id_grupo=2 WHERE id_evaluacion_virtual=1", "024 impide mover una virtual con intentos");
+        rechazar("UPDATE evaluacion_virtual SET id_evaluacion=2 WHERE id_evaluacion_virtual=1", "024 impide cambiar la evaluacion de la virtual");
+        rechazar("UPDATE version_evaluacion SET id_evaluacion=2 WHERE id_version_evaluacion=1", "024 impide cambiar la evaluacion de una version aplicada");
+        rechazar("DELETE FROM evaluacion_virtual_version WHERE id_evaluacion_virtual=1 AND id_version_evaluacion=1",
+                "fk_intento_virtual_version protege la asociacion usada");
+        sql("INSERT INTO respuesta(id_intento,id_version_pregunta) VALUES (1,1)");
+        rechazar("INSERT INTO respuesta(id_intento,id_version_pregunta) VALUES (1,1)", "uk_respuesta_intento_pregunta");
+        sql("DELETE FROM respuesta");
+        rechazar("UPDATE evaluacion_virtual SET fecha_fin=fecha_inicio WHERE id_evaluacion_virtual=1", "ck_evaluacion_virtual_fechas");
+        rechazar("INSERT INTO evaluacion_pregunta(id_evaluacion,id_pregunta,puntaje_evaluacion_pregunta) VALUES (1,1,-1)",
+                "ck_evaluacion_pregunta_puntaje");
+        rechazar("INSERT INTO clave_ia_docente(id_docente,proveedor,clave_cifrada) VALUES (3,'groq','x')", "fk_clave_ia_docente");
+        rechazar("INSERT INTO estudiante(id_usuario,nivel_ingles) VALUES (2,'A1')", "024 impide docente que tambien sea estudiante");
+        rechazar("INSERT INTO docente(id_usuario,id_administrador) VALUES (3,1)", "024 impide estudiante que tambien sea docente");
+        rechazar("INSERT INTO administrador(id_usuario) VALUES (2)", "024 impide docente que tambien sea administrador");
+        sql("UPDATE intento SET calificacion=4.5 WHERE id_intento=1");
+        sql("INSERT INTO evaluacion_virtual_version VALUES (1,1) ON DUPLICATE KEY UPDATE id_version_evaluacion=id_version_evaluacion");
+        comprobar(numero("SELECT calificacion FROM intento WHERE id_intento=1") == 4, "024 conserva operaciones validas");
+        sql("UPDATE intento SET calificacion=NULL WHERE id_intento=1");
+        sql("DELETE FROM inscripcion WHERE id_inscripcion=" + otraInscripcion);
+        sql("DELETE FROM usuario WHERE identificacion='4'");
+        sql("DELETE FROM grupo WHERE id_grupo=2");
+        sql("DELETE FROM version_evaluacion WHERE id_version_evaluacion=3");
+        sql("DELETE FROM evaluacion WHERE id_evaluacion=2");
     }
 
     private static void pruebasRoles(MysqlDataSource fuente) throws Exception {

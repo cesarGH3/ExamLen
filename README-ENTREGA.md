@@ -30,6 +30,18 @@ La aplicación no incluye credenciales dentro del WAR. Configura la conexión de
    El repositorio incluye `config/examlen.properties.ejemplo` y `.gitignore` impide
    versionar el archivo real.
 
+### Privilegios de la cuenta
+
+La cuenta configurada aplica y verifica las migraciones al arrancar. Necesita, sobre la base:
+
+```sql
+GRANT CREATE, ALTER, INDEX, REFERENCES, TRIGGER, SELECT, INSERT, UPDATE, DELETE
+  ON `examlen`.* TO 'USUARIO'@'host';
+```
+
+`TRIGGER` es obligatorio: sin él MySQL oculta los disparadores en `information_schema` y el
+inicializador no puede demostrar que existen, por lo que deja la aplicación en modo 503.
+
 ### TLS
 
 - En producción el valor por defecto es `sslMode=VERIFY_IDENTITY`: exige TLS, valida la CA
@@ -98,10 +110,19 @@ El índice está en `web/WEB-INF/sql/migraciones/indice.txt`.
 - `022`: integridad de respuestas, claves foráneas, CHECK y tokens revocables.
 - `023`: elimina `usuario.tipo`; el rol queda en `administrador`, `docente` o `estudiante`.
   Incluye un preflight que aborta sin borrar usuarios si encuentra inconsistencias.
+- `024`: restricciones de integridad que antes solo figuraban en el script SQL:
+  `fk_intento_virtual_version`, `uk_respuesta_intento_pregunta`, `fk_clave_ia_docente`,
+  `ck_evaluacion_virtual_fechas`, `ck_evaluacion_pregunta_puntaje`, `ck_respuesta_puntaje`;
+  los 7 disparadores de coherencia de intentos (`trg_intento_bi/bu`, `trg_inscripcion_bu`,
+  `trg_evaluacion_virtual_bu`, `trg_version_evaluacion_bu`, `trg_evaluacion_virtual_version_bi/bu`)
+  y 6 disparadores de exclusividad de rol (un usuario solo puede estar en una de
+  `administrador`, `docente` o `estudiante`). Con preflight y verificación final.
 
 Al arrancar, `InicializadorEsquema` aplica las migraciones pendientes una sola vez, registra
 cada una en `esquema_migracion` y verifica el esquema. En una instalación nueva aplica
-`001` a `023`; en una base en `021` aplica `022` y `023`.
+`001` a `024`; en una base en `021` aplica `022`, `023` y `024`; en una base en `023` aplica `024`.
+El esquema solo se marca disponible si existen los 18 disparadores (022 y 024) y todas las
+restricciones de `024` con sus tablas y columnas; el historial de migraciones por sí solo no basta.
 
 Antes de aplicar en una base con datos: detén escrituras, haz un respaldo verificado y
 revisa el preflight. Las migraciones no borran usuarios ni respuestas.
@@ -134,7 +155,7 @@ python pruebas/verificar_http.py
 
 ## Exportar la estructura SQL
 
-Con una base de pruebas que tenga aplicadas `001` a `023` y **sin datos de negocio**:
+Con una base de pruebas que tenga aplicadas `001` a `024` y **sin datos de negocio**:
 
 ```bash
 export EXAMLEN_EXPORT_HOST=127.0.0.1

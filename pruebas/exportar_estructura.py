@@ -1,4 +1,4 @@
-"""Exporta ExamLen-estructura.sql desde una BD de pruebas con 001-023 aplicadas.
+"""Exporta ExamLen-estructura.sql desde una BD de pruebas con 001-024 aplicadas.
 
 Uso:
   EXAMLEN_EXPORT_HOST=127.0.0.1 EXAMLEN_EXPORT_PORT=3310 \
@@ -71,8 +71,8 @@ def main():
     migraciones = filas("SELECT nombre FROM esquema_migracion ORDER BY nombre")
     if not migraciones:
         raise SystemExit("Falta la tabla esquema_migracion con las migraciones aplicadas.")
-    if migraciones[-1] != "023_roles_sin_columna_tipo.sql":
-        raise SystemExit("La BD no tiene aplicada la migracion 023.")
+    if migraciones[-1] != "024_restricciones_integridad.sql":
+        raise SystemExit("La BD no tiene aplicada la migracion 024.")
 
     dependencias = {tabla: set() for tabla in tablas}
     for linea in filas("SELECT TABLE_NAME, REFERENCED_TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE "
@@ -89,7 +89,7 @@ def main():
     partes = []
     partes.append("-- =====================================================================")
     partes.append("-- ExamLen - Estructura de la base de datos (solo esquema, sin datos)")
-    partes.append("-- Generado desde una BD de pruebas con las migraciones 001 a 023.")
+    partes.append("-- Generado desde una BD de pruebas con las migraciones 001 a 024.")
     partes.append("--")
     partes.append("-- Importacion segura:")
     partes.append("--   * No contiene sentencias destructivas de tablas, bases ni registros.")

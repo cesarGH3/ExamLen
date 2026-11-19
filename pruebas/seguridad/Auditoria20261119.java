@@ -385,14 +385,14 @@ public final class Auditoria20261119 {
                 System.setProperty("examlen.db.devMode", "true");
                 modelo.InicializadorEsquema.inicializar(contexto());
                 comprobar(modelo.InicializadorEsquema.consultarDisponibilidadEsquema(),
-                        "Instalacion limpia aplica 001-023");
+                        "Instalacion limpia aplica 001-024");
                 modelo.InicializadorEsquema.inicializar(contexto());
                 comprobar(modelo.InicializadorEsquema.consultarDisponibilidadEsquema(),
                         "Segundo arranque limpio no repite migraciones");
                 try (Connection c = DriverManager.getConnection(
                         servidor + base + "?useSSL=false", usuario, clave)) {
-                    comprobar(numero(c, "SELECT COUNT(*) FROM esquema_migracion") == 23,
-                            "Instalacion limpia registra las 23 migraciones");
+                    comprobar(numero(c, "SELECT COUNT(*) FROM esquema_migracion") == 24,
+                            "Instalacion limpia registra las 24 migraciones");
                     comprobar(numero(c, "SELECT COUNT(*) FROM information_schema.COLUMNS "
                             + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='usuario' AND COLUMN_NAME='tipo'") == 0,
                             "Instalacion limpia sin usuario.tipo");
@@ -438,11 +438,11 @@ public final class Auditoria20261119 {
                 System.setProperty("examlen.db.devMode", "true");
                 modelo.InicializadorEsquema.inicializar(contexto());
                 comprobar(modelo.InicializadorEsquema.consultarDisponibilidadEsquema(),
-                        "Actualizacion desde 021 aplica 022 y 023");
+                        "Actualizacion desde 021 aplica 022, 023 y 024");
                 try (Connection c = DriverManager.getConnection(
                         servidor + base + "?useSSL=false", usuario, clave)) {
-                    comprobar(numero(c, "SELECT COUNT(*) FROM esquema_migracion") == 23,
-                            "Actualizacion registra 022 y 023");
+                    comprobar(numero(c, "SELECT COUNT(*) FROM esquema_migracion") == 24,
+                            "Actualizacion registra 022, 023 y 024");
                     comprobar(numero(c, "SELECT COUNT(*) FROM information_schema.COLUMNS "
                             + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='usuario' AND COLUMN_NAME='tipo'") == 0,
                             "Actualizacion elimina usuario.tipo");

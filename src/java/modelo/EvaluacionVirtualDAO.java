@@ -132,8 +132,10 @@ public class EvaluacionVirtualDAO extends DaoBase {
     // ------------------------------------------------------------------ versiones aplicadas
 
     public void agregarVersion(int idEvaluacionVirtual, int idVersionEvaluacion) {
-        actualizar("INSERT IGNORE INTO evaluacion_virtual_version (id_evaluacion_virtual, id_version_evaluacion) "
-                + "VALUES (?, ?)", ps -> {
+        // Idempotente sin IGNORE: un rechazo de trg_evaluacion_virtual_version_bi (version de otra
+        // evaluacion) o de una FK se propaga como error en lugar de degradarse a advertencia.
+        actualizar("INSERT INTO evaluacion_virtual_version (id_evaluacion_virtual, id_version_evaluacion) "
+                + "VALUES (?, ?) ON DUPLICATE KEY UPDATE id_version_evaluacion = id_version_evaluacion", ps -> {
             ps.setInt(1, idEvaluacionVirtual);
             ps.setInt(2, idVersionEvaluacion);
         });

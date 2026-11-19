@@ -59,14 +59,14 @@ public final class ProbadorClaveIA {
             }
             if (codigo == 401 || codigo == 403) {
                 throw new GeneracionFallidaException("El proveedor " + proveedor
-                        + " rechazA3 la clave (HTTP " + codigo + ").", TipoErrorIA.CONFIGURACION);
+                        + " rechazó la clave (HTTP " + codigo + ").", TipoErrorIA.CONFIGURACION);
             }
             if (codigo == 429) {
                 throw new GeneracionFallidaException("El proveedor " + proveedor
-                        + " alcanzA3 su lA-mite temporal de uso (HTTP 429).", TipoErrorIA.CUOTA);
+                        + " alcanzó su límite temporal de uso (HTTP 429).", TipoErrorIA.CUOTA);
             }
             throw new GeneracionFallidaException("El proveedor " + proveedor
-                    + " respondiA3 con HTTP " + codigo + ".", TipoErrorIA.HTTP);
+                    + " respondió con HTTP " + codigo + ".", TipoErrorIA.HTTP);
         } catch (GeneracionFallidaException e) {
             throw e;
         } catch (IOException e) {

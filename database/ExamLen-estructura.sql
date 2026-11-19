@@ -1,6 +1,6 @@
 -- =====================================================================
 -- ExamLen - Estructura de la base de datos (solo esquema, sin datos)
--- Generado desde una BD de pruebas con las migraciones 001 a 023.
+-- Generado desde una BD de pruebas con las migraciones 001 a 024.
 --
 -- Importacion segura:
 --   * No contiene sentencias destructivas de tablas, bases ni registros.
@@ -14,16 +14,6 @@ USE `examlen`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 SET UNIQUE_CHECKS = 1;
-
--- Tabla clave_ia_docente
-CREATE TABLE `clave_ia_docente` (
-  `id_docente` int unsigned NOT NULL,
-  `proveedor` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `clave_cifrada` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `fecha_actualizacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id_docente`,`proveedor`),
-  KEY `idx_clave_ia_docente` (`id_docente`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tabla esquema_migracion
 CREATE TABLE `esquema_migracion` (
@@ -142,6 +132,17 @@ CREATE TABLE `banco_preguntas` (
   CONSTRAINT `fk_banco_rol_docente` FOREIGN KEY (`id_docente`) REFERENCES `docente` (`id_usuario`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Tabla clave_ia_docente
+CREATE TABLE `clave_ia_docente` (
+  `id_docente` int unsigned NOT NULL,
+  `proveedor` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `clave_cifrada` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `fecha_actualizacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_docente`,`proveedor`),
+  KEY `idx_clave_ia_docente` (`id_docente`),
+  CONSTRAINT `fk_clave_ia_docente` FOREIGN KEY (`id_docente`) REFERENCES `docente` (`id_usuario`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Tabla curso
 CREATE TABLE `curso` (
   `id_curso` int unsigned NOT NULL AUTO_INCREMENT,
@@ -259,6 +260,7 @@ CREATE TABLE `evaluacion_virtual` (
   KEY `idx_evaluacion_virtual_evaluacion` (`id_evaluacion`),
   CONSTRAINT `fk_evaluacion_virtual_evaluacion` FOREIGN KEY (`id_evaluacion`) REFERENCES `evaluacion` (`id_evaluacion`),
   CONSTRAINT `fk_evaluacion_virtual_grupo` FOREIGN KEY (`id_grupo`) REFERENCES `grupo` (`id_grupo`),
+  CONSTRAINT `ck_evaluacion_virtual_fechas` CHECK ((`fecha_fin` > `fecha_inicio`)),
   CONSTRAINT `ck_evaluacion_virtual_intentos` CHECK ((`intentos_permitidos` in (1,2)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -344,7 +346,8 @@ CREATE TABLE `evaluacion_pregunta` (
   PRIMARY KEY (`id_evaluacion`,`id_pregunta`),
   KEY `fk_evaluacion_pregunta_pregunta` (`id_pregunta`),
   CONSTRAINT `fk_evaluacion_pregunta_evaluacion` FOREIGN KEY (`id_evaluacion`) REFERENCES `evaluacion` (`id_evaluacion`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_evaluacion_pregunta_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `pregunta` (`id_pregunta`)
+  CONSTRAINT `fk_evaluacion_pregunta_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `pregunta` (`id_pregunta`),
+  CONSTRAINT `ck_evaluacion_pregunta_puntaje` CHECK ((`puntaje_evaluacion_pregunta` >= 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla evaluacion_virtual_version
@@ -355,32 +358,6 @@ CREATE TABLE `evaluacion_virtual_version` (
   KEY `fk_ev_version_version` (`id_version_evaluacion`),
   CONSTRAINT `fk_ev_version_version` FOREIGN KEY (`id_version_evaluacion`) REFERENCES `version_evaluacion` (`id_version_evaluacion`),
   CONSTRAINT `fk_ev_version_virtual` FOREIGN KEY (`id_evaluacion_virtual`) REFERENCES `evaluacion_virtual` (`id_evaluacion_virtual`) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Tabla intento
-CREATE TABLE `intento` (
-  `id_intento` int unsigned NOT NULL AUTO_INCREMENT,
-  `id_evaluacion_virtual` int unsigned NOT NULL,
-  `id_inscripcion` int unsigned NOT NULL,
-  `numero_intento` tinyint unsigned NOT NULL DEFAULT '1',
-  `id_version_evaluacion` int unsigned NOT NULL,
-  `fecha_inicio` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `fecha_fin` datetime DEFAULT NULL,
-  `calificacion` decimal(3,1) DEFAULT NULL,
-  `estado` enum('EN_CURSO','FINALIZADO','CALIFICADO') NOT NULL DEFAULT 'EN_CURSO',
-  `fecha_creacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `fecha_actualizacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id_intento`),
-  UNIQUE KEY `uk_intento_virtual_inscripcion_numero` (`id_evaluacion_virtual`,`id_inscripcion`,`numero_intento`),
-  UNIQUE KEY `uk_intento_id_version` (`id_intento`,`id_version_evaluacion`),
-  KEY `idx_intento_virtual` (`id_evaluacion_virtual`),
-  KEY `idx_intento_inscripcion` (`id_inscripcion`),
-  KEY `idx_intento_version` (`id_version_evaluacion`),
-  CONSTRAINT `fk_intento_inscripcion` FOREIGN KEY (`id_inscripcion`) REFERENCES `inscripcion` (`id_inscripcion`),
-  CONSTRAINT `fk_intento_version` FOREIGN KEY (`id_version_evaluacion`) REFERENCES `version_evaluacion` (`id_version_evaluacion`),
-  CONSTRAINT `fk_intento_virtual` FOREIGN KEY (`id_evaluacion_virtual`) REFERENCES `evaluacion_virtual` (`id_evaluacion_virtual`) ON DELETE RESTRICT,
-  CONSTRAINT `ck_intento_calificacion_rango` CHECK (((`calificacion` is null) or (`calificacion` between 0 and 5))),
-  CONSTRAINT `ck_intento_numero` CHECK ((`numero_intento` in (1,2)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla intento_practica
@@ -443,16 +420,32 @@ CREATE TABLE `version_pregunta` (
   CONSTRAINT `ck_vp_puntaje_no_negativo` CHECK ((`puntaje` >= 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Tabla evento_supervision
-CREATE TABLE `evento_supervision` (
-  `id_evento_supervision` int unsigned NOT NULL AUTO_INCREMENT,
-  `id_intento` int unsigned NOT NULL,
-  `tipo` enum('CAMBIO_PESTANA','PERDIDA_FOCO','SALIDA_PAGINA','DESCONEXION','RECONEXION','TIEMPO_ATIPICO','SIMILITUD_RESPUESTAS') NOT NULL,
-  `descripcion` varchar(500) NOT NULL DEFAULT '',
-  `fecha_hora` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id_evento_supervision`),
-  KEY `idx_evento_intento` (`id_intento`),
-  CONSTRAINT `fk_evento_intento` FOREIGN KEY (`id_intento`) REFERENCES `intento` (`id_intento`) ON DELETE RESTRICT
+-- Tabla intento
+CREATE TABLE `intento` (
+  `id_intento` int unsigned NOT NULL AUTO_INCREMENT,
+  `id_evaluacion_virtual` int unsigned NOT NULL,
+  `id_inscripcion` int unsigned NOT NULL,
+  `numero_intento` tinyint unsigned NOT NULL DEFAULT '1',
+  `id_version_evaluacion` int unsigned NOT NULL,
+  `fecha_inicio` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_fin` datetime DEFAULT NULL,
+  `calificacion` decimal(3,1) DEFAULT NULL,
+  `estado` enum('EN_CURSO','FINALIZADO','CALIFICADO') NOT NULL DEFAULT 'EN_CURSO',
+  `fecha_creacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_actualizacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_intento`),
+  UNIQUE KEY `uk_intento_virtual_inscripcion_numero` (`id_evaluacion_virtual`,`id_inscripcion`,`numero_intento`),
+  UNIQUE KEY `uk_intento_id_version` (`id_intento`,`id_version_evaluacion`),
+  KEY `idx_intento_virtual` (`id_evaluacion_virtual`),
+  KEY `idx_intento_inscripcion` (`id_inscripcion`),
+  KEY `idx_intento_version` (`id_version_evaluacion`),
+  KEY `fk_intento_virtual_version` (`id_evaluacion_virtual`,`id_version_evaluacion`),
+  CONSTRAINT `fk_intento_inscripcion` FOREIGN KEY (`id_inscripcion`) REFERENCES `inscripcion` (`id_inscripcion`),
+  CONSTRAINT `fk_intento_version` FOREIGN KEY (`id_version_evaluacion`) REFERENCES `version_evaluacion` (`id_version_evaluacion`),
+  CONSTRAINT `fk_intento_virtual` FOREIGN KEY (`id_evaluacion_virtual`) REFERENCES `evaluacion_virtual` (`id_evaluacion_virtual`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_intento_virtual_version` FOREIGN KEY (`id_evaluacion_virtual`, `id_version_evaluacion`) REFERENCES `evaluacion_virtual_version` (`id_evaluacion_virtual`, `id_version_evaluacion`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `ck_intento_calificacion_rango` CHECK (((`calificacion` is null) or (`calificacion` between 0 and 5))),
+  CONSTRAINT `ck_intento_numero` CHECK ((`numero_intento` in (1,2)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla respuesta_practica
@@ -494,6 +487,18 @@ CREATE TABLE `version_opcion` (
   CONSTRAINT `fk_version_opcion_pregunta` FOREIGN KEY (`id_version_pregunta`) REFERENCES `version_pregunta` (`id_version_pregunta`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Tabla evento_supervision
+CREATE TABLE `evento_supervision` (
+  `id_evento_supervision` int unsigned NOT NULL AUTO_INCREMENT,
+  `id_intento` int unsigned NOT NULL,
+  `tipo` enum('CAMBIO_PESTANA','PERDIDA_FOCO','SALIDA_PAGINA','DESCONEXION','RECONEXION','TIEMPO_ATIPICO','SIMILITUD_RESPUESTAS') NOT NULL,
+  `descripcion` varchar(500) NOT NULL DEFAULT '',
+  `fecha_hora` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_evento_supervision`),
+  KEY `idx_evento_intento` (`id_intento`),
+  CONSTRAINT `fk_evento_intento` FOREIGN KEY (`id_intento`) REFERENCES `intento` (`id_intento`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- Tabla respuesta
 CREATE TABLE `respuesta` (
   `id_respuesta` int unsigned NOT NULL AUTO_INCREMENT,
@@ -506,6 +511,7 @@ CREATE TABLE `respuesta` (
   `comentario_docente` varchar(1000) DEFAULT NULL,
   `id_version_evaluacion` int unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id_respuesta`),
+  UNIQUE KEY `uk_respuesta_intento_pregunta` (`id_intento`,`id_version_pregunta`),
   KEY `idx_respuesta_intento` (`id_intento`),
   KEY `idx_respuesta_pregunta` (`id_version_pregunta`),
   KEY `idx_respuesta_opcion` (`id_version_opcion`),
@@ -517,11 +523,86 @@ CREATE TABLE `respuesta` (
   CONSTRAINT `fk_respuesta_opcion` FOREIGN KEY (`id_version_opcion`) REFERENCES `version_opcion` (`id_version_opcion`),
   CONSTRAINT `fk_respuesta_opcion_pregunta` FOREIGN KEY (`id_version_opcion`, `id_version_pregunta`) REFERENCES `version_opcion` (`id_version_opcion`, `id_version_pregunta`),
   CONSTRAINT `fk_respuesta_pregunta` FOREIGN KEY (`id_version_pregunta`) REFERENCES `version_pregunta` (`id_version_pregunta`),
-  CONSTRAINT `fk_respuesta_pregunta_version` FOREIGN KEY (`id_version_pregunta`, `id_version_evaluacion`) REFERENCES `version_pregunta` (`id_version_pregunta`, `id_version_evaluacion`)
+  CONSTRAINT `fk_respuesta_pregunta_version` FOREIGN KEY (`id_version_pregunta`, `id_version_evaluacion`) REFERENCES `version_pregunta` (`id_version_pregunta`, `id_version_evaluacion`),
+  CONSTRAINT `ck_respuesta_puntaje` CHECK (((`puntaje` is null) or (`puntaje` >= 0)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Triggers (sin DEFINER para importacion reproducible)
 DELIMITER $$
+CREATE TRIGGER `trg_administrador_rol_bi` BEFORE INSERT ON `administrador` FOR EACH ROW
+SET NEW.id_usuario = IF(
+  EXISTS (SELECT id_usuario FROM docente WHERE id_usuario = NEW.id_usuario FOR SHARE)
+  OR EXISTS (SELECT id_usuario FROM estudiante WHERE id_usuario = NEW.id_usuario FOR SHARE),
+  NULL, NEW.id_usuario)$$
+CREATE TRIGGER `trg_administrador_rol_bu` BEFORE UPDATE ON `administrador` FOR EACH ROW
+SET NEW.id_usuario = IF(NEW.id_usuario <> OLD.id_usuario AND (
+  EXISTS (SELECT id_usuario FROM docente WHERE id_usuario = NEW.id_usuario FOR SHARE)
+  OR EXISTS (SELECT id_usuario FROM estudiante WHERE id_usuario = NEW.id_usuario FOR SHARE)),
+  NULL, NEW.id_usuario)$$
+CREATE TRIGGER `trg_docente_rol_bi` BEFORE INSERT ON `docente` FOR EACH ROW
+SET NEW.id_usuario = IF(
+  EXISTS (SELECT id_usuario FROM administrador WHERE id_usuario = NEW.id_usuario FOR SHARE)
+  OR EXISTS (SELECT id_usuario FROM estudiante WHERE id_usuario = NEW.id_usuario FOR SHARE),
+  NULL, NEW.id_usuario)$$
+CREATE TRIGGER `trg_docente_rol_bu` BEFORE UPDATE ON `docente` FOR EACH ROW
+SET NEW.id_usuario = IF(NEW.id_usuario <> OLD.id_usuario AND (
+  EXISTS (SELECT id_usuario FROM administrador WHERE id_usuario = NEW.id_usuario FOR SHARE)
+  OR EXISTS (SELECT id_usuario FROM estudiante WHERE id_usuario = NEW.id_usuario FOR SHARE)),
+  NULL, NEW.id_usuario)$$
+CREATE TRIGGER `trg_estudiante_rol_bi` BEFORE INSERT ON `estudiante` FOR EACH ROW
+SET NEW.id_usuario = IF(
+  EXISTS (SELECT id_usuario FROM administrador WHERE id_usuario = NEW.id_usuario FOR SHARE)
+  OR EXISTS (SELECT id_usuario FROM docente WHERE id_usuario = NEW.id_usuario FOR SHARE),
+  NULL, NEW.id_usuario)$$
+CREATE TRIGGER `trg_estudiante_rol_bu` BEFORE UPDATE ON `estudiante` FOR EACH ROW
+SET NEW.id_usuario = IF(NEW.id_usuario <> OLD.id_usuario AND (
+  EXISTS (SELECT id_usuario FROM administrador WHERE id_usuario = NEW.id_usuario FOR SHARE)
+  OR EXISTS (SELECT id_usuario FROM docente WHERE id_usuario = NEW.id_usuario FOR SHARE)),
+  NULL, NEW.id_usuario)$$
+CREATE TRIGGER `trg_evaluacion_virtual_bu` BEFORE UPDATE ON `evaluacion_virtual` FOR EACH ROW
+SET NEW.id_grupo = IF(NEW.id_grupo = OLD.id_grupo OR NOT EXISTS (
+      SELECT id_intento FROM intento WHERE id_evaluacion_virtual = OLD.id_evaluacion_virtual FOR SHARE
+    ), NEW.id_grupo, NULL),
+    NEW.id_evaluacion = IF(NEW.id_evaluacion = OLD.id_evaluacion OR NOT EXISTS (
+      SELECT id_version_evaluacion FROM evaluacion_virtual_version
+      WHERE id_evaluacion_virtual = OLD.id_evaluacion_virtual FOR SHARE
+    ), NEW.id_evaluacion, NULL)$$
+CREATE TRIGGER `trg_evaluacion_virtual_version_bi` BEFORE INSERT ON `evaluacion_virtual_version` FOR EACH ROW
+SET NEW.id_version_evaluacion = (
+  SELECT v.id_version_evaluacion FROM evaluacion_virtual ev
+  JOIN version_evaluacion v ON v.id_evaluacion = ev.id_evaluacion
+  WHERE ev.id_evaluacion_virtual = NEW.id_evaluacion_virtual
+    AND v.id_version_evaluacion = NEW.id_version_evaluacion FOR SHARE
+)$$
+CREATE TRIGGER `trg_evaluacion_virtual_version_bu` BEFORE UPDATE ON `evaluacion_virtual_version` FOR EACH ROW
+SET NEW.id_version_evaluacion = (
+  SELECT v.id_version_evaluacion FROM evaluacion_virtual ev
+  JOIN version_evaluacion v ON v.id_evaluacion = ev.id_evaluacion
+  WHERE ev.id_evaluacion_virtual = NEW.id_evaluacion_virtual
+    AND v.id_version_evaluacion = NEW.id_version_evaluacion FOR SHARE
+)$$
+CREATE TRIGGER `trg_inscripcion_bu` BEFORE UPDATE ON `inscripcion` FOR EACH ROW
+SET NEW.id_grupo = IF(NEW.id_grupo = OLD.id_grupo OR NOT EXISTS (
+  SELECT id_intento FROM intento WHERE id_inscripcion = OLD.id_inscripcion FOR SHARE
+), NEW.id_grupo, NULL)$$
+CREATE TRIGGER `trg_intento_bi` BEFORE INSERT ON `intento` FOR EACH ROW
+SET NEW.id_inscripcion = (
+  SELECT n.id_inscripcion FROM inscripcion n
+  JOIN evaluacion_virtual ev ON ev.id_grupo = n.id_grupo
+  JOIN version_evaluacion v ON v.id_evaluacion = ev.id_evaluacion
+  WHERE n.id_inscripcion = NEW.id_inscripcion
+    AND ev.id_evaluacion_virtual = NEW.id_evaluacion_virtual
+    AND v.id_version_evaluacion = NEW.id_version_evaluacion FOR SHARE
+)$$
+CREATE TRIGGER `trg_intento_bu` BEFORE UPDATE ON `intento` FOR EACH ROW
+SET NEW.id_inscripcion = (
+  SELECT n.id_inscripcion FROM inscripcion n
+  JOIN evaluacion_virtual ev ON ev.id_grupo = n.id_grupo
+  JOIN version_evaluacion v ON v.id_evaluacion = ev.id_evaluacion
+  WHERE n.id_inscripcion = NEW.id_inscripcion
+    AND ev.id_evaluacion_virtual = NEW.id_evaluacion_virtual
+    AND v.id_version_evaluacion = NEW.id_version_evaluacion FOR SHARE
+)$$
 CREATE TRIGGER `trg_respuesta_contexto_bi` BEFORE INSERT ON `respuesta` FOR EACH ROW
 SET NEW.id_version_evaluacion = (
   SELECT i.id_version_evaluacion FROM intento i
@@ -540,6 +621,11 @@ CREATE TRIGGER `trg_rp_contexto_bi` BEFORE INSERT ON `respuesta_practica` FOR EA
 SET NEW.id_material_practica = (SELECT id_material_practica FROM intento_practica WHERE id_intento_practica = NEW.id_intento_practica FOR SHARE)$$
 CREATE TRIGGER `trg_rp_contexto_bu` BEFORE UPDATE ON `respuesta_practica` FOR EACH ROW
 SET NEW.id_material_practica = (SELECT id_material_practica FROM intento_practica WHERE id_intento_practica = NEW.id_intento_practica FOR SHARE)$$
+CREATE TRIGGER `trg_version_evaluacion_bu` BEFORE UPDATE ON `version_evaluacion` FOR EACH ROW
+SET NEW.id_evaluacion = IF(NEW.id_evaluacion = OLD.id_evaluacion OR NOT EXISTS (
+  SELECT id_evaluacion_virtual FROM evaluacion_virtual_version
+  WHERE id_version_evaluacion = OLD.id_version_evaluacion FOR SHARE
+), NEW.id_evaluacion, NULL)$$
 CREATE TRIGGER `trg_vp_puntaje_bu` BEFORE UPDATE ON `version_pregunta` FOR EACH ROW
 SET NEW.puntaje = IF(NEW.puntaje = OLD.puntaje OR NOT EXISTS (
   SELECT id_respuesta FROM respuesta WHERE id_version_pregunta = OLD.id_version_pregunta FOR SHARE
@@ -570,4 +656,5 @@ INSERT INTO `esquema_migracion` (nombre) VALUES ('020_politica_respuestas_comple
 INSERT INTO `esquema_migracion` (nombre) VALUES ('021_clave_ia_docente.sql');
 INSERT INTO `esquema_migracion` (nombre) VALUES ('022_integridad_respuestas_tokens.sql');
 INSERT INTO `esquema_migracion` (nombre) VALUES ('023_roles_sin_columna_tipo.sql');
+INSERT INTO `esquema_migracion` (nombre) VALUES ('024_restricciones_integridad.sql');
 

@@ -92,8 +92,8 @@ def main():
                          "WHERE TRIGGER_SCHEMA='{base}' ORDER BY TRIGGER_NAME")
 
     total_migraciones = int(filas("SELECT COUNT(*) FROM esquema_migracion", DESTINO)[0])
-    if total_migraciones != 23:
-        raise SystemExit(f"Se esperaban 23 migraciones y hay {total_migraciones}.")
+    if total_migraciones != 24:
+        raise SystemExit(f"Se esperaban 24 migraciones y hay {total_migraciones}.")
     for tabla in filas("SELECT TABLE_NAME FROM information_schema.TABLES "
                        "WHERE TABLE_SCHEMA='" + DESTINO + "' AND TABLE_TYPE='BASE TABLE'", DESTINO):
         if tabla == "esquema_migracion":
@@ -101,7 +101,7 @@ def main():
         total = int(filas("SELECT COUNT(*) FROM `" + tabla + "`", DESTINO)[0])
         if total != 0:
             raise SystemExit(f"La tabla {tabla} tiene {total} filas tras importar.")
-    print("OK datos: 23 migraciones y cero filas de negocio")
+    print("OK datos: 24 migraciones y cero filas de negocio")
 
     mysql(f"DROP DATABASE IF EXISTS `{DESTINO}`;")
     print("OK importacion verificada y BD temporal eliminada.")

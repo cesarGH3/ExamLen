@@ -152,7 +152,7 @@ public class EstudianteIntentoServlet extends ServletBase {
         Map<String, String> datos = new HashMap<>();
         datos.put("id", String.valueOf(intento.consultarIdIntento()));
         datos.put("numero", String.valueOf(intento.consultarNumeroIntento()));
-        datos.put("titulo", intentoDAO.tituloEvaluacionDeIntento(intento.consultarIdIntento()).orElse("EvaluaciA3n"));
+        datos.put("titulo", intentoDAO.tituloEvaluacionDeIntento(intento.consultarIdIntento()).orElse("Evaluación"));
         datos.put("version", intento.versionEvaluacionIntento.codigoVersionEvaluacion);
         datos.put("segundos", String.valueOf(segundos));
         datos.put("supervision", supervision ? "1" : "0");

@@ -21,3 +21,4 @@
 021_clave_ia_docente.sql
 022_integridad_respuestas_tokens.sql
 023_roles_sin_columna_tipo.sql
+024_restricciones_integridad.sql
