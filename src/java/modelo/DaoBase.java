@@ -113,6 +113,40 @@ public abstract class DaoBase {
         }
     }
 
+    /**
+     * Inserta un usuario y su fila de rol en una sola sentencia (migracion 027): el rol y sus datos
+     * se declaran en variables de sesion que leen los triggers AFTER INSERT de usuario. Las
+     * variables se fijan justo antes del INSERT y se limpian siempre despues, de modo que una
+     * conexion reutilizada del pool nunca arrastra un rol a otra operacion.
+     *
+     * @return id_usuario generado
+     */
+    protected static int insertarUsuarioConRol(Connection c, String rol, java.sql.Date fechaNacimiento,
+                                               Boolean debeCambiarContrasena, Integer idAdministrador,
+                                               String nivelIngles, java.sql.Timestamp aceptacionDatos,
+                                               String sqlUsuario, Parametros parametrosUsuario) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("SET @examlen_alta_rol = ?, @examlen_alta_fecha_nacimiento = ?, "
+                + "@examlen_alta_debe_cambiar = ?, @examlen_alta_id_administrador = ?, @examlen_alta_nivel = ?, "
+                + "@examlen_alta_aceptacion = ?")) {
+            ps.setString(1, rol);
+            if (fechaNacimiento == null) ps.setNull(2, java.sql.Types.DATE); else ps.setDate(2, fechaNacimiento);
+            if (debeCambiarContrasena == null) ps.setNull(3, java.sql.Types.BOOLEAN); else ps.setBoolean(3, debeCambiarContrasena);
+            if (idAdministrador == null) ps.setNull(4, java.sql.Types.INTEGER); else ps.setInt(4, idAdministrador);
+            if (nivelIngles == null) ps.setNull(5, java.sql.Types.VARCHAR); else ps.setString(5, nivelIngles);
+            if (aceptacionDatos == null) ps.setNull(6, java.sql.Types.TIMESTAMP); else ps.setTimestamp(6, aceptacionDatos);
+            ps.execute();
+        }
+        try {
+            return insertarCon(c, sqlUsuario, parametrosUsuario);
+        } finally {
+            try (Statement st = c.createStatement()) {
+                st.execute("SET @examlen_alta_rol = NULL, @examlen_alta_fecha_nacimiento = NULL, "
+                        + "@examlen_alta_debe_cambiar = NULL, @examlen_alta_id_administrador = NULL, "
+                        + "@examlen_alta_nivel = NULL, @examlen_alta_aceptacion = NULL");
+            }
+        }
+    }
+
     protected static int actualizarCon(Connection c, String sql, Parametros parametros) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             parametros.aplicar(ps);

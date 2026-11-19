@@ -116,7 +116,9 @@ public class AdministradorDAO extends DaoBase {
 
     private static int insertarAdministrador(Connection c, Administrador administrador, java.util.Date fechaNacimiento)
             throws SQLException {
-        int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
+        return insertarUsuarioConRol(c, "ADMINISTRADOR",
+                fechaNacimiento == null ? null : new Date(fechaNacimiento.getTime()), null, null, null, null,
+                "INSERT INTO usuario (identificacion, nombre, correo, "
                 + "institucion, contrasena_hash, activo) VALUES (?, ?, ?, ?, ?, TRUE)", ps -> {
             ps.setString(1, administrador.identificacionUsuario);
             ps.setString(2, administrador.nombreUsuario);
@@ -128,15 +130,6 @@ public class AdministradorDAO extends DaoBase {
             }
             ps.setString(5, administrador.contrasenaHashUsuario);
         });
-        actualizarCon(c, "INSERT INTO administrador (id_usuario, fecha_nacimiento) VALUES (?, ?)", ps -> {
-            ps.setInt(1, idUsuario);
-            if (fechaNacimiento == null) {
-                ps.setNull(2, Types.DATE);
-            } else {
-                ps.setDate(2, new Date(fechaNacimiento.getTime()));
-            }
-        });
-        return idUsuario;
     }
 
     /** Actualiza nombre, correo y fecha de nacimiento (CU-05). */

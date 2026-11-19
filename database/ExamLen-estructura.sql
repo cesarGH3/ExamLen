@@ -1,6 +1,6 @@
 -- =====================================================================
 -- ExamLen - Estructura de la base de datos (solo esquema, sin datos)
--- Generado desde una BD de pruebas con las migraciones 001 a 026.
+-- Generado desde una BD de pruebas con las migraciones 001 a 027.
 --
 -- Importacion segura:
 --   * No contiene sentencias destructivas de tablas, bases ni registros.
@@ -53,7 +53,10 @@ CREATE TABLE `usuario` (
   UNIQUE KEY `uk_usuario_identificacion` (`identificacion`),
   UNIQUE KEY `uk_usuario_correo` (`correo`),
   KEY `fk_usuario_registrado_por` (`registrado_por`),
-  CONSTRAINT `fk_usuario_registrado_por` FOREIGN KEY (`registrado_por`) REFERENCES `usuario` (`id_usuario`)
+  CONSTRAINT `fk_usuario_registrado_por` FOREIGN KEY (`registrado_por`) REFERENCES `usuario` (`id_usuario`),
+  CONSTRAINT `ck_usuario_activo_booleano` CHECK ((`activo` in (0,1))),
+  CONSTRAINT `ck_usuario_debe_cambiar_booleano` CHECK ((`debe_cambiar_contrasena` in (0,1))),
+  CONSTRAINT `ck_usuario_debe_cambiar_docente_booleano` CHECK ((`debe_cambiar_contrasena_docente` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla administrador
@@ -112,7 +115,8 @@ CREATE TABLE `token_recuperacion` (
   PRIMARY KEY (`id_token_recuperacion`),
   UNIQUE KEY `uk_token_recuperacion_hash` (`token_hash`),
   KEY `idx_token_recuperacion_usuario` (`id_usuario`),
-  CONSTRAINT `fk_token_recuperacion_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE
+  CONSTRAINT `fk_token_recuperacion_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `ck_token_recuperacion_usado_booleano` CHECK ((`usado` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla docente
@@ -123,7 +127,8 @@ CREATE TABLE `docente` (
   PRIMARY KEY (`id_usuario`),
   KEY `idx_docente_administrador` (`id_administrador`),
   CONSTRAINT `fk_docente_administrador` FOREIGN KEY (`id_administrador`) REFERENCES `administrador` (`id_usuario`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_docente_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE
+  CONSTRAINT `fk_docente_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `ck_docente_debe_cambiar_booleano` CHECK ((`debe_cambiar_contrasena` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla banco_preguntas
@@ -165,7 +170,8 @@ CREATE TABLE `curso` (
   PRIMARY KEY (`id_curso`),
   UNIQUE KEY `uk_curso_docente_nombre` (`id_docente`,`nombre`),
   CONSTRAINT `fk_curso_docente` FOREIGN KEY (`id_docente`) REFERENCES `usuario` (`id_usuario`),
-  CONSTRAINT `fk_curso_rol_docente` FOREIGN KEY (`id_docente`) REFERENCES `docente` (`id_usuario`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `fk_curso_rol_docente` FOREIGN KEY (`id_docente`) REFERENCES `docente` (`id_usuario`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `ck_curso_activo_booleano` CHECK ((`activo` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla evaluacion
@@ -276,6 +282,8 @@ CREATE TABLE `evaluacion_virtual` (
   KEY `idx_evaluacion_virtual_evaluacion` (`id_evaluacion`),
   CONSTRAINT `fk_evaluacion_virtual_evaluacion` FOREIGN KEY (`id_evaluacion`) REFERENCES `evaluacion` (`id_evaluacion`),
   CONSTRAINT `fk_evaluacion_virtual_grupo` FOREIGN KEY (`id_grupo`) REFERENCES `grupo` (`id_grupo`),
+  CONSTRAINT `ck_ev_respuestas_completas_booleano` CHECK ((`exigir_respuestas_completas` in (0,1))),
+  CONSTRAINT `ck_ev_supervision_booleano` CHECK ((`supervision_activa` in (0,1))),
   CONSTRAINT `ck_evaluacion_virtual_fechas` CHECK ((`fecha_fin` > `fecha_inicio`)),
   CONSTRAINT `ck_evaluacion_virtual_intentos` CHECK ((`intentos_permitidos` in (1,2)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -394,6 +402,7 @@ CREATE TABLE `intento_practica` (
   CONSTRAINT `fk_intento_practica_estudiante` FOREIGN KEY (`id_estudiante`) REFERENCES `usuario` (`id_usuario`),
   CONSTRAINT `fk_intento_practica_material` FOREIGN KEY (`id_material_practica`) REFERENCES `material_practica` (`id_material_practica`),
   CONSTRAINT `fk_practica_rol_estudiante` FOREIGN KEY (`id_estudiante`) REFERENCES `estudiante` (`id_usuario`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `ck_intento_practica_fechas` CHECK (((`fecha_fin` is null) or (`fecha_fin` >= `fecha_inicio`))),
   CONSTRAINT `ck_ip_calificacion_rango` CHECK (((`calificacion` is null) or (`calificacion` between 0 and 100)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -416,7 +425,8 @@ CREATE TABLE `opcion_respuesta` (
   PRIMARY KEY (`id_opcion_respuesta`),
   UNIQUE KEY `uk_opcion_id_pregunta` (`id_opcion_respuesta`,`id_pregunta`),
   KEY `idx_opcion_pregunta` (`id_pregunta`),
-  CONSTRAINT `fk_opcion_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `pregunta` (`id_pregunta`) ON DELETE CASCADE
+  CONSTRAINT `fk_opcion_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `pregunta` (`id_pregunta`) ON DELETE CASCADE,
+  CONSTRAINT `ck_opcion_respuesta_correcta_booleano` CHECK ((`es_correcta` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla version_pregunta
@@ -464,6 +474,7 @@ CREATE TABLE `intento` (
   CONSTRAINT `fk_intento_virtual` FOREIGN KEY (`id_evaluacion_virtual`) REFERENCES `evaluacion_virtual` (`id_evaluacion_virtual`) ON DELETE RESTRICT,
   CONSTRAINT `fk_intento_virtual_version` FOREIGN KEY (`id_evaluacion_virtual`, `id_version_evaluacion`) REFERENCES `evaluacion_virtual_version` (`id_evaluacion_virtual`, `id_version_evaluacion`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `ck_intento_calificacion_rango` CHECK (((`calificacion` is null) or (`calificacion` between 0 and 5))),
+  CONSTRAINT `ck_intento_fechas` CHECK (((`fecha_fin` is null) or (`fecha_fin` >= `fecha_inicio`))),
   CONSTRAINT `ck_intento_numero` CHECK ((`numero_intento` in (1,2)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -490,7 +501,8 @@ CREATE TABLE `respuesta_practica` (
   CONSTRAINT `fk_respuesta_practica_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `pregunta` (`id_pregunta`),
   CONSTRAINT `fk_rp_intento_material` FOREIGN KEY (`id_intento_practica`, `id_material_practica`) REFERENCES `intento_practica` (`id_intento_practica`, `id_material_practica`),
   CONSTRAINT `fk_rp_material_pregunta` FOREIGN KEY (`id_material_practica`, `id_pregunta`) REFERENCES `material_pregunta` (`id_material_practica`, `id_pregunta`),
-  CONSTRAINT `fk_rp_opcion_pregunta` FOREIGN KEY (`id_opcion_respuesta`, `id_pregunta`) REFERENCES `opcion_respuesta` (`id_opcion_respuesta`, `id_pregunta`)
+  CONSTRAINT `fk_rp_opcion_pregunta` FOREIGN KEY (`id_opcion_respuesta`, `id_pregunta`) REFERENCES `opcion_respuesta` (`id_opcion_respuesta`, `id_pregunta`),
+  CONSTRAINT `ck_respuesta_practica_correcta_booleano` CHECK (((`es_correcta` is null) or (`es_correcta` in (0,1))))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla version_opcion
@@ -505,6 +517,7 @@ CREATE TABLE `version_opcion` (
   UNIQUE KEY `uk_version_opcion_orden` (`id_version_pregunta`,`orden`),
   KEY `idx_version_opcion_pregunta` (`id_version_pregunta`),
   CONSTRAINT `fk_version_opcion_pregunta` FOREIGN KEY (`id_version_pregunta`) REFERENCES `version_pregunta` (`id_version_pregunta`) ON DELETE RESTRICT,
+  CONSTRAINT `ck_version_opcion_correcta_booleano` CHECK ((`es_correcta` in (0,1))),
   CONSTRAINT `ck_version_opcion_orden` CHECK ((`orden` >= 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -550,8 +563,6 @@ CREATE TABLE `respuesta` (
 
 -- Triggers (sin DEFINER para importacion reproducible)
 DELIMITER $$
-CREATE TRIGGER `trg_administrador_rol_ai` AFTER INSERT ON `administrador` FOR EACH ROW
-UPDATE usuario SET activo = TRUE WHERE id_usuario = NEW.id_usuario$$
 CREATE TRIGGER `trg_administrador_rol_bd` BEFORE DELETE ON `administrador` FOR EACH ROW
 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol no se borra por separado: elimine el usuario.'$$
 CREATE TRIGGER `trg_administrador_rol_bi` BEFORE INSERT ON `administrador` FOR EACH ROW
@@ -561,8 +572,6 @@ SET NEW.id_usuario = IF(
   NULL, NEW.id_usuario)$$
 CREATE TRIGGER `trg_administrador_rol_bu` BEFORE UPDATE ON `administrador` FOR EACH ROW
 SET NEW.id_usuario = IF(NEW.id_usuario = OLD.id_usuario, NEW.id_usuario, NULL)$$
-CREATE TRIGGER `trg_docente_rol_ai` AFTER INSERT ON `docente` FOR EACH ROW
-UPDATE usuario SET activo = TRUE WHERE id_usuario = NEW.id_usuario$$
 CREATE TRIGGER `trg_docente_rol_bd` BEFORE DELETE ON `docente` FOR EACH ROW
 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol no se borra por separado: elimine el usuario.'$$
 CREATE TRIGGER `trg_docente_rol_bi` BEFORE INSERT ON `docente` FOR EACH ROW
@@ -572,8 +581,6 @@ SET NEW.id_usuario = IF(
   NULL, NEW.id_usuario)$$
 CREATE TRIGGER `trg_docente_rol_bu` BEFORE UPDATE ON `docente` FOR EACH ROW
 SET NEW.id_usuario = IF(NEW.id_usuario = OLD.id_usuario, NEW.id_usuario, NULL)$$
-CREATE TRIGGER `trg_estudiante_rol_ai` AFTER INSERT ON `estudiante` FOR EACH ROW
-UPDATE usuario SET activo = TRUE WHERE id_usuario = NEW.id_usuario$$
 CREATE TRIGGER `trg_estudiante_rol_bd` BEFORE DELETE ON `estudiante` FOR EACH ROW
 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol no se borra por separado: elimine el usuario.'$$
 CREATE TRIGGER `trg_estudiante_rol_bi` BEFORE INSERT ON `estudiante` FOR EACH ROW
@@ -657,8 +664,20 @@ CREATE TRIGGER `trg_rp_contexto_bi` BEFORE INSERT ON `respuesta_practica` FOR EA
 SET NEW.id_material_practica = (SELECT id_material_practica FROM intento_practica WHERE id_intento_practica = NEW.id_intento_practica FOR SHARE)$$
 CREATE TRIGGER `trg_rp_contexto_bu` BEFORE UPDATE ON `respuesta_practica` FOR EACH ROW
 SET NEW.id_material_practica = (SELECT id_material_practica FROM intento_practica WHERE id_intento_practica = NEW.id_intento_practica FOR SHARE)$$
+CREATE TRIGGER `trg_usuario_alta_administrador_ai` AFTER INSERT ON `usuario` FOR EACH ROW
+INSERT INTO administrador (id_usuario, fecha_nacimiento)
+
+SELECT NEW.id_usuario, @examlen_alta_fecha_nacimiento FROM DUAL WHERE @examlen_alta_rol = 'ADMINISTRADOR'$$
 CREATE TRIGGER `trg_usuario_alta_bi` BEFORE INSERT ON `usuario` FOR EACH ROW
-SET NEW.activo = FALSE$$
+SET NEW.activo = IF(@examlen_alta_rol IN ('ADMINISTRADOR', 'DOCENTE', 'ESTUDIANTE'), NEW.activo, NULL)$$
+CREATE TRIGGER `trg_usuario_alta_docente_ai` AFTER INSERT ON `usuario` FOR EACH ROW
+INSERT INTO docente (id_usuario, debe_cambiar_contrasena, id_administrador)
+
+SELECT NEW.id_usuario, @examlen_alta_debe_cambiar, @examlen_alta_id_administrador FROM DUAL WHERE @examlen_alta_rol = 'DOCENTE'$$
+CREATE TRIGGER `trg_usuario_alta_estudiante_ai` AFTER INSERT ON `usuario` FOR EACH ROW
+INSERT INTO estudiante (id_usuario, nivel_ingles, aceptacion_tratamiento_datos)
+
+SELECT NEW.id_usuario, @examlen_alta_nivel, @examlen_alta_aceptacion FROM DUAL WHERE @examlen_alta_rol = 'ESTUDIANTE'$$
 CREATE TRIGGER `trg_usuario_rol_bu` BEFORE UPDATE ON `usuario` FOR EACH ROW
 SET NEW.id_usuario = IF(
   EXISTS (SELECT id_usuario FROM administrador WHERE id_usuario = OLD.id_usuario)
@@ -705,4 +724,5 @@ INSERT INTO `esquema_migracion` (nombre) VALUES ('023_roles_sin_columna_tipo.sql
 INSERT INTO `esquema_migracion` (nombre) VALUES ('024_restricciones_integridad.sql');
 INSERT INTO `esquema_migracion` (nombre) VALUES ('025_historial_roles_dominios.sql');
 INSERT INTO `esquema_migracion` (nombre) VALUES ('026_referencias_orden_alta_usuarios.sql');
+INSERT INTO `esquema_migracion` (nombre) VALUES ('027_alta_atomica_booleanos_fechas.sql');
 

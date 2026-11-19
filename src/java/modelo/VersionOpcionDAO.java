@@ -55,9 +55,14 @@ public class VersionOpcionDAO extends DaoBase {
         versionOpcion.ordenVersionOpcion = orden;
     }
 
-    public void eliminarVersionOpcion(VersionOpcion versionOpcion) {
-        actualizar("DELETE FROM version_opcion WHERE id_version_opcion = ?",
-                ps -> ps.setInt(1, versionOpcion.consultarIdVersionOpcion()));
+    /** Elimina la opcion y la retira de la coleccion en memoria de su pregunta. */
+    public void eliminarVersionOpcion(VersionPregunta versionPregunta, VersionOpcion versionOpcion) {
+        actualizar("DELETE FROM version_opcion WHERE id_version_opcion = ? AND id_version_pregunta = ?", ps -> {
+            ps.setInt(1, versionOpcion.consultarIdVersionOpcion());
+            ps.setInt(2, versionPregunta.consultarIdVersionPregunta());
+        });
+        int id = versionOpcion.consultarIdVersionOpcion();
+        versionPregunta.versionOpcionesVersionPregunta.removeIf(o -> o.consultarIdVersionOpcion() == id);
     }
 
     /** Marca una opción como correcta y desmarca las demás de la pregunta, en una transacción. */

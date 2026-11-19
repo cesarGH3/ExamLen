@@ -155,7 +155,7 @@ public class DocenteVersionPreguntaServlet extends ServletBase {
         if (opcion.esCorrectaVersionOpcion && correctas <= 1) {
             throw new ValidacionException("Antes de eliminar la opción correcta, marca otra como correcta.");
         }
-        versionOpcionDAO.eliminarVersionOpcion(opcion);
+        versionOpcionDAO.eliminarVersionOpcion(contexto.pregunta, opcion);
         agregarMensaje(req, MensajeFlash.Tipo.EXITO, "Opción eliminada.");
     }
 

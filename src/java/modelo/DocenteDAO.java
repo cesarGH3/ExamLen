@@ -31,7 +31,8 @@ public class DocenteDAO extends DaoBase {
         Integer registradoPor = administrador.consultarIdUsuario();
         try {
             int id = enTransaccion(c -> {
-                int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
+                return insertarUsuarioConRol(c, "DOCENTE", null, Boolean.TRUE, registradoPor, null, null,
+                        "INSERT INTO usuario (identificacion, nombre, correo, "
                         + "institucion, contrasena_hash, activo) VALUES (?, ?, ?, ?, ?, TRUE)", ps -> {
                     ps.setString(1, identificacion);
                     ps.setString(2, nombre);
@@ -39,12 +40,6 @@ public class DocenteDAO extends DaoBase {
                     ps.setString(4, docente.institucionUsuario);
                     ps.setString(5, docente.contrasenaHashUsuario);
                 });
-                actualizarCon(c, "INSERT INTO docente (id_usuario, debe_cambiar_contrasena, id_administrador) "
-                        + "VALUES (?, TRUE, ?)", ps -> {
-                    ps.setInt(1, idUsuario);
-                    ps.setInt(2, registradoPor);
-                });
-                return idUsuario;
             });
             docente.establecerIdUsuario(id);
         } catch (RegistroDuplicadoException e) {

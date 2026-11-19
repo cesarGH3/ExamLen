@@ -48,7 +48,8 @@ public final class InicializadorEsquema {
 
     private static final String MIGRACION_DOMINIOS = "025_historial_roles_dominios.sql";
     private static final String MIGRACION_REFERENCIAS = "026_referencias_orden_alta_usuarios.sql";
-    /** Disparadores tras aplicar 001-026; protege contra un WAR con scripts truncados. */
+    private static final String MIGRACION_ALTA = "027_alta_atomica_booleanos_fechas.sql";
+    /** Disparadores tras aplicar 001-027; protege contra un WAR con scripts truncados. */
     private static final int DISPARADORES_ESPERADOS = 27;
 
     /** Restricciones de 024: {nombre, tabla, tipo, columnas en orden}. */
@@ -76,6 +77,22 @@ public final class InicializadorEsquema {
             new String[]{"fk_solicitud_evaluacion_referencia", "solicitud_generacion", "FOREIGN KEY", "id_evaluacion_referencia"},
             new String[]{"uk_version_pregunta_orden", "version_pregunta", "UNIQUE", "id_version_evaluacion,orden"},
             new String[]{"uk_version_opcion_orden", "version_opcion", "UNIQUE", "id_version_pregunta,orden"});
+
+    /** Restricciones de 027: indicadores logicos y cronologia de intentos. */
+    private static final List<String[]> RESTRICCIONES_ALTA = List.of(
+            new String[]{"ck_usuario_activo_booleano", "usuario", "CHECK", null},
+            new String[]{"ck_usuario_debe_cambiar_booleano", "usuario", "CHECK", null},
+            new String[]{"ck_usuario_debe_cambiar_docente_booleano", "usuario", "CHECK", null},
+            new String[]{"ck_docente_debe_cambiar_booleano", "docente", "CHECK", null},
+            new String[]{"ck_token_recuperacion_usado_booleano", "token_recuperacion", "CHECK", null},
+            new String[]{"ck_curso_activo_booleano", "curso", "CHECK", null},
+            new String[]{"ck_ev_supervision_booleano", "evaluacion_virtual", "CHECK", null},
+            new String[]{"ck_ev_respuestas_completas_booleano", "evaluacion_virtual", "CHECK", null},
+            new String[]{"ck_opcion_respuesta_correcta_booleano", "opcion_respuesta", "CHECK", null},
+            new String[]{"ck_respuesta_practica_correcta_booleano", "respuesta_practica", "CHECK", null},
+            new String[]{"ck_version_opcion_correcta_booleano", "version_opcion", "CHECK", null},
+            new String[]{"ck_intento_fechas", "intento", "CHECK", null},
+            new String[]{"ck_intento_practica_fechas", "intento_practica", "CHECK", null});
 
     public static boolean consultarDisponibilidadEsquema() {
         return esquemaDisponible;
@@ -159,7 +176,8 @@ public final class InicializadorEsquema {
                     || !indice.contains(MIGRACION_ROLES)
                     || !indice.contains(MIGRACION_INTEGRIDAD)
                     || !indice.contains(MIGRACION_DOMINIOS)
-                    || !indice.contains(MIGRACION_REFERENCIAS)) {
+                    || !indice.contains(MIGRACION_REFERENCIAS)
+                    || !indice.contains(MIGRACION_ALTA)) {
                 throw new SQLException("Índice de migraciones inválido.");
             }
             for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
@@ -459,22 +477,22 @@ public final class InicializadorEsquema {
     private static void verificarDatosDominios(Connection conexion) throws SQLException {
         exigirSinFilas(conexion, "SELECT id_evaluacion FROM evaluacion WHERE numero_preguntas < 0 "
                 + "OR numero_versiones < 0 OR duracion_minutos < 0 LIMIT 1",
-                "Hay evaluaciones con cantidades o duracion negativas. No se aplica 025.");
+                "Hay evaluaciones con cantidades o duracion negativas. No se aplica la migracion.");
         exigirSinFilas(conexion, "SELECT id_solicitud_generacion FROM solicitud_generacion WHERE cantidad < 0 "
                 + "OR cantidad_recibida < 0 OR cantidad_valida < 0 OR cantidad_invalida < 0 "
                 + "OR cantidad_no_devuelta < 0 OR id_evaluacion_referencia <= 0 LIMIT 1",
-                "Hay solicitudes de generacion con cantidades negativas. No se aplica 025.");
+                "Hay solicitudes de generacion con cantidades negativas. No se aplica la migracion.");
         exigirSinFilas(conexion, "SELECT id_evaluacion FROM evaluacion_pregunta WHERE orden_evaluacion_pregunta < 0 "
                 + "UNION ALL SELECT id_version_pregunta FROM version_pregunta WHERE orden < 0 "
                 + "UNION ALL SELECT id_version_opcion FROM version_opcion WHERE orden < 0 LIMIT 1",
-                "Hay ordenes negativos en preguntas u opciones. No se aplica 025.");
+                "Hay ordenes negativos en preguntas u opciones. No se aplica la migracion.");
         exigirSinFilas(conexion, "SELECT u.id_usuario FROM usuario u "
                 + "LEFT JOIN administrador a ON a.id_usuario = u.id_usuario "
                 + "LEFT JOIN docente d ON d.id_usuario = u.id_usuario "
                 + "LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario "
                 + "WHERE (a.id_usuario IS NOT NULL) + (d.id_usuario IS NOT NULL) "
                 + "+ (e.id_usuario IS NOT NULL) <> 1 LIMIT 1",
-                "Hay usuarios sin rol o con mas de un rol. No se aplica 025.");
+                "Hay usuarios sin rol o con mas de un rol. No se aplica la migracion.");
     }
 
     /**
@@ -497,6 +515,7 @@ public final class InicializadorEsquema {
         verificarRestricciones(conexion, RESTRICCIONES_INTEGRIDAD);
         verificarRestricciones(conexion, RESTRICCIONES_DOMINIO);
         verificarRestricciones(conexion, RESTRICCIONES_REFERENCIAS);
+        verificarRestricciones(conexion, RESTRICCIONES_ALTA);
     }
 
     private static void verificarDisparadores(Connection conexion, Map<String, EjecutorMigraciones.Disparador> esperados)
@@ -691,7 +710,7 @@ public final class InicializadorEsquema {
                 if (MIGRACION_INTEGRIDAD.equals(nombre)) {
                     verificarDatosIntegridad(c);
                 }
-                if (MIGRACION_DOMINIOS.equals(nombre)) {
+                if (MIGRACION_DOMINIOS.equals(nombre) || MIGRACION_ALTA.equals(nombre)) {
                     verificarDatosDominios(c);
                 }
             });
@@ -700,6 +719,7 @@ public final class InicializadorEsquema {
             if (MIGRACION_INTEGRIDAD.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_INTEGRIDAD);
             if (MIGRACION_DOMINIOS.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_DOMINIO);
             if (MIGRACION_REFERENCIAS.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_REFERENCIAS);
+            if (MIGRACION_ALTA.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_ALTA);
             if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
             if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
             if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);
@@ -723,6 +743,8 @@ public final class InicializadorEsquema {
         if (base != null && !base.isBlank()) {
             // Los GRANT de 001/002 nombran examlen; se redirigen a la base real.
             sql = sql.replaceAll("(?i)\\bexamlen\\.", "`" + base + "`.");
+            // 014-017 comparan TABLE_SCHEMA = 'examlen' para ser idempotentes; se usa la base real.
+            sql = sql.replaceAll("(?i)'examlen'", "'" + base.replace("'", "''") + "'");
         }
         return sql;
     }

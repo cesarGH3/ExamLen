@@ -36,10 +36,20 @@ public class VersionPreguntaDAO extends DaoBase {
     /**
      * Intercambia la posicion de dos preguntas de la misma version en una transaccion. Con
      * uk_version_pregunta_orden (migracion 026) dos UPDATE directos chocarian; por eso la primera
-     * pasa por una posicion libre (MAX + 1) con ambas filas bloqueadas.
+     * pasa por una posicion libre (MAX + 1). Antes se bloquea la fila de la version en
+     * version_evaluacion: todos los intercambios de una misma version quedan en fila, de modo que
+     * dos transacciones nunca calculan a la vez la misma posicion temporal.
      */
     public void intercambiarOrden(VersionPregunta a, VersionPregunta b) {
         int[] ordenes = enTransaccion(c -> {
+            // Primero se bloquea SOLO la fila de la version (lectura sin bloqueo para conocer su id):
+            // asi todas las transacciones adquieren los bloqueos en el mismo orden (version y luego
+            // preguntas) y no pueden interbloquearse.
+            int idVersion = consultarUnoCon(c, "SELECT id_version_evaluacion FROM version_pregunta "
+                    + "WHERE id_version_pregunta = ?", ps -> ps.setInt(1, a.consultarIdVersionPregunta()),
+                    rs -> rs.getInt(1)).orElseThrow(() -> new SQLException("La pregunta de la version no existe."));
+            consultarListaCon(c, "SELECT id_version_evaluacion FROM version_evaluacion "
+                    + "WHERE id_version_evaluacion = ? FOR UPDATE", ps -> ps.setInt(1, idVersion), rs -> rs.getInt(1));
             List<int[]> filas = consultarListaCon(c, "SELECT id_version_pregunta, id_version_evaluacion, orden "
                     + "FROM version_pregunta WHERE id_version_pregunta IN (?, ?) FOR UPDATE", ps -> {
                         ps.setInt(1, a.consultarIdVersionPregunta());

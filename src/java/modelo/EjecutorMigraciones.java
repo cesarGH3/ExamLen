@@ -23,21 +23,27 @@ import java.util.regex.Pattern;
  * Ejecucion reanudable de migraciones y lectura de sus definiciones de disparadores.
  *
  * <p>MySQL 8 hace atomica cada sentencia DDL, pero no una migracion completa (cada DDL hace
- * commit implicito). Por eso cada script se ejecuta sentencia a sentencia y, tras cada paso
- * persistente, se anota el avance en {@code esquema_migracion_paso} junto con la huella SHA-256
- * del script; ademas, justo antes de cada paso persistente se anota que ese paso esta en curso,
- * de modo que nunca hay un cambio aplicado sin registro. Si el proceso se interrumpe, el
- * siguiente arranque continua en el paso pendiente
- * en lugar de dejar el esquema a medias o reejecutar DDL ya aplicado. Una huella distinta
- * (script cambiado tras una ejecucion parcial) detiene la migracion.
+ * commit implicito). Por eso cada script se ejecuta sentencia a sentencia con una bitacora en
+ * {@code esquema_migracion_paso} (avance + huella SHA-256 del script):
+ * <ul>
+ *   <li>DML (INSERT/UPDATE/DELETE): el paso y su anotacion se confirman en la misma transaccion,
+ *       por lo que un dato nunca se inserta dos veces al reanudar;</li>
+ *   <li>DDL: se anota "en curso" antes y "completado" despues; si el proceso cae entre ambas, el
+ *       reinicio repite el paso y reconoce el error "ya aplicado" de ese objeto;</li>
+ *   <li>estado de sesion (SET @, PREPARE): se reconstruye al reanudar.</li>
+ * </ul>
+ * Una huella distinta (script cambiado tras una ejecucion parcial) detiene la migracion.
  */
 final class EjecutorMigraciones {
 
     private static final Logger LOG = Logger.getLogger(EjecutorMigraciones.class.getName());
     static final String TABLA_BITACORA = "esquema_migracion_paso";
 
-    /** Errores "ya existe / ya no existe": solo se toleran en el primer paso reanudado. */
-    private static final Set<Integer> YA_APLICADO = Set.of(1050, 1060, 1061, 1091, 1359, 1360, 1826, 3821, 3822);
+    /**
+     * Errores "ya existe / ya no existe" (tabla, columna -incluida la ya renombrada-, indice,
+     * clave, CHECK o trigger). Solo se aceptan en el paso DDL que la bitacora marcaba en curso.
+     */
+    private static final Set<Integer> YA_APLICADO = Set.of(1050, 1054, 1060, 1061, 1091, 1359, 1360, 1826, 3821, 3822);
 
     private static final Pattern TEMPORAL_CREAR =
             Pattern.compile("(?is)^\\s*(?:CREATE|DROP)\\s+TEMPORARY\\s+TABLE\\s+(?:IF\\s+(?:NOT\\s+)?EXISTS\\s+)?`?(\\w+)`?");
@@ -134,30 +140,108 @@ final class EjecutorMigraciones {
                     + " tras una interrupcion anterior.");
         }
         Set<String> temporales = tablasTemporales(pasos);
+        List<Tipo> tipos = new ArrayList<>();
+        for (String paso : pasos) tipos.add(clasificar(paso, temporales));
+        if (iniciada) {
+            // El estado de sesion (variables @ y sentencias preparadas) se pierde con la conexion:
+            // se reconstruye repitiendo los SET/PREPARE de la unidad en curso, es decir, los pasos
+            // de sesion posteriores al ultimo paso persistente completado.
+            int inicioUnidad = hechos;
+            while (inicioUnidad > 0 && tipos.get(inicioUnidad - 1) != Tipo.DDL && tipos.get(inicioUnidad - 1) != Tipo.DML) {
+                inicioUnidad--;
+            }
+            for (int j = inicioUnidad; j < hechos; j++) {
+                if (tipos.get(j) == Tipo.SESION && !DEALLOCATE.matcher(pasos.get(j)).find()) ejecutar(c, pasos.get(j));
+            }
+        }
         for (int i = hechos; i < pasos.size(); i++) {
             String paso = pasos.get(i);
-            boolean persistente = !esTemporal(paso, temporales);
-            if (persistente) {
-                // Se anota ANTES de ejecutar: "paso i en curso". Asi no existe ventana en la que un
-                // cambio persistente quede sin rastro en la bitacora. Si el proceso cae entre esta
-                // anotacion y la siguiente, el reinicio retoma en el paso i y, si ya se habia
-                // aplicado, reconoce el error "ya existe / ya no existe" (DDL atomico en MySQL 8).
-                anotar(c, nombre, huella, i);
-            }
             try {
-                ejecutar(c, paso);
-            } catch (SQLException e) {
-                if (i == hechos && iniciada && YA_APLICADO.contains(e.getErrorCode())) {
-                    LOG.warning("Paso " + (i + 1) + " de " + nombre + " ya estaba aplicado antes de la interrupcion: "
-                            + e.getMessage());
-                } else {
-                    throw new SQLException("Migracion " + nombre + ", paso " + (i + 1) + " de " + pasos.size()
-                            + ": " + e.getMessage(), e.getSQLState(), e.getErrorCode(), e);
+                switch (tipos.get(i)) {
+                    case DML:
+                        // DML y su anotacion se confirman juntos: o quedan ambos o ninguno. Al
+                        // reanudar nunca se repite un INSERT/UPDATE/DELETE ya confirmado.
+                        ejecutarConAnotacion(c, paso, nombre, huella, i + 1);
+                        break;
+                    case DDL:
+                        // MySQL confirma cada DDL por su cuenta (commit implicito, sentencia atomica),
+                        // asi que no puede compartir transaccion con la bitacora. Se anota "paso i en
+                        // curso" antes y "completado" despues; si el proceso cae entre ambas, el
+                        // reinicio retoma en este paso y reconoce el error "ya aplicado".
+                        anotar(c, nombre, huella, i);
+                        ejecutarDdl(c, paso, i == hechos && iniciada, nombre, i + 1);
+                        anotar(c, nombre, huella, i + 1);
+                        break;
+                    default:
+                        ejecutar(c, paso);
                 }
+            } catch (SQLException e) {
+                throw new SQLException("Migracion " + nombre + ", paso " + (i + 1) + " de " + pasos.size()
+                        + ": " + e.getMessage(), e.getSQLState(), e.getErrorCode(), e);
             }
-            if (persistente) {
-                anotar(c, nombre, huella, i + 1);
-            }
+        }
+    }
+
+    /** Naturaleza de un paso, que decide como se ejecuta y como se reanuda. */
+    enum Tipo {
+        /** Tablas temporales, SELECT y SHOW: comprobaciones sin efecto persistente. */
+        VERIFICACION,
+        /** SET, PREPARE, DEALLOCATE, USE: estado de la sesion. */
+        SESION,
+        /** INSERT/UPDATE/DELETE/REPLACE sobre tablas reales: transaccional. */
+        DML,
+        /** Resto (ALTER, CREATE, DROP, RENAME, EXECUTE, GRANT...): commit implicito. */
+        DDL
+    }
+
+    private static final Pattern DML_PASO = Pattern.compile("(?is)^\\s*(?:INSERT|UPDATE|DELETE|REPLACE)\\b");
+    private static final Pattern SESION_PASO = Pattern.compile("(?is)^\\s*(?:SET|PREPARE|DEALLOCATE|USE)\\b");
+    private static final Pattern DEALLOCATE = Pattern.compile("(?is)^\\s*DEALLOCATE\\b");
+    private static final Pattern CONSULTA_PASO = Pattern.compile("(?is)^\\s*(?:SELECT|SHOW|DESCRIBE|DESC|EXPLAIN)\\b");
+
+    static Tipo clasificar(String paso, Set<String> temporales) {
+        if (esTemporal(paso, temporales) || CONSULTA_PASO.matcher(paso).find()) return Tipo.VERIFICACION;
+        if (SESION_PASO.matcher(paso).find()) return Tipo.SESION;
+        if (DML_PASO.matcher(paso).find()) return Tipo.DML;
+        return Tipo.DDL;
+    }
+
+    static List<Tipo> clasificar(List<String> pasos) {
+        Set<String> temporales = tablasTemporales(pasos);
+        List<Tipo> tipos = new ArrayList<>();
+        for (String paso : pasos) tipos.add(clasificar(paso, temporales));
+        return tipos;
+    }
+
+    /** Errores que significan "este DDL ya estaba aplicado" (objeto ya creado, renombrado o retirado). */
+    static boolean yaAplicado(int codigo) {
+        return YA_APLICADO.contains(codigo);
+    }
+
+    private static void ejecutarConAnotacion(Connection c, String paso, String nombre, String huella, int pasos)
+            throws SQLException {
+        boolean autoCommit = c.getAutoCommit();
+        c.setAutoCommit(false);
+        try {
+            ejecutar(c, paso);
+            anotar(c, nombre, huella, pasos);
+            c.commit();
+        } catch (SQLException | RuntimeException e) {
+            c.rollback();
+            throw e;
+        } finally {
+            c.setAutoCommit(autoCommit);
+        }
+    }
+
+    private static void ejecutarDdl(Connection c, String paso, boolean reanudado, String nombre, int numero)
+            throws SQLException {
+        try {
+            ejecutar(c, paso);
+        } catch (SQLException e) {
+            if (!reanudado || !yaAplicado(e.getErrorCode())) throw e;
+            LOG.warning("Paso " + numero + " de " + nombre + " ya estaba aplicado antes de la interrupcion: "
+                    + e.getMessage());
         }
     }
 

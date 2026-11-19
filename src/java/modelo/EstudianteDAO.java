@@ -34,7 +34,9 @@ public class EstudianteDAO extends DaoBase {
 
         try {
             int id = enTransaccion(c -> {
-                int idUsuario = insertarCon(c, "INSERT INTO usuario (identificacion, nombre, correo, "
+                return insertarUsuarioConRol(c, "ESTUDIANTE", null, null, null, nivelIngles,
+                        new java.sql.Timestamp(aceptacion.getTime()),
+                        "INSERT INTO usuario (identificacion, nombre, correo, "
                         + "institucion, contrasena_hash, activo) VALUES (?, ?, ?, ?, ?, TRUE)", ps -> {
                     ps.setString(1, identificacion);
                     ps.setString(2, nombre);
@@ -42,13 +44,6 @@ public class EstudianteDAO extends DaoBase {
                     ps.setString(4, estudiante.institucionUsuario);
                     ps.setString(5, estudiante.contrasenaHashUsuario);
                 });
-                actualizarCon(c, "INSERT INTO estudiante (id_usuario, nivel_ingles, "
-                        + "aceptacion_tratamiento_datos) VALUES (?, ?, ?)", ps -> {
-                    ps.setInt(1, idUsuario);
-                    ps.setString(2, nivelIngles);
-                    ps.setTimestamp(3, new java.sql.Timestamp(aceptacion.getTime()));
-                });
-                return idUsuario;
             });
             estudiante.establecerIdUsuario(id);
         } catch (RegistroDuplicadoException e) {
