@@ -44,6 +44,11 @@ public abstract class DaoBase {
         this.dataSource = Objects.requireNonNull(dataSource);
     }
 
+    /** Conexion directa para operaciones que necesitan controlar commit y bloqueos. */
+    protected Connection nuevaConexion() throws SQLException {
+        return dataSource.getConnection();
+    }
+
     protected <T> Optional<T> consultarUno(String sql, Parametros parametros, Mapeador<T> mapeador) {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             parametros.aplicar(ps);
@@ -161,7 +166,7 @@ public abstract class DaoBase {
         }
     }
 
-    private static RuntimeException traducir(SQLException e) {
+    protected static RuntimeException traducir(SQLException e) {
         switch (e.getErrorCode()) {
             case ER_DUP_ENTRY:
                 return new RegistroDuplicadoException("Restricción única violada", e);

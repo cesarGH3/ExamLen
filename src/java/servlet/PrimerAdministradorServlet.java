@@ -3,6 +3,7 @@ package servlet;
 import logica.PoliticaContrasena;
 import logica.Validador;
 import logica.ValidacionException;
+import servicio.Instalacion;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,17 +25,23 @@ public class PrimerAdministradorServlet extends ServletBase {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (usuarioDAO.contarAdministradores() > 0) {
+        if (usuarioDAO.contarAdministradores() > 0 || !Instalacion.habilitada()) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
+        resp.setHeader("Cache-Control", "no-store");
         mostrar(req, resp, "", "", "", null);
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (usuarioDAO.contarAdministradores() > 0) {
+        resp.setHeader("Cache-Control", "no-store");
+        if (usuarioDAO.contarAdministradores() > 0 || !Instalacion.habilitada()) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        if (!Instalacion.verificar(req.getParameter("claveInstalacion"))) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
         String identificacion = parametro(req, "identificacion");

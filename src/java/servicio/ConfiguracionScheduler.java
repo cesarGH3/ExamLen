@@ -11,7 +11,8 @@ public final class ConfiguracionScheduler {
     public static final String PROPIEDAD_INTERVALO = "examlen.scheduler.virtual.intervalSeconds";
 
     /** Variable de entorno equivalente. */
-    public static final String VARIABLE_INTERVALO = "EXAMENL_SCHEDULER_VIRTUAL_INTERVAL";
+    public static final String VARIABLE_INTERVALO = "EXAMLEN_SCHEDULER_VIRTUAL_INTERVAL";
+    private static final String VARIABLE_INTERVALO_LEGADA = "EXAMENL_SCHEDULER_VIRTUAL_INTERVAL";
 
     public static final int INTERVALO_POR_DEFECTO = 30;
     public static final int INTERVALO_MINIMO = 1;
@@ -24,6 +25,9 @@ public final class ConfiguracionScheduler {
         String valor = System.getProperty(PROPIEDAD_INTERVALO);
         if (valor == null || valor.isBlank()) {
             valor = System.getenv(VARIABLE_INTERVALO);
+        }
+        if (valor == null || valor.isBlank()) {
+            valor = System.getenv(VARIABLE_INTERVALO_LEGADA);
         }
         if (valor == null || valor.isBlank()) {
             return INTERVALO_POR_DEFECTO;

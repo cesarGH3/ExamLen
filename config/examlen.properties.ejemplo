@@ -1,0 +1,23 @@
+# ExamLen - conexion MySQL para desarrollo local o pruebas.
+# Copia este archivo como WEB-INF/classes/examlen.properties SOLO en tu equipo.
+# Nunca agregues el archivo con valores reales al repositorio ni al WAR de entrega.
+#
+# En produccion se recomienda configurar estas propiedades en
+# {catalina.base}/conf/catalina.properties o mediante variables DB_*.
+#
+# TLS: en produccion usa VERIFY_IDENTITY y un truststore PKCS12 con la CA del servidor.
+# En desarrollo local en loopback puedes usar REQUIRED de forma explicita; REQUIRED
+# cifra la conexion pero no valida la identidad del servidor.
+examlen.db.url=jdbc:mysql://127.0.0.1:3306/examlen
+examlen.db.user=CAMBIAR_USUARIO
+examlen.db.password=CAMBIAR_CONTRASENA
+
+# Produccion: validacion completa (por defecto).
+#examlen.db.sslMode=VERIFY_IDENTITY
+#examlen.db.trustStore=file:/ruta/truststore.p12
+#examlen.db.trustStorePassword=CAMBIAR_CLAVE_TRUSTSTORE
+#examlen.db.trustStoreType=PKCS12
+
+# Desarrollo local explicito (solo host loopback). Nunca en produccion.
+#examlen.db.sslMode=REQUIRED
+#examlen.db.devMode=true

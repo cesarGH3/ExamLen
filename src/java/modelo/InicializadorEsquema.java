@@ -8,7 +8,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -41,6 +40,7 @@ public final class InicializadorEsquema {
     private static final String MIGRACION_RESPUESTAS = "020_politica_respuestas_completas.sql";
     private static final String MIGRACION_CLAVES_IA = "021_clave_ia_docente.sql";
     private static final String MIGRACION_SEGURIDAD = "022_integridad_respuestas_tokens.sql";
+    private static final String MIGRACION_ROLES = "023_roles_sin_columna_tipo.sql";
     private static volatile boolean esquemaDisponible;
 
     public static boolean consultarDisponibilidadEsquema() {
@@ -68,6 +68,8 @@ public final class InicializadorEsquema {
             new String[]{"solicitud_generacion", "cantidad_valida"});
 
     private static final Pattern USE_HARDCODEADO = Pattern.compile("(?mi)^\\s*USE\\s+examlen\\s*;");
+    private static final Pattern CREAR_BASE_HARDCODEADA =
+            Pattern.compile("(?is)\\bCREATE\\s+DATABASE\\b[^;]*;");
 
     private InicializadorEsquema() {
     }
@@ -95,8 +97,7 @@ public final class InicializadorEsquema {
             return;
         }
 
-        cargarDriver();
-        try (Connection servidor = DriverManager.getConnection(config.urlServidor(), config.usuario(), config.contrasena())) {
+        try (Connection servidor = config.fuenteInicializador(false).getConnection()) {
             if (!existeBase(servidor, config.base())) {
                 crearBase(servidor, config.base());
                 LOG.info("Base de datos creada: " + config.base() + " en " + config.host() + ":" + config.puerto());
@@ -109,7 +110,7 @@ public final class InicializadorEsquema {
             throw e;
         }
 
-        try (Connection c = DriverManager.getConnection(config.urlBase(), config.usuario(), config.contrasena())) {
+        try (Connection c = config.fuenteInicializador(true).getConnection()) {
             try (PreparedStatement bloqueo = c.prepareStatement("SELECT GET_LOCK(CONCAT(DATABASE(), ':migraciones'), 30)");
                  ResultSet resultado = bloqueo.executeQuery()) {
                 if (!resultado.next() || resultado.getInt(1) != 1) throw new SQLException("Otra instancia está migrando el esquema.");
@@ -120,7 +121,8 @@ public final class InicializadorEsquema {
                     || !indice.contains(MIGRACION_INTENTOS)
                     || !indice.contains(MIGRACION_RESPUESTAS)
                     || !indice.contains(MIGRACION_CLAVES_IA)
-                    || !indice.contains(MIGRACION_SEGURIDAD)) {
+                    || !indice.contains(MIGRACION_SEGURIDAD)
+                    || !indice.contains(MIGRACION_ROLES)) {
                 throw new SQLException("A?ndice de migraciones invA?lido.");
             }
             for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
@@ -153,6 +155,9 @@ public final class InicializadorEsquema {
                 throw new SQLException("Esquema parcial; requiere recuperación antes de continuar.");
             }
             aplicarPendientes(c, contexto, aplicadas);
+            if (contarTablasEsperadas(c) != TABLAS_ESPERADAS.size()) {
+                throw new SQLException("Esquema final incompleto: faltan tablas esperadas.");
+            }
             verificarEsquemaPropietario(c);
             if (listarAplicadas(c).contains(MIGRACION_INTENTOS)) {
                 verificarEsquemaIntentos(c);
@@ -164,6 +169,9 @@ public final class InicializadorEsquema {
                 verificarEsquemaClavesIA(c);
             }
             verificarEsquemaSeguridad(c);
+            if (listarAplicadas(c).contains(MIGRACION_ROLES)) {
+                verificarEsquemaRoles(c);
+            }
             esquemaDisponible = true;
             LOG.info("Esquema verificado y disponible.");
         }
@@ -177,9 +185,14 @@ public final class InicializadorEsquema {
     }
 
     private static boolean columnaExiste(Connection conexion, String columna) throws SQLException {
+        return columnaExiste(conexion, "pregunta", columna);
+    }
+
+    private static boolean columnaExiste(Connection conexion, String tabla, String columna) throws SQLException {
         try (PreparedStatement sentencia = conexion.prepareStatement("SELECT 1 FROM information_schema.COLUMNS "
-                + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pregunta' AND COLUMN_NAME = ?")) {
-            sentencia.setString(1, columna);
+                + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?")) {
+            sentencia.setString(1, tabla);
+            sentencia.setString(2, columna);
             try (ResultSet resultado = sentencia.executeQuery()) { return resultado.next(); }
         }
     }
@@ -216,8 +229,10 @@ public final class InicializadorEsquema {
     }
 
     private static void verificarEsquemaPropietario(Connection conexion) throws SQLException {
-        if (contarTablasEsperadas(conexion) != TABLAS_ESPERADAS.size()
-                || !columnaCoincide(conexion, "id_docente", "NO") || !columnaCoincide(conexion, "id_banco_preguntas", "YES")) {
+        // Se ejecuta tambien justo despues de 018, antes de que existan las tablas de 021;
+        // por eso valida columnas y claves, no el total final de tablas.
+        if (!columnaCoincide(conexion, "id_docente", "NO")
+                || !columnaCoincide(conexion, "id_banco_preguntas", "YES")) {
             throw new SQLException("Esquema 018 incompleto.");
         }
         try (Statement sentencia = conexion.createStatement(); ResultSet resultado = sentencia.executeQuery(
@@ -317,6 +332,46 @@ public final class InicializadorEsquema {
         }
     }
 
+    /**
+     * Datos previos a 023: cada usuario debe tener exactamente una fila de rol y, mientras
+     * exista la columna historica, tipo debe coincidir con esa fila. No corrige ni borra.
+     */
+    private static void verificarDatosRoles(Connection conexion) throws SQLException {
+        if (!columnaExiste(conexion, "usuario", "tipo")) {
+            throw new SQLException("Migracion 023 parcial: falta usuario.tipo. Restaurar o reparar antes de continuar.");
+        }
+        exigirSinFilas(conexion, "SELECT u.id_usuario FROM usuario u "
+                + "LEFT JOIN administrador a ON a.id_usuario = u.id_usuario "
+                + "LEFT JOIN docente d ON d.id_usuario = u.id_usuario "
+                + "LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario "
+                + "WHERE (a.id_usuario IS NOT NULL) + (d.id_usuario IS NOT NULL) "
+                + "+ (e.id_usuario IS NOT NULL) <> 1 LIMIT 1",
+                "Hay usuarios sin rol o con mas de un rol. Resolverlos antes de aplicar 023.");
+        exigirSinFilas(conexion, "SELECT u.id_usuario FROM usuario u "
+                + "LEFT JOIN administrador a ON a.id_usuario = u.id_usuario "
+                + "LEFT JOIN docente d ON d.id_usuario = u.id_usuario "
+                + "LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario "
+                + "WHERE u.tipo <> CASE WHEN a.id_usuario IS NOT NULL THEN 'ADMINISTRADOR' "
+                + "WHEN d.id_usuario IS NOT NULL THEN 'DOCENTE' "
+                + "WHEN e.id_usuario IS NOT NULL THEN 'ESTUDIANTE' ELSE 'SIN_ROL' END LIMIT 1",
+                "usuario.tipo no coincide con la tabla de rol. Resolver antes de aplicar 023.");
+    }
+
+    /** Verificacion final de 023: el rol solo vive en las tablas hijas. */
+    private static void verificarEsquemaRoles(Connection conexion) throws SQLException {
+        if (columnaExiste(conexion, "usuario", "tipo")) {
+            throw new SQLException("La migracion 023 no elimino usuario.tipo.");
+        }
+        if (contarFilas(conexion, "SELECT COUNT(*) FROM usuario u "
+                + "LEFT JOIN administrador a ON a.id_usuario = u.id_usuario "
+                + "LEFT JOIN docente d ON d.id_usuario = u.id_usuario "
+                + "LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario "
+                + "WHERE (a.id_usuario IS NOT NULL) + (d.id_usuario IS NOT NULL) "
+                + "+ (e.id_usuario IS NOT NULL) <> 1") != 0) {
+            throw new SQLException("Hay usuarios sin rol o con mas de un rol tras 023.");
+        }
+    }
+
     private static boolean columnaTipo(Connection conexion, String tabla, String columna,
                                        String tipo, String permiteNulo) throws SQLException {
         try (PreparedStatement sentencia = conexion.prepareStatement(
@@ -351,14 +406,6 @@ public final class InicializadorEsquema {
             if (resultado.next()) {
                 throw new SQLException(mensaje);
             }
-        }
-    }
-
-    private static void cargarDriver() {
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            // El driver se registra via SPI al estar en WEB-INF/lib; si no, DriverManager lo reportara.
         }
     }
 
@@ -431,8 +478,17 @@ public final class InicializadorEsquema {
                     + "AND TABLE_NAME = 'respuesta' AND COLUMN_NAME = 'id_version_evaluacion'") != 0) {
                 throw new SQLException("Migracion 022 parcial: restaurar o reparar antes de continuar.");
             }
+            if (MIGRACION_ROLES.equals(nombre)) {
+                verificarDatosRoles(c);
+            }
             String sql = leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
             sql = USE_HARDCODEADO.matcher(sql).replaceAll("");
+            sql = CREAR_BASE_HARDCODEADA.matcher(sql).replaceAll("");
+            String base = c.getCatalog();
+            if (base != null && !base.isBlank()) {
+                // Los GRANT de 001/002 nombran examlen; se redirigen a la base real.
+                sql = sql.replaceAll("(?i)\\bexamlen\\.", "`" + base + "`.");
+            }
             try (Statement st = c.createStatement()) {
                 boolean resultado = st.execute(sql);
                 while (true) {
@@ -442,6 +498,7 @@ public final class InicializadorEsquema {
                 }
             }
             if (MIGRACION_SEGURIDAD.equals(nombre)) verificarEsquemaSeguridad(c);
+            if (MIGRACION_ROLES.equals(nombre)) verificarEsquemaRoles(c);
             if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
             if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
             if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);

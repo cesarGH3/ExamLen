@@ -1,11 +1,14 @@
 package modelo;
 
+import logica.AccesoDatosException;
 import logica.Administrador;
 import logica.HashContrasena;
 import logica.RegistroDuplicadoException;
 import logica.ValidacionException;
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
@@ -44,22 +47,56 @@ public class AdministradorDAO extends DaoBase {
                                                   java.util.Date fechaNacimiento) throws ValidacionException {
         Administrador administrador = construirAdministrador(identificacion, nombre, correo, contrasena,
                 institucion, fechaNacimiento);
-        try {
-            Boolean creado = enTransaccion(c -> {
-                int existentes = consultarUnoCon(c, "SELECT COUNT(*) FROM administrador FOR UPDATE",
-                        SIN_PARAMETROS, rs -> rs.getInt(1)).orElse(0);
-                if (existentes > 0) {
-                    return Boolean.FALSE;
-                }
-                administrador.establecerIdUsuario(insertarAdministrador(c, administrador, fechaNacimiento));
-                return Boolean.TRUE;
-            });
-            if (!creado) {
-                throw new ValidacionException("Ya existe un administrador registrado.");
+        try (Connection c = nuevaConexion()) {
+            if (!adquirirBloqueoInstalacion(c)) {
+                throw new AccesoDatosException("No se pudo obtener el bloqueo de instalacion.",
+                        new SQLException("GET_LOCK agotado"));
             }
-            return administrador;
+            try {
+                c.setAutoCommit(false);
+                try {
+                    int existentes = consultarUnoCon(c, "SELECT COUNT(*) FROM administrador",
+                            SIN_PARAMETROS, rs -> rs.getInt(1)).orElse(0);
+                    if (existentes > 0) {
+                        c.rollback();
+                        throw new ValidacionException("Ya existe un administrador registrado.");
+                    }
+                    int id = insertarAdministrador(c, administrador, fechaNacimiento);
+                    c.commit();
+                    administrador.establecerIdUsuario(id);
+                    return administrador;
+                } catch (SQLException | RuntimeException e) {
+                    c.rollback();
+                    throw e;
+                } finally {
+                    c.setAutoCommit(true);
+                }
+            } finally {
+                liberarBloqueoInstalacion(c);
+            }
+        } catch (SQLException e) {
+            throw traducir(e);
         } catch (RegistroDuplicadoException e) {
             throw new ValidacionException("La identificación o el correo ya están registrados.");
+        }
+    }
+
+    private static boolean adquirirBloqueoInstalacion(Connection c) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT GET_LOCK(CONCAT('examlen:primer_administrador:', "
+                        + "SUBSTRING(SHA2(DATABASE(), 256), 1, 24)), 10)");
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() && rs.getInt(1) == 1;
+        }
+    }
+
+    private static void liberarBloqueoInstalacion(Connection c) {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT RELEASE_LOCK(CONCAT('examlen:primer_administrador:', "
+                        + "SUBSTRING(SHA2(DATABASE(), 256), 1, 24)))")) {
+            ps.execute();
+        } catch (SQLException e) {
+            // La conexion se cierra; MySQL libera automaticamente el bloqueo nominado.
         }
     }
 

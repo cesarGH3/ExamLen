@@ -30,13 +30,13 @@ public final class ConfiguracionSupervision {
 
     /** Coeficiente (0 a 1) a partir del cual dos respuestas se consideran excesivamente similares. */
     public static double umbralSimilitud() {
-        return valorDecimal("supervision.similitud.umbral", "EXAMENL_SUPERVISION_SIMILITUD",
+        return valorDecimal("supervision.similitud.umbral", "EXAMLEN_SUPERVISION_SIMILITUD",
                 SIMILITUD_POR_DEFECTO);
     }
 
     /** Fracción de la mediana del grupo por debajo de la cual la duración de un intento es atípica. */
     public static double fraccionMedianaTiempo() {
-        return valorDecimal("supervision.tiempo.fraccion.mediana", "EXAMENL_SUPERVISION_TIEMPO",
+        return valorDecimal("supervision.tiempo.fraccion.mediana", "EXAMLEN_SUPERVISION_TIEMPO",
                 FRACCION_TIEMPO_POR_DEFECTO);
     }
 
@@ -60,6 +60,9 @@ public final class ConfiguracionSupervision {
 
     private static String valor(String clave, String variableEntorno) {
         String entorno = System.getenv(variableEntorno);
+        if ((entorno == null || entorno.isBlank()) && variableEntorno.startsWith("EXAMLEN_")) {
+            entorno = System.getenv("EXAMENL_" + variableEntorno.substring("EXAMLEN_".length()));
+        }
         if (entorno != null && !entorno.isBlank()) {
             return entorno.strip();
         }

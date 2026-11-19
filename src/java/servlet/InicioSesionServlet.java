@@ -3,6 +3,7 @@ package servlet;
 import logica.AutenticacionFallidaException;
 import logica.Docente;
 import logica.Usuario;
+import servicio.Instalacion;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,7 +26,13 @@ public class InicioSesionServlet extends ServletBase {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         if (usuarioDAO.contarAdministradores() == 0) {
-            redirigir(req, resp, "/primer-administrador");
+            if (Instalacion.habilitada()) {
+                redirigir(req, resp, "/primer-administrador");
+                return;
+            }
+            renderizar(req, resp, "login.html", Map.of("acceso", ""),
+                    List.of("La instalacion aun no esta configurada. El responsable del despliegue "
+                            + "debe definir EXAMLEN_BOOTSTRAP_SECRET y crear el primer administrador."));
             return;
         }
         HttpSession sesion = req.getSession(false);
@@ -39,7 +46,13 @@ public class InicioSesionServlet extends ServletBase {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         if (usuarioDAO.contarAdministradores() == 0) {
-            redirigir(req, resp, "/primer-administrador");
+            if (Instalacion.habilitada()) {
+                redirigir(req, resp, "/primer-administrador");
+                return;
+            }
+            renderizar(req, resp, "login.html", Map.of("acceso", ""),
+                    List.of("La instalacion aun no esta configurada. El responsable del despliegue "
+                            + "debe definir EXAMLEN_BOOTSTRAP_SECRET y crear el primer administrador."));
             return;
         }
         String acceso = parametro(req, "acceso");

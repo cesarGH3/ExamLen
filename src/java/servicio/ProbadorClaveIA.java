@@ -4,8 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /** Valida una clave candidata contra el endpoint de modelos del proveedor. */
 public final class ProbadorClaveIA {
@@ -31,16 +30,15 @@ public final class ProbadorClaveIA {
     }
 
     private static void probarGemini(String clave) throws GeneracionFallidaException {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models?key="
-                + URLEncoder.encode(clave, StandardCharsets.UTF_8);
-        consultar(url, null, "Gemini");
+        consultar(GeminiApi.urlModelos(), GeminiApi.cabeceras(clave), "Gemini");
     }
 
     private static void probarGroq(String clave) throws GeneracionFallidaException {
-        consultar("https://api.groq.com/openai/v1/models", "Bearer " + clave, "Groq");
+        consultar("https://api.groq.com/openai/v1/models",
+                Map.of("Authorization", "Bearer " + clave), "Groq");
     }
 
-    private static void consultar(String url, String authorization, String proveedor)
+    private static void consultar(String url, Map<String, String> cabeceras, String proveedor)
             throws GeneracionFallidaException {
         HttpURLConnection conexion = null;
         try {
@@ -49,8 +47,8 @@ public final class ProbadorClaveIA {
             conexion.setReadTimeout(LECTURA_MS);
             conexion.setRequestMethod("GET");
             conexion.setRequestProperty("Accept", "application/json");
-            if (authorization != null) {
-                conexion.setRequestProperty("Authorization", authorization);
+            for (Map.Entry<String, String> cabecera : cabeceras.entrySet()) {
+                conexion.setRequestProperty(cabecera.getKey(), cabecera.getValue());
             }
             int codigo = conexion.getResponseCode();
             if (codigo >= 200 && codigo < 300) {
@@ -61,14 +59,14 @@ public final class ProbadorClaveIA {
             }
             if (codigo == 401 || codigo == 403) {
                 throw new GeneracionFallidaException("El proveedor " + proveedor
-                        + " rechazó la clave (HTTP " + codigo + ").", TipoErrorIA.CONFIGURACION);
+                        + " rechazA3 la clave (HTTP " + codigo + ").", TipoErrorIA.CONFIGURACION);
             }
             if (codigo == 429) {
                 throw new GeneracionFallidaException("El proveedor " + proveedor
-                        + " alcanzó su límite temporal de uso (HTTP 429).", TipoErrorIA.CUOTA);
+                        + " alcanzA3 su lA-mite temporal de uso (HTTP 429).", TipoErrorIA.CUOTA);
             }
             throw new GeneracionFallidaException("El proveedor " + proveedor
-                    + " respondió con HTTP " + codigo + ".", TipoErrorIA.HTTP);
+                    + " respondiA3 con HTTP " + codigo + ".", TipoErrorIA.HTTP);
         } catch (GeneracionFallidaException e) {
             throw e;
         } catch (IOException e) {

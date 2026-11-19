@@ -138,7 +138,7 @@ public class DocenteIAServlet extends ServletBase {
                     "Configura tu clave personal de Gemini o Groq en este formulario antes de generar contenido."));
         } else if (!CifradoClaves.configurado()) {
             datos.put("avisoClaves", Html.alerta(vistas, "alerta-info",
-                    "Falta EXAMENL_IA_CRYPTO_KEY en el servidor; las claves guardadas no se pueden usar."));
+                    "Falta EXAMLEN_IA_CRYPTO_KEY en el servidor; las claves guardadas no se pueden usar."));
         } else {
             datos.put("avisoClaves", "");
         }
@@ -201,7 +201,7 @@ public class DocenteIAServlet extends ServletBase {
             throw new ValidacionException("La clave de IA debe tener entre 5 y 300 caracteres.");
         }
         if (!CifradoClaves.configurado()) {
-            throw new ValidacionException("Falta EXAMENL_IA_CRYPTO_KEY en el servidor para guardar claves.");
+            throw new ValidacionException("Falta EXAMLEN_IA_CRYPTO_KEY en el servidor para guardar claves.");
         }
         try {
             ProbadorClaveIA.probar(proveedor, clave);

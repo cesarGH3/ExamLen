@@ -1,6 +1,5 @@
 package conexion;
 
-import com.mysql.cj.jdbc.MysqlDataSource;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
@@ -31,7 +30,7 @@ public final class Conexion {
             }
             ConfiguracionBD configuracion = ConfiguracionBD.resolver();
             if (configuracion.hayCredenciales()) {
-                fuente = crearFuente(configuracion);
+                fuente = configuracion.fuenteAplicacion();
                 return fuente;
             }
             try {
@@ -39,17 +38,11 @@ public final class Conexion {
                 return fuente;
             } catch (NamingException e) {
                 throw new IllegalStateException("No se encontró configuración de base de datos. "
-                        + "Crea WEB-INF/classes/examlen.properties o revisa META-INF/context.xml "
-                        + "y conf/catalina.properties de Tomcat.", e);
+                        + "Configura examlen.db.* en {catalina.base}/conf/catalina.properties o "
+                        + "las variables DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD. "
+                        + "No incluyas credenciales dentro del WAR.", e);
             }
         }
     }
 
-    private static DataSource crearFuente(ConfiguracionBD configuracion) {
-        MysqlDataSource dataSource = new MysqlDataSource();
-        dataSource.setURL(configuracion.urlBase());
-        dataSource.setUser(configuracion.usuario());
-        dataSource.setPassword(configuracion.contrasena());
-        return dataSource;
-    }
 }

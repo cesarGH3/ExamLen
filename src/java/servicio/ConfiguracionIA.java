@@ -23,11 +23,11 @@ public final class ConfiguracionIA {
     /** Propiedad de Tomcat con el numero de hilos de generacion. */
     public static final String PROPIEDAD_TRABAJADORES = "examlen.ia.workers";
     /** Variable de entorno equivalente. */
-    public static final String VARIABLE_TRABAJADORES = "EXAMENL_IA_WORKERS";
+    public static final String VARIABLE_TRABAJADORES = "EXAMLEN_IA_WORKERS";
     /** Propiedad de Tomcat con la capacidad de la cola de trabajos. */
     public static final String PROPIEDAD_COLA = "examlen.ia.queueCapacity";
     /** Variable de entorno equivalente. */
-    public static final String VARIABLE_COLA = "EXAMENL_IA_QUEUE_CAPACITY";
+    public static final String VARIABLE_COLA = "EXAMLEN_IA_QUEUE_CAPACITY";
 
     public static final int TRABAJADORES_POR_DEFECTO = 2;
     public static final int COLA_POR_DEFECTO = 50;
@@ -37,12 +37,12 @@ public final class ConfiguracionIA {
 
     /**
      * Lista permitida de modelos del proveedor: propiedad {@code proveedor.modelos} (separados por
-     * coma) o variable de entorno {@code EXAMENL_IA_MODELOS_PROVEEDOR}; si falta, solo el
+     * coma) o variable de entorno {@code EXAMLEN_IA_MODELOS_PROVEEDOR}; si falta, solo el
      * predeterminado. Cualquier modelo fuera de la lista se rechaza antes de llamar al proveedor.
      */
     public static List<String> modelos(String proveedor, String predeterminado) {
         String valor = valor(proveedor.toLowerCase(Locale.ROOT) + ".modelos",
-                "EXAMENL_IA_MODELOS_" + proveedor.toUpperCase(Locale.ROOT));
+                "EXAMLEN_IA_MODELOS_" + proveedor.toUpperCase(Locale.ROOT));
         if (valor == null || valor.isBlank()) {
             return List.of(predeterminado);
         }
@@ -69,7 +69,7 @@ public final class ConfiguracionIA {
     private static int enteroPositivo(String propiedad, String variableEntorno, int porDefecto) {
         String valor = System.getProperty(propiedad);
         if (valor == null || valor.isBlank()) {
-            valor = System.getenv(variableEntorno);
+            valor = entorno(variableEntorno);
         }
         if (valor == null || valor.isBlank()) {
             return porDefecto;
@@ -90,7 +90,7 @@ public final class ConfiguracionIA {
     }
 
     public static Path directorioDocumentos() {
-        String ruta = valor("documentos.directorio", "EXAMENL_DOCUMENTOS");
+        String ruta = valor("documentos.directorio", "EXAMLEN_DOCUMENTOS");
         if (ruta == null) {
             String base = System.getProperty("catalina.base", System.getProperty("java.io.tmpdir"));
             ruta = Paths.get(base, "examlen-documentos").toString();
@@ -115,12 +115,21 @@ public final class ConfiguracionIA {
     }
 
     private static String valor(String clave, String variableEntorno) {
-        String entorno = System.getenv(variableEntorno);
+        String entorno = entorno(variableEntorno);
         if (entorno != null && !entorno.isBlank()) {
             return entorno.strip();
         }
         String propiedad = PROPIEDADES.getProperty(clave);
         return propiedad == null || propiedad.isBlank() ? null : propiedad.strip();
+    }
+
+    /** Acepta el nombre canonico EXAMLEN_* y el historico EXAMENL_* sin cambiar la propiedad. */
+    private static String entorno(String variableEntorno) {
+        String valor = System.getenv(variableEntorno);
+        if ((valor == null || valor.isBlank()) && variableEntorno.startsWith("EXAMLEN_")) {
+            valor = System.getenv("EXAMENL_" + variableEntorno.substring("EXAMLEN_".length()));
+        }
+        return valor;
     }
 
     private static Properties cargar() {

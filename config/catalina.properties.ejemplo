@@ -1,29 +1,43 @@
-# ExamLen - base de datos (plantilla; NUNCA subir valores reales al repositorio)
+# ExamLen - configuracion externa de Tomcat (plantilla; NUNCA subir valores reales)
 #
-# Copia estas tres lineas al FINAL de {Catalina Base}/conf/catalina.properties
-# y reemplaza los valores. Tomcat sustituye ${examlen.db.*} en el descriptor
-# del recurso jdbc/ExamLenDB al arrancar.
+# Copia estas lineas al FINAL de {Catalina Base}/conf/catalina.properties
+# y reemplaza los valores. Tambien puedes usar las variables de entorno DB_*.
+# No incluyas credenciales dentro del WAR ni en el repositorio.
 #
 # La URL DEBE conservar connectionTimeZone=America/Bogota y
 # sessionVariables=time_zone='-05:00' (RNF-15). Comprueba con:
 #   SELECT @@session.time_zone;   -- debe devolver -05:00
-examlen.db.url=jdbc:mysql://db.ejemplo.com:3306/examlen?sslMode=PREFERRED&allowPublicKeyRetrieval=true&connectionTimeZone=America/Bogota&sessionVariables=time_zone='-05:00'&connectTimeout=3000&socketTimeout=10000&characterEncoding=UTF-8
+#
+# TLS de produccion: VERIFY_IDENTITY exige que el certificado del servidor
+# tenga un SAN que coincida con el host y que su CA este en el truststore.
+# Genera el truststore PKCS12 una sola vez:
+#   keytool -importcert -alias mysql-ca -file ca.pem \
+#     -keystore truststore.p12 -storetype PKCS12 -storepass CAMBIAR
+examlen.db.url=jdbc:mysql://db.ejemplo.com:3306/examlen
 examlen.db.user=USUARIO_MYSQL
 examlen.db.password=CAMBIAR_EN_SERVIDOR
+examlen.db.sslMode=VERIFY_IDENTITY
+examlen.db.trustStore=file:/ruta/absoluta/truststore.p12
+examlen.db.trustStorePassword=CAMBIAR_CLAVE_TRUSTSTORE
+examlen.db.trustStoreType=PKCS12
+
+# Solo desarrollo local en loopback. REQUIRED cifra, pero NO valida identidad.
+#examlen.db.sslMode=REQUIRED
+#examlen.db.devMode=true
 
 # Opcional: intervalo (segundos) del programador que abre/cierra evaluaciones virtuales (RF-42).
-# Por defecto 30. Tambien sirve la variable de entorno EXAMENL_SCHEDULER_VIRTUAL_INTERVAL.
+# Por defecto 30. Tambien sirve la variable de entorno EXAMLEN_SCHEDULER_VIRTUAL_INTERVAL.
 #examlen.scheduler.virtual.intervalSeconds=30
 
 # Opcional: generacion con IA en segundo plano (RNF-08, Fase 6).
 # Hilos de trabajo (por defecto 2) y trabajos en cola antes de rechazar (por defecto 50).
-# Tambien sirven las variables EXAMENL_IA_WORKERS y EXAMENL_IA_QUEUE_CAPACITY.
+# Tambien sirven las variables EXAMLEN_IA_WORKERS y EXAMLEN_IA_QUEUE_CAPACITY.
 #examlen.ia.workers=2
 #examlen.ia.queueCapacity=50
 
 # Opcional: lista permitida de modelos por proveedor (RNF-12, Fase 7), separados por comas.
 # Si se omite, se permiten el modelo predeterminado y su alternativa de Gemini.
-# Tambien sirven EXAMENL_IA_MODELOS_GEMINI y EXAMENL_IA_MODELOS_GROQ.
+# Tambien sirven EXAMLEN_IA_MODELOS_GEMINI y EXAMLEN_IA_MODELOS_GROQ.
 #gemini.modelos=gemini-3.5-flash-lite,gemini-flash-lite-latest
 #groq.modelos=llama-3.3-70b-versatile
 
@@ -39,10 +53,34 @@ examlen.db.password=CAMBIAR_EN_SERVIDOR
 #examlen.https.required=false
 
 # ---------------------------------------------------------------------------
+# Entorno y secretos persistentes.
+# En produccion (valor por defecto) la aplicacion no arranca sin el secreto de API.
+# En desarrollo se puede permitir una clave efimera solo de forma explicita.
+#examlen.env=produccion
+#examlen.allowEphemeralSecrets=false
+#
+# Secretos recomendados por variable de entorno en setenv.sh/setenv.bat:
+#   EXAMLEN_API_TOKEN_SECRET=<aleatorio de 32+ caracteres>
+#   EXAMLEN_ORDER_SECRET=<aleatorio de 32+ caracteres>
+#   EXAMLEN_IA_CRYPTO_KEY=<Base64 de 16, 24 o 32 bytes>
+#
+# Tambien se pueden guardar en {catalina.base}/conf/examlen-secrets.properties
+# (nunca en Git) con estas claves:
+#   api.token.secret=...
+#   order.secret=...
+#   bootstrap.secret=...
+#   ia.crypto.key=...
+#
 # Tokens Bearer de la API /api/v1 (vida corta) y orden de practicas.
-# Configura secretos largos y aleatorios. Si no se configuran, se usa una
-# clave aleatoria por proceso (los tokens dejan de valer al reiniciar).
-# Tambien sirven las variables EXAMENL_API_TOKEN_SECRET y EXAMENL_ORDER_SECRET.
+# Si no hay order.secret se reutiliza api.token.secret.
 #examlen.api.token.secret=CAMBIA_ESTE_SECRETO_LARGO
 #examlen.api.token.minutes=15
 #examlen.order.secret=CAMBIA_ESTE_SECRETO_LARGO
+
+# ---------------------------------------------------------------------------
+# Instalacion inicial del primer administrador.
+# Define EXAMLEN_BOOTSTRAP_SECRET (32+ caracteres) solo durante la instalacion.
+# Sin esta credencial, /primer-administrador responde 404 y no se puede crear
+# la primera cuenta. Retira la variable despues de crear el administrador.
+#   EXAMLEN_BOOTSTRAP_SECRET=<aleatorio de 32+ caracteres>
+#examlen.bootstrap.secret=CAMBIA_ESTE_SECRETO_LARGO

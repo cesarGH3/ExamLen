@@ -7,10 +7,16 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-/** Cifra las claves de IA de los docentes con AES-GCM y una clave externa al WAR/BD. */
+/**
+ * Cifra las claves de IA de los docentes con AES-GCM y una clave externa al WAR/BD.
+ *
+ * La clave se resuelve con el mismo mecanismo persistente que el resto de secretos:
+ * EXAMLEN_IA_CRYPTO_KEY (o su alias historico), propiedad del sistema o archivo externo.
+ * Nunca se registra el valor ni se usa una clave aleatoria por proceso.
+ */
 public final class CifradoClaves {
 
-    public static final String VARIABLE_CLAVE = "EXAMENL_IA_CRYPTO_KEY";
+    public static final String VARIABLE_CLAVE = "EXAMLEN_IA_CRYPTO_KEY";
     private static final int IV_BYTES = 12;
     private static final int TAG_BITS = 128;
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -19,8 +25,14 @@ public final class CifradoClaves {
     }
 
     public static boolean configurado() {
-        String valor = System.getenv(VARIABLE_CLAVE);
-        return valor != null && !valor.isBlank();
+        return Secretos.cifradoIA() != null;
+    }
+
+    /** Valida al arrancar solo si el operador configuro la clave; si falta no es un error. */
+    public static void validarConfiguracion() {
+        if (configurado()) {
+            clave();
+        }
     }
 
     public static String cifrar(String texto) {
@@ -68,10 +80,10 @@ public final class CifradoClaves {
     }
 
     private static SecretKeySpec clave() {
-        String valor = System.getenv(VARIABLE_CLAVE);
+        String valor = Secretos.cifradoIA();
         if (valor == null || valor.isBlank()) {
-            throw new IllegalStateException("Falta la variable de entorno " + VARIABLE_CLAVE
-                    + " para cifrar las claves de IA.");
+            throw new IllegalStateException("Falta " + VARIABLE_CLAVE
+                    + " para cifrar las claves de IA. Configura una clave Base64 persistente.");
         }
         byte[] bytes;
         try {

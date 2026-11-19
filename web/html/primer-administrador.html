@@ -47,6 +47,14 @@
                        autocomplete="email" value="{{correo}}">
             </div>
             <div class="campo">
+                <label for="claveInstalacion">Credencial de instalación</label>
+                <input id="claveInstalacion" name="claveInstalacion" type="password" required
+                       minlength="32" maxlength="512" autocomplete="off"
+                       aria-describedby="ayuda-instalacion">
+                <p id="ayuda-instalacion" class="ayuda">La define el responsable del despliegue
+                    en EXAMLEN_BOOTSTRAP_SECRET. Solo se usa durante la instalación inicial.</p>
+            </div>
+            <div class="campo">
                 <label for="contrasena">Contraseña</label>
                 <input id="contrasena" name="contrasena" type="password" required
                        minlength="8" maxlength="128"

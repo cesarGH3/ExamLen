@@ -1,35 +1,50 @@
 package conexion;
 
+import com.mysql.cj.jdbc.MysqlDataSource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Configuracion de conexion a MySQL para la inicializacion automatica del esquema
- * (creacion de la base y aplicacion de migraciones al arrancar ExamLen).
+ * Configuracion de conexion a MySQL para la aplicacion y para el inicializador.
  *
  * Orden de resolucion por campo: variable de entorno -> propiedad del sistema ->
- * archivo examlen.properties incluido en WEB-INF/classes ->
- * archivo {catalina.base}/conf/catalina.properties (compatibilidad) ->
- * valor por defecto (solo host, puerto y nombre de base admiten defecto).
- * La contrasena nunca tiene valor por defecto y jamas se registra en logs.
+ * archivo examlen.properties incluido en WEB-INF/classes -> archivo
+ * {catalina.base}/conf/catalina.properties -> valor por defecto (solo host,
+ * puerto y nombre de base admiten defecto). La contrasena nunca tiene valor por
+ * defecto y jamas se registra en logs.
  *
- * El nombre de la base se valida como identificador seguro antes de usarse.
- * allowMultiQueries solo se agrega a las URLs de esta clase (conexion interna del
- * inicializador); el DataSource JNDI de la aplicacion no se modifica.
+ * TLS: por defecto sslMode=VERIFY_IDENTITY. En produccion solo se admite esa
+ * modalidad; REQUIRED queda reservado para desarrollo local en loopback y debe
+ * declararse explicitamente con examlen.db.sslMode=REQUIRED y examlen.db.devMode=true.
+ * allowPublicKeyRetrieval no se usa. allowMultiQueries solo se activa en la
+ * conexion interna del inicializador.
  */
 public final class ConfiguracionBD {
 
     private static final String PROPIEDAD_URL = "examlen.db.url";
     private static final String PROPIEDAD_USUARIO = "examlen.db.user";
     private static final String PROPIEDAD_CONTRASENA = "examlen.db.password";
+    private static final String PROPIEDAD_SSL_MODE = "examlen.db.sslMode";
+    private static final String PROPIEDAD_TRUSTSTORE = "examlen.db.trustStore";
+    private static final String PROPIEDAD_TRUSTSTORE_PASSWORD = "examlen.db.trustStorePassword";
+    private static final String PROPIEDAD_TRUSTSTORE_TYPE = "examlen.db.trustStoreType";
+    private static final String PROPIEDAD_DESARROLLO = "examlen.db.devMode";
+    private static final String VARIABLE_SSL_MODE = "DB_SSL_MODE";
+    private static final String VARIABLE_TRUSTSTORE = "DB_TRUSTSTORE";
+    private static final String VARIABLE_TRUSTSTORE_PASSWORD = "DB_TRUSTSTORE_PASSWORD";
+    private static final String VARIABLE_TRUSTSTORE_TYPE = "DB_TRUSTSTORE_TYPE";
+    private static final String VARIABLE_DESARROLLO = "EXAMLEN_DB_DEV";
     private static final String ARCHIVO_APP = "examlen.properties";
-    private static final Properties PROPIEDADES_APP = leerPropiedadesApp();
+    private static final String SSL_POR_DEFECTO = "VERIFY_IDENTITY";
+    private static final String SSL_DESARROLLO = "REQUIRED";
 
+    private static final Properties PROPIEDADES_APP = leerPropiedadesApp();
     private static final String HOST_POR_DEFECTO = "localhost";
     private static final int PUERTO_POR_DEFECTO = 3306;
     private static final String BASE_POR_DEFECTO = "examlen";
@@ -42,13 +57,25 @@ public final class ConfiguracionBD {
     private final String base;
     private final String usuario;
     private final String contrasena;
+    private final String sslMode;
+    private final String trustStore;
+    private final String trustStorePassword;
+    private final String trustStoreType;
+    private final boolean desarrollo;
 
-    private ConfiguracionBD(String host, int puerto, String base, String usuario, String contrasena) {
+    private ConfiguracionBD(String host, int puerto, String base, String usuario, String contrasena,
+                            String sslMode, String trustStore, String trustStorePassword,
+                            String trustStoreType, boolean desarrollo) {
         this.host = host;
         this.puerto = puerto;
         this.base = base;
         this.usuario = usuario;
         this.contrasena = contrasena;
+        this.sslMode = sslMode;
+        this.trustStore = trustStore;
+        this.trustStorePassword = trustStorePassword;
+        this.trustStoreType = trustStoreType;
+        this.desarrollo = desarrollo;
     }
 
     public static ConfiguracionBD resolver() {
@@ -90,7 +117,60 @@ public final class ConfiguracionBD {
             }
         }
 
-        return new ConfiguracionBD(host, puerto, base, usuario, contrasena);
+        String sslMode = normalizarSsl(primero(System.getenv(VARIABLE_SSL_MODE),
+                System.getProperty(PROPIEDAD_SSL_MODE), catalina.getProperty(PROPIEDAD_SSL_MODE),
+                SSL_POR_DEFECTO));
+        boolean desarrollo = booleano(primero(System.getenv(VARIABLE_DESARROLLO),
+                System.getProperty(PROPIEDAD_DESARROLLO), catalina.getProperty(PROPIEDAD_DESARROLLO)), false);
+        validarSsl(sslMode, desarrollo, host);
+
+        String trustStore = primero(System.getenv(VARIABLE_TRUSTSTORE),
+                System.getProperty(PROPIEDAD_TRUSTSTORE), catalina.getProperty(PROPIEDAD_TRUSTSTORE));
+        String trustStorePassword = primero(System.getenv(VARIABLE_TRUSTSTORE_PASSWORD),
+                System.getProperty(PROPIEDAD_TRUSTSTORE_PASSWORD),
+                catalina.getProperty(PROPIEDAD_TRUSTSTORE_PASSWORD));
+        String trustStoreType = primero(System.getenv(VARIABLE_TRUSTSTORE_TYPE),
+                System.getProperty(PROPIEDAD_TRUSTSTORE_TYPE),
+                catalina.getProperty(PROPIEDAD_TRUSTSTORE_TYPE), "JKS");
+
+        return new ConfiguracionBD(host, puerto, base, usuario, contrasena, sslMode,
+                normalizarRuta(trustStore), trustStorePassword, trustStoreType, desarrollo);
+    }
+
+    private static void validarSsl(String sslMode, boolean desarrollo, String host) {
+        if (SSL_POR_DEFECTO.equals(sslMode)) {
+            return;
+        }
+        if (SSL_DESARROLLO.equals(sslMode)) {
+            if (!desarrollo || !esLoopback(host)) {
+                throw new IllegalArgumentException("sslMode=REQUIRED solo se admite en desarrollo local "
+                        + "(examlen.db.devMode=true y host loopback). Usa VERIFY_IDENTITY en produccion.");
+            }
+            return;
+        }
+        throw new IllegalArgumentException("sslMode no admitido: " + sslMode
+                + ". Usa VERIFY_IDENTITY (o REQUIRED solo para desarrollo local en loopback).");
+    }
+
+    private static String normalizarSsl(String valor) {
+        return valor == null ? SSL_POR_DEFECTO : valor.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean esLoopback(String host) {
+        if (host == null) {
+            return false;
+        }
+        String normalizado = host.trim().toLowerCase(Locale.ROOT);
+        return normalizado.equals("localhost") || normalizado.equals("127.0.0.1")
+                || normalizado.equals("::1") || normalizado.equals("0:0:0:0:0:0:0:1");
+    }
+
+    private static String normalizarRuta(String ruta) {
+        if (ruta == null || ruta.isBlank()) {
+            return null;
+        }
+        String valor = ruta.trim();
+        return (valor.startsWith("file:") || valor.startsWith("classpath:")) ? valor : "file:" + valor;
     }
 
     /** true si hay usuario y contrasena configurados (sin ellos no se intenta inicializar). */
@@ -108,27 +188,74 @@ public final class ConfiguracionBD {
 
     public String contrasena() { return contrasena; }
 
-    /** URL sin base de datos (para CREATE DATABASE). Solo uso interno del inicializador. */
-    public String urlServidor() {
-        return construirUrl("");
-    }
+    public String sslMode() { return sslMode; }
 
-    /** URL con base de datos (para migraciones). Solo uso interno del inicializador. */
-    public String urlBase() {
-        return construirUrl("/" + base);
-    }
+    public boolean desarrollo() { return desarrollo; }
 
     /** Descripcion sin contrasena, apta para logs. */
     public String descripcion() {
-        return host + ":" + puerto + "/" + base + " (usuario " + usuario + ")";
+        return host + ":" + puerto + "/" + base + " (usuario " + usuario + ", TLS " + sslMode + ")";
     }
 
-    private String construirUrl(String rutaBase) {
-        return "jdbc:mysql://" + host + ":" + puerto + rutaBase
-                + "?sslMode=PREFERRED&allowPublicKeyRetrieval=true"
-                + "&connectionTimeZone=America/Bogota&sessionVariables=time_zone='-05:00'"
-                + "&connectTimeout=3000&socketTimeout=10000&characterEncoding=UTF-8"
-                + "&allowMultiQueries=true";
+    /** URL sin base de datos, sin allowMultiQueries: uso de la aplicacion. */
+    public String urlServidor() {
+        return construirUrl("", false);
+    }
+
+    /** URL con base de datos, sin allowMultiQueries: uso de la aplicacion. */
+    public String urlBase() {
+        return construirUrl("/" + base, false);
+    }
+
+    /** URL del inicializador, que si necesita varias sentencias por script. */
+    public String urlInicializador() {
+        return construirUrl("/" + base, true);
+    }
+
+    /** Fuente de la aplicacion: sin allowMultiQueries y con el truststore configurado. */
+    public MysqlDataSource fuenteAplicacion() {
+        return crearFuente("/" + base, false);
+    }
+
+    /** Fuente del inicializador: allowMultiQueries solo en esta conexion interna. */
+    public MysqlDataSource fuenteInicializador(boolean conBase) {
+        return crearFuente(conBase ? "/" + base : "", true);
+    }
+
+    private MysqlDataSource crearFuente(String rutaBase, boolean multiSentencias) {
+        MysqlDataSource fuente = new MysqlDataSource();
+        fuente.setURL(construirUrl(rutaBase, multiSentencias));
+        fuente.setUser(usuario);
+        fuente.setPassword(contrasena);
+        if (trustStore != null) {
+            try {
+                fuente.setTrustCertificateKeyStoreUrl(trustStore);
+                if (trustStorePassword != null) {
+                    fuente.setTrustCertificateKeyStorePassword(trustStorePassword);
+                }
+                fuente.setTrustCertificateKeyStoreType(trustStoreType);
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException("No se pudo configurar el truststore de MySQL.", e);
+            }
+        }
+        return fuente;
+    }
+
+    private String construirUrl(String rutaBase, boolean multiSentencias) {
+        StringBuilder url = new StringBuilder("jdbc:mysql://")
+                .append(host).append(':').append(puerto).append(rutaBase)
+                .append("?sslMode=").append(sslMode)
+                .append("&connectionTimeZone=America/Bogota")
+                .append("&sessionVariables=time_zone='-05:00'")
+                .append("&connectTimeout=3000&socketTimeout=10000&characterEncoding=UTF-8");
+        if (multiSentencias) {
+            url.append("&allowMultiQueries=true");
+        }
+        return url.toString();
+    }
+
+    private static boolean booleano(String valor, boolean porDefecto) {
+        return valor == null || valor.isBlank() ? porDefecto : Boolean.parseBoolean(valor.trim());
     }
 
     private static String primero(String... valores) {

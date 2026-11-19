@@ -14,8 +14,6 @@ public class ClienteGemini implements ProveedorIA {
 
     public static final String MODELO_PREDETERMINADO = "gemini-3.5-flash-lite";
     public static final String MODELO_ALTERNATIVO = "gemini-flash-lite-latest";
-    private static final String URL = "https://generativelanguage.googleapis.com/v1beta/models/";
-
     private final String modelo;
     private final String clave;
 
@@ -52,8 +50,8 @@ public class ClienteGemini implements ProveedorIA {
         JsonObject cuerpo = new JsonObject();
         cuerpo.add("contents", contenidos);
 
-        String respuesta = HttpJson.enviarJson(URL + modelo + ":generateContent?key=" + clave, null,
-                cuerpo.toString(), "Gemini");
+        String respuesta = HttpJson.enviarJson(GeminiApi.urlGenerar(modelo),
+                GeminiApi.cabeceras(clave), cuerpo.toString(), "Gemini");
         try {
             JsonObject objeto = JsonParser.parseString(respuesta).getAsJsonObject();
             String texto = objeto.getAsJsonArray("candidates").get(0).getAsJsonObject()

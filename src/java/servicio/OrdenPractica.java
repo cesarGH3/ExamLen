@@ -10,7 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
  * Semilla estable e impredecible para barajar las preguntas de un intento de practica.
  *
  * Se apoya en la fecha de inicio ya persistida en intento_practica y en la configuracion
- * existente (EXAMENL_ORDER_SECRET / examlen.order.secret, o el secreto de API). No requiere
+ * existente (EXAMLEN_ORDER_SECRET, alias historico EXAMENL_ORDER_SECRET, o el secreto de API). No requiere
  * columnas ni migraciones. Con secreto configurado el orden es estable entre reinicios y no
  * se puede predecir desde el id; sin secreto se usa un hash determinista para que al menos
  * recargar o reanudar conserve el orden dentro del despliegue.

@@ -6,6 +6,10 @@
 # --- Inteligencia artificial ---
 gemini.apiKey=CAMBIA_ESTA_CLAVE
 groq.apiKey=CAMBIA_ESTA_CLAVE
+# Clave AES-GCM (Base64, 16/24/32 bytes) para cifrar las claves personales de los
+# docentes. Se recomienda definirla como EXAMLEN_IA_CRYPTO_KEY en el entorno del
+# servidor y conservar la existente: cambiarla invalida los valores ya cifrados.
+#ia.crypto.key=CAMBIAR_CLAVE_BASE64
 
 # --- Correo saliente (RF-11, recuperacion de contrasena) ---
 correo.host=smtp.ejemplo.com

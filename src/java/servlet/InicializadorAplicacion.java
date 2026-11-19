@@ -72,6 +72,8 @@ public class InicializadorAplicacion implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent evento) {
         ServletContext contexto = evento.getServletContext();
+        servicio.Secretos.validarConfiguracion();
+        servicio.CifradoClaves.validarConfiguracion();
         modelo.InicializadorEsquema.inicializar(contexto);
         DataSource dataSource = Conexion.obtenerFuente();
 
