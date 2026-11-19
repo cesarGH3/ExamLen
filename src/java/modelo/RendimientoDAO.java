@@ -58,12 +58,10 @@ public class RendimientoDAO extends DaoBase {
         ejecutar("DELETE FROM curso WHERE id_docente IN (" + DOCENTE_PERF + ")");
         ejecutar("DELETE t FROM token_recuperacion t JOIN usuario u ON u.id_usuario=t.id_usuario "
                 + "WHERE u.identificacion LIKE 'PERF-%'");
-        ejecutar("DELETE FROM estudiante WHERE id_usuario IN (SELECT id_usuario FROM usuario "
-                + "WHERE identificacion LIKE 'PERF-%')");
-        ejecutar("DELETE FROM docente WHERE id_usuario IN (SELECT id_usuario FROM usuario "
-                + "WHERE identificacion LIKE 'PERF-%')");
-        ejecutar("DELETE FROM administrador WHERE id_usuario IN (SELECT id_usuario FROM usuario "
-                + "WHERE identificacion LIKE 'PERF-%')");
+        // Las filas de rol se eliminan en cascada con el usuario (la base rechaza borrarlas solas).
+        // Primero estudiantes y docentes; despues administradores, referenciados por docente.
+        ejecutar("DELETE FROM usuario WHERE (identificacion LIKE 'PERF-%' OR correo LIKE 'perf.%') "
+                + "AND id_usuario NOT IN (SELECT id_usuario FROM administrador)");
         ejecutar("DELETE FROM usuario WHERE identificacion LIKE 'PERF-%' OR correo LIKE 'perf.%'");
         return contar("SELECT COUNT(*) FROM usuario WHERE identificacion LIKE 'PERF-%' OR correo LIKE 'perf.%'",
                 SIN_PARAMETROS);

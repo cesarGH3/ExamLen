@@ -13,8 +13,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -44,26 +46,9 @@ public final class InicializadorEsquema {
     private static final String MIGRACION_INTEGRIDAD = "024_restricciones_integridad.sql";
     private static volatile boolean esquemaDisponible;
 
-    /** Disparadores esperados: {nombre, tabla, momento, evento}. 022 (5) + 024 (13). */
-    private static final List<String[]> TRIGGERS_ESPERADOS = List.of(
-            new String[]{"trg_respuesta_contexto_bi", "respuesta", "BEFORE", "INSERT"},
-            new String[]{"trg_respuesta_contexto_bu", "respuesta", "BEFORE", "UPDATE"},
-            new String[]{"trg_rp_contexto_bi", "respuesta_practica", "BEFORE", "INSERT"},
-            new String[]{"trg_rp_contexto_bu", "respuesta_practica", "BEFORE", "UPDATE"},
-            new String[]{"trg_vp_puntaje_bu", "version_pregunta", "BEFORE", "UPDATE"},
-            new String[]{"trg_intento_bi", "intento", "BEFORE", "INSERT"},
-            new String[]{"trg_intento_bu", "intento", "BEFORE", "UPDATE"},
-            new String[]{"trg_inscripcion_bu", "inscripcion", "BEFORE", "UPDATE"},
-            new String[]{"trg_evaluacion_virtual_bu", "evaluacion_virtual", "BEFORE", "UPDATE"},
-            new String[]{"trg_version_evaluacion_bu", "version_evaluacion", "BEFORE", "UPDATE"},
-            new String[]{"trg_evaluacion_virtual_version_bi", "evaluacion_virtual_version", "BEFORE", "INSERT"},
-            new String[]{"trg_evaluacion_virtual_version_bu", "evaluacion_virtual_version", "BEFORE", "UPDATE"},
-            new String[]{"trg_administrador_rol_bi", "administrador", "BEFORE", "INSERT"},
-            new String[]{"trg_administrador_rol_bu", "administrador", "BEFORE", "UPDATE"},
-            new String[]{"trg_docente_rol_bi", "docente", "BEFORE", "INSERT"},
-            new String[]{"trg_docente_rol_bu", "docente", "BEFORE", "UPDATE"},
-            new String[]{"trg_estudiante_rol_bi", "estudiante", "BEFORE", "INSERT"},
-            new String[]{"trg_estudiante_rol_bu", "estudiante", "BEFORE", "UPDATE"});
+    private static final String MIGRACION_DOMINIOS = "025_historial_roles_dominios.sql";
+    /** Disparadores tras aplicar 001-025; protege contra un WAR con scripts truncados. */
+    private static final int DISPARADORES_ESPERADOS = 23;
 
     /** Restricciones de 024: {nombre, tabla, tipo, columnas en orden}. */
     private static final List<String[]> RESTRICCIONES_INTEGRIDAD = List.of(
@@ -73,6 +58,18 @@ public final class InicializadorEsquema {
             new String[]{"ck_respuesta_puntaje", "respuesta", "CHECK", null},
             new String[]{"ck_evaluacion_virtual_fechas", "evaluacion_virtual", "CHECK", null},
             new String[]{"ck_evaluacion_pregunta_puntaje", "evaluacion_pregunta", "CHECK", null});
+
+    /** Restricciones de dominio de 025. */
+    private static final List<String[]> RESTRICCIONES_DOMINIO = List.of(
+            new String[]{"ck_evaluacion_numero_preguntas", "evaluacion", "CHECK", null},
+            new String[]{"ck_evaluacion_numero_versiones", "evaluacion", "CHECK", null},
+            new String[]{"ck_evaluacion_duracion", "evaluacion", "CHECK", null},
+            new String[]{"ck_solicitud_cantidad", "solicitud_generacion", "CHECK", null},
+            new String[]{"ck_solicitud_cantidades_resultado", "solicitud_generacion", "CHECK", null},
+            new String[]{"ck_solicitud_evaluacion_referencia", "solicitud_generacion", "CHECK", null},
+            new String[]{"ck_evaluacion_pregunta_orden", "evaluacion_pregunta", "CHECK", null},
+            new String[]{"ck_version_pregunta_orden", "version_pregunta", "CHECK", null},
+            new String[]{"ck_version_opcion_orden", "version_opcion", "CHECK", null});
 
     public static boolean consultarDisponibilidadEsquema() {
         return esquemaDisponible;
@@ -114,7 +111,7 @@ public final class InicializadorEsquema {
         try {
             ejecutar(contexto);
         } catch (Exception e) {
-            LOG.severe("No fue posible inicializar el esquema automaticamente: " + e.getMessage()
+            LOG.severe("No fue posible inicializar el esquema automaticamente: " + String.valueOf(e.getMessage()).replaceAll("\\.+$", "")
                     + ". La aplicación responderá 503. Corrige el esquema y reinicia para verificarlo antes de operar.");
         }
     }
@@ -154,7 +151,8 @@ public final class InicializadorEsquema {
                     || !indice.contains(MIGRACION_CLAVES_IA)
                     || !indice.contains(MIGRACION_SEGURIDAD)
                     || !indice.contains(MIGRACION_ROLES)
-                    || !indice.contains(MIGRACION_INTEGRIDAD)) {
+                    || !indice.contains(MIGRACION_INTEGRIDAD)
+                    || !indice.contains(MIGRACION_DOMINIOS)) {
                 throw new SQLException("Índice de migraciones inválido.");
             }
             for (String nombre : indice) leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
@@ -165,7 +163,7 @@ public final class InicializadorEsquema {
             }
             int funcionales = contarTablasEsperadas(c);
             if (funcionales == 0) {
-                if (!aplicadas.isEmpty() || contarTablasTotales(c) != 1) {
+                if (!aplicadas.isEmpty() || contarTablasTotales(c) != 0) {
                     throw new SQLException("La base contiene un estado ajeno o parcial; no se modifica.");
                 }
             } else if (funcionales == TABLAS_ESPERADAS.size() - 1
@@ -207,7 +205,8 @@ public final class InicializadorEsquema {
             if (!listarAplicadas(c).equals(indice)) {
                 throw new SQLException("Quedaron migraciones sin aplicar; el esquema no se marca disponible.");
             }
-            verificarEsquemaIntegridad(c);
+            EjecutorMigraciones.limpiarBitacora(c, indice);
+            verificarEsquemaIntegridad(c, contexto, indice);
             esquemaDisponible = true;
             LOG.info("Esquema verificado y disponible.");
         }
@@ -449,33 +448,92 @@ public final class InicializadorEsquema {
                 "Hay usuarios con mas de un rol. No se aplica 024.");
     }
 
+    /** Datos previos a 025: dominios numericos y un rol por usuario. No corrige ni borra. */
+    private static void verificarDatosDominios(Connection conexion) throws SQLException {
+        exigirSinFilas(conexion, "SELECT id_evaluacion FROM evaluacion WHERE numero_preguntas < 0 "
+                + "OR numero_versiones < 0 OR duracion_minutos < 0 LIMIT 1",
+                "Hay evaluaciones con cantidades o duracion negativas. No se aplica 025.");
+        exigirSinFilas(conexion, "SELECT id_solicitud_generacion FROM solicitud_generacion WHERE cantidad < 0 "
+                + "OR cantidad_recibida < 0 OR cantidad_valida < 0 OR cantidad_invalida < 0 "
+                + "OR cantidad_no_devuelta < 0 OR id_evaluacion_referencia <= 0 LIMIT 1",
+                "Hay solicitudes de generacion con cantidades negativas. No se aplica 025.");
+        exigirSinFilas(conexion, "SELECT id_evaluacion FROM evaluacion_pregunta WHERE orden_evaluacion_pregunta < 0 "
+                + "UNION ALL SELECT id_version_pregunta FROM version_pregunta WHERE orden < 0 "
+                + "UNION ALL SELECT id_version_opcion FROM version_opcion WHERE orden < 0 LIMIT 1",
+                "Hay ordenes negativos en preguntas u opciones. No se aplica 025.");
+        exigirSinFilas(conexion, "SELECT u.id_usuario FROM usuario u "
+                + "LEFT JOIN administrador a ON a.id_usuario = u.id_usuario "
+                + "LEFT JOIN docente d ON d.id_usuario = u.id_usuario "
+                + "LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario "
+                + "WHERE (a.id_usuario IS NOT NULL) + (d.id_usuario IS NOT NULL) "
+                + "+ (e.id_usuario IS NOT NULL) <> 1 LIMIT 1",
+                "Hay usuarios sin rol o con mas de un rol. No se aplica 025.");
+    }
+
     /**
-     * Verificacion final completa: todos los disparadores de 022 y 024 (nombre, tabla, momento y
-     * evento) y las restricciones de 024 (tipo, tabla, columnas, CHECK aplicado). El esquema no se
-     * marca disponible si falta cualquiera, aunque el historial diga que la migracion se aplico.
+     * Verificacion final completa. El esquema no se marca disponible, aunque el historial diga que
+     * las migraciones se aplicaron, si:
+     * <ul>
+     *   <li>falta, sobra o difiere algun disparador: el conjunto esperado y el cuerpo de cada uno se
+     *       obtienen de los propios scripts de migracion (ultima definicion de cada nombre), y el
+     *       cuerpo almacenado en information_schema.TRIGGERS se compara normalizado;</li>
+     *   <li>falta alguna restriccion de 024 o 025 (tipo, tabla, columnas, CHECK aplicado).</li>
+     * </ul>
      */
-    private static void verificarEsquemaIntegridad(Connection conexion) throws SQLException {
+    private static void verificarEsquemaIntegridad(Connection conexion, ServletContext contexto, List<String> indice)
+            throws SQLException, IOException {
+        List<String> scripts = new ArrayList<>();
+        for (String nombre : indice) {
+            scripts.add(leerRecurso(contexto, CARPETA_MIGRACIONES + nombre));
+        }
+        verificarDisparadores(conexion, EjecutorMigraciones.disparadoresEsperados(scripts));
+        verificarRestricciones(conexion, RESTRICCIONES_INTEGRIDAD);
+        verificarRestricciones(conexion, RESTRICCIONES_DOMINIO);
+    }
+
+    private static void verificarDisparadores(Connection conexion, Map<String, EjecutorMigraciones.Disparador> esperados)
+            throws SQLException {
+        if (esperados.size() != DISPARADORES_ESPERADOS) {
+            throw new SQLException("Los scripts de migracion definen " + esperados.size() + " disparadores y se esperaban "
+                    + DISPARADORES_ESPERADOS + ": despliegue incompleto o alterado.");
+        }
+        Map<String, EjecutorMigraciones.Disparador> encontrados = new HashMap<>();
+        try (Statement sentencia = conexion.createStatement();
+             ResultSet rs = sentencia.executeQuery("SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, ACTION_TIMING, "
+                     + "EVENT_MANIPULATION, ACTION_STATEMENT FROM information_schema.TRIGGERS "
+                     + "WHERE TRIGGER_SCHEMA = DATABASE()")) {
+            while (rs.next()) {
+                encontrados.put(rs.getString(1), new EjecutorMigraciones.Disparador(rs.getString(1), rs.getString(2),
+                        rs.getString(3), rs.getString(4), EjecutorMigraciones.normalizar(rs.getString(5))));
+            }
+        }
         // information_schema.TRIGGERS solo muestra disparadores a cuentas con privilegio TRIGGER.
         // Sin el, no se puede demostrar que existen: se exige en lugar de suponerlos presentes.
-        if (contarFilas(conexion, "SELECT COUNT(*) FROM information_schema.TRIGGERS "
-                + "WHERE TRIGGER_SCHEMA = DATABASE()") == 0) {
+        if (encontrados.isEmpty()) {
             throw new SQLException("No se ven disparadores en la base: faltan o la cuenta carece del privilegio "
                     + "TRIGGER necesario para verificarlos. Concede TRIGGER sobre la base y reinicia.");
         }
-        try (PreparedStatement sentencia = conexion.prepareStatement(
-                "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() "
-                + "AND TRIGGER_NAME = ? AND EVENT_OBJECT_TABLE = ? AND ACTION_TIMING = ? "
-                + "AND EVENT_MANIPULATION = ?")) {
-            for (String[] trigger : TRIGGERS_ESPERADOS) {
-                for (int i = 0; i < trigger.length; i++) sentencia.setString(i + 1, trigger[i]);
-                try (ResultSet resultado = sentencia.executeQuery()) {
-                    if (!resultado.next() || resultado.getInt(1) != 1) {
-                        throw new SQLException("Falta o no coincide el disparador " + trigger[0] + ".");
-                    }
-                }
+        for (EjecutorMigraciones.Disparador esperado : esperados.values()) {
+            EjecutorMigraciones.Disparador real = encontrados.remove(esperado.nombre);
+            if (real == null) {
+                throw new SQLException("Falta el disparador " + esperado.nombre + ".");
+            }
+            if (!esperado.tabla.equalsIgnoreCase(real.tabla) || !esperado.momento.equals(real.momento)
+                    || !esperado.evento.equals(real.evento)) {
+                throw new SQLException("El disparador " + esperado.nombre + " no tiene la tabla, momento o evento esperados.");
+            }
+            if (!esperado.cuerpo.equals(real.cuerpo)) {
+                throw new SQLException("El cuerpo del disparador " + esperado.nombre
+                        + " no coincide con su definicion en las migraciones.");
             }
         }
-        for (String[] restriccion : RESTRICCIONES_INTEGRIDAD) {
+        if (!encontrados.isEmpty()) {
+            throw new SQLException("Hay disparadores no previstos por las migraciones: " + encontrados.keySet() + ".");
+        }
+    }
+
+    private static void verificarRestricciones(Connection conexion, List<String[]> restricciones) throws SQLException {
+        for (String[] restriccion : restricciones) {
             String nombre = restriccion[0];
             String tabla = restriccion[1];
             String tipo = restriccion[2];
@@ -568,7 +626,7 @@ public final class InicializadorEsquema {
 
         try (Statement st = c.createStatement()) {
             st.execute("CREATE TABLE IF NOT EXISTS " + TABLA_CONTROL + " ("
-                    + "nombre VARCHAR(100) NOT NULL PRIMARY KEY, "
+                    + "nombre VARCHAR(150) NOT NULL PRIMARY KEY, "
                     + "fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
         }
     }
@@ -598,48 +656,41 @@ public final class InicializadorEsquema {
             return;
         }
         LOG.info("Aplicando " + pendientes.size() + " migracion(es) pendiente(s)...");
+        EjecutorMigraciones.asegurarBitacora(c);
         for (String nombre : pendientes) {
-            if (MIGRACION_PROPIETARIO.equals(nombre)) {
-                verificarEsquemaAnterior(c);
-                verificarDatosPropietario(c);
-            }
-            if (MIGRACION_INTENTOS.equals(nombre)) {
-                verificarEsquemaPropietario(c);
-                verificarDatosIntentos(c);
-            }
-            if (MIGRACION_RESPUESTAS.equals(nombre)) {
-                verificarEsquemaIntentos(c);
-            }
-            if (MIGRACION_SEGURIDAD.equals(nombre) && contarFilas(c,
-                    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
-                    + "AND TABLE_NAME = 'respuesta' AND COLUMN_NAME = 'id_version_evaluacion'") != 0) {
-                throw new SQLException("Migracion 022 parcial: restaurar o reparar antes de continuar.");
-            }
-            if (MIGRACION_ROLES.equals(nombre)) {
-                verificarDatosRoles(c);
-            }
-            if (MIGRACION_INTEGRIDAD.equals(nombre)) {
-                verificarDatosIntegridad(c);
-            }
-            String sql = leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
-            sql = USE_HARDCODEADO.matcher(sql).replaceAll("");
-            sql = CREAR_BASE_HARDCODEADA.matcher(sql).replaceAll("");
-            String base = c.getCatalog();
-            if (base != null && !base.isBlank()) {
-                // Los GRANT de 001/002 nombran examlen; se redirigen a la base real.
-                sql = sql.replaceAll("(?i)\\bexamlen\\.", "`" + base + "`.");
-            }
-            try (Statement st = c.createStatement()) {
-                boolean resultado = st.execute(sql);
-                while (true) {
-                    if (resultado) { try (ResultSet filas = st.getResultSet()) { while (filas.next()) { /* consumir */ } } }
-                    else if (st.getUpdateCount() == -1) break;
-                    resultado = st.getMoreResults();
+            // Las comprobaciones previas solo corren al empezar una migracion; si hay avance
+            // anotado en la bitacora ya se superaron y el esquema puede estar a mitad de camino.
+            EjecutorMigraciones.aplicar(c, nombre, prepararScript(c, contexto, nombre), () -> {
+                if (MIGRACION_PROPIETARIO.equals(nombre)) {
+                    verificarEsquemaAnterior(c);
+                    verificarDatosPropietario(c);
                 }
-            }
+                if (MIGRACION_INTENTOS.equals(nombre)) {
+                    verificarEsquemaPropietario(c);
+                    verificarDatosIntentos(c);
+                }
+                if (MIGRACION_RESPUESTAS.equals(nombre)) {
+                    verificarEsquemaIntentos(c);
+                }
+                if (MIGRACION_SEGURIDAD.equals(nombre) && contarFilas(c,
+                        "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'respuesta' AND COLUMN_NAME = 'id_version_evaluacion'") != 0) {
+                    throw new SQLException("Migracion 022 parcial sin bitacora: restaurar o reparar antes de continuar.");
+                }
+                if (MIGRACION_ROLES.equals(nombre)) {
+                    verificarDatosRoles(c);
+                }
+                if (MIGRACION_INTEGRIDAD.equals(nombre)) {
+                    verificarDatosIntegridad(c);
+                }
+                if (MIGRACION_DOMINIOS.equals(nombre)) {
+                    verificarDatosDominios(c);
+                }
+            });
             if (MIGRACION_SEGURIDAD.equals(nombre)) verificarEsquemaSeguridad(c);
             if (MIGRACION_ROLES.equals(nombre)) verificarEsquemaRoles(c);
-            if (MIGRACION_INTEGRIDAD.equals(nombre)) verificarEsquemaIntegridad(c);
+            if (MIGRACION_INTEGRIDAD.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_INTEGRIDAD);
+            if (MIGRACION_DOMINIOS.equals(nombre)) verificarRestricciones(c, RESTRICCIONES_DOMINIO);
             if (MIGRACION_PROPIETARIO.equals(nombre)) verificarEsquemaPropietario(c);
             if (MIGRACION_INTENTOS.equals(nombre)) verificarEsquemaIntentos(c);
             if (MIGRACION_RESPUESTAS.equals(nombre)) verificarEsquemaRespuestasCompletas(c);
@@ -648,8 +699,23 @@ public final class InicializadorEsquema {
                 ps.setString(1, nombre);
                 ps.executeUpdate();
             }
+            EjecutorMigraciones.limpiarBitacora(c, List.of(nombre));
             LOG.info("Migracion aplicada: " + nombre);
         }
+    }
+
+    /** Texto de la migracion listo para ejecutar sobre la base configurada. */
+    private static String prepararScript(Connection c, ServletContext contexto, String nombre)
+            throws SQLException, IOException {
+        String sql = leerRecurso(contexto, CARPETA_MIGRACIONES + nombre);
+        sql = USE_HARDCODEADO.matcher(sql).replaceAll("");
+        sql = CREAR_BASE_HARDCODEADA.matcher(sql).replaceAll("");
+        String base = c.getCatalog();
+        if (base != null && !base.isBlank()) {
+            // Los GRANT de 001/002 nombran examlen; se redirigen a la base real.
+            sql = sql.replaceAll("(?i)\\bexamlen\\.", "`" + base + "`.");
+        }
+        return sql;
     }
 
     private static void registrarBaseline(Connection c, List<String> indice) throws SQLException {
@@ -683,7 +749,8 @@ public final class InicializadorEsquema {
     private static int contarTablasTotales(Connection c) throws SQLException {
         try (Statement st = c.createStatement();
              ResultSet rs = st.executeQuery(
-                     "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()")) {
+                     "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() "
+                     + "AND TABLE_NAME NOT IN ('" + TABLA_CONTROL + "', '" + EjecutorMigraciones.TABLA_BITACORA + "')")) {
             return rs.next() ? rs.getInt(1) : 0;
         }
     }

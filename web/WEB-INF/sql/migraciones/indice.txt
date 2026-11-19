@@ -22,3 +22,4 @@
 022_integridad_respuestas_tokens.sql
 023_roles_sin_columna_tipo.sql
 024_restricciones_integridad.sql
+025_historial_roles_dominios.sql
